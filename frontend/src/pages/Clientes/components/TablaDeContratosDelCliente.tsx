@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
-import { ESTADOS_CONTRATO, TIPO_CONTRATO } from '@/constants/contrato.constant';
+import { COLOR_ESTADO, ESTADOS_CONTRATO, TIPO_CONTRATO } from '@/constants/contrato.constant';
 import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import CrearContratoDelCliente from '@/pages/Contratos/modals/CrearContratoDelCliente';
@@ -28,22 +28,6 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // ── Helpers de color ──
-
-const colorEstado = (estado: string): 'amber' | 'emerald' | 'red' | 'violet' | 'zinc' => {
-    switch (estado) {
-        case 'borrador':
-            return 'amber';
-        case 'activo':
-            return 'emerald';
-        case 'suspendido':
-            return 'red';
-        case 'finalizado':
-            return 'violet';
-        default:
-            return 'zinc';
-    }
-};
-
 const colorTipo = (tipo: string): 'blue' | 'emerald' | 'amber' | 'zinc' => {
     switch (tipo) {
         case 'licencia':
@@ -144,7 +128,7 @@ function TablaDeContratosDelCliente({ detalleCliente }: ITablaDeContratosDelClie
                 cell: (info) => (
                     <Badge
                         variant='solid'
-                        color={colorEstado(info.getValue())}
+                        color={COLOR_ESTADO[info.getValue()] ?? 'zinc'}
                         className='capitalize'>
                         {info.row.original.estado_label}
                     </Badge>

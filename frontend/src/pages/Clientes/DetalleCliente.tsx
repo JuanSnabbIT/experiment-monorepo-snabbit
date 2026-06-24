@@ -4,7 +4,9 @@ import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Card, { CardBody, CardHeader, CardHeaderChild, CardTitle } from '@/components/ui/Card';
+import ConfiguracionRRHH from '@/pages/RRHH/ConfiguracionRRHH';
+import { useAppSelector } from '@/store';
 import { useGetDetalleClienteQuery, useGetTrabajadoresClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useEffect, useMemo } from 'react';
@@ -20,13 +22,23 @@ const CLIENT_TABS = {
     contratos: 'Contratos',
     asignaciones: 'Asignaciones de licencias',
     contratosLaborales: 'Contratos laborales',
+    configuracion: 'Configuración RRHH',
 } as const;
 
 type TClientTab = keyof typeof CLIENT_TABS;
 
+// Tabs visibles para el rol RRHH — solo su dominio
+const TABS_RRHH: TClientTab[] = ['trabajadores', 'contratosLaborales', 'configuracion'];
+
 const DetalleCliente = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const { listaGrupos } = useAppSelector((state) => state.auth);
+    const grupos = listaGrupos?.grupos ?? [];
+    // Solo 'rrhh' sin 'staff' ni 'superadmin' → vista restringida
+    const esRRHHRestringido =
+        grupos.includes('rrhh') && !grupos.includes('staff') && !grupos.includes('superadmin');
     const {
         data: detalleCliente,
         isLoading: loadingCliente,
@@ -53,17 +65,21 @@ const DetalleCliente = () => {
 
     const activeTab = useMemo<TClientTab>(() => {
         const tab = searchParams.get('tab');
-        if (tab === 'contratos-laborales') return 'contratosLaborales';
-        if (
-            tab === 'trabajadores' ||
-            tab === 'contratos' ||
-            tab === 'asignaciones' ||
-            tab === 'contratosLaborales'
-        ) {
-            return tab;
-        }
-        return 'trabajadores';
-    }, [searchParams]);
+        const resolved = ((): TClientTab => {
+            if (tab === 'contratos-laborales') return 'contratosLaborales';
+            if (
+                tab === 'trabajadores' ||
+                tab === 'contratos' ||
+                tab === 'asignaciones' ||
+                tab === 'contratosLaborales' ||
+                tab === 'configuracion'
+            ) return tab;
+            return 'trabajadores';
+        })();
+        // Si RRHH restringido aterriza en tab bloqueado → redirigir a trabajadores
+        if (esRRHHRestringido && !TABS_RRHH.includes(resolved)) return 'trabajadores';
+        return resolved;
+    }, [searchParams, esRRHHRestringido]);
 
     const setActiveTab = (tab: TClientTab) => {
         const nextParams = new URLSearchParams(searchParams);
@@ -117,7 +133,7 @@ const DetalleCliente = () => {
                             <Card>
                                 <CardHeader>
                                     <CardHeaderChild>
-                                        <Badge className='text-xl'>Datos</Badge>
+                                        <CardTitle>Datos</CardTitle>
                                     </CardHeaderChild>
                                 </CardHeader>
                                 <CardBody className='flex flex-col gap-4'>
@@ -158,12 +174,7 @@ const DetalleCliente = () => {
 
                             <Card>
                                 <CardBody>
-                                    <div className='mb-3'>
-                                        <div className='text-sm font-medium text-zinc-700 dark:text-zinc-300'>
-                                            Navegación del cliente
-                                        </div>
-                                    </div>
-                                    <div className='flex flex-row gap-4 overflow-auto'>
+                                    <div className='flex flex-row items-center gap-4 overflow-auto'>
                                         <Button {...tabProps('trabajadores')} onClick={() => setActiveTab('trabajadores')}>
                                             <span className='flex items-center gap-2'>
                                                 {CLIENT_TABS.trabajadores}
@@ -174,15 +185,27 @@ const DetalleCliente = () => {
                                                 )}
                                             </span>
                                         </Button>
-                                        <Button {...tabProps('contratos')} onClick={() => setActiveTab('contratos')}>
-                                            {CLIENT_TABS.contratos}
-                                        </Button>
-                                        <Button {...tabProps('asignaciones')} onClick={() => setActiveTab('asignaciones')}>
-                                            {CLIENT_TABS.asignaciones}
-                                        </Button>
+                                        {!esRRHHRestringido && (
+                                            <Button {...tabProps('contratos')} onClick={() => setActiveTab('contratos')}>
+                                                {CLIENT_TABS.contratos}
+                                            </Button>
+                                        )}
+                                        {!esRRHHRestringido && (
+                                            <Button {...tabProps('asignaciones')} onClick={() => setActiveTab('asignaciones')}>
+                                                {CLIENT_TABS.asignaciones}
+                                            </Button>
+                                        )}
                                         <Button {...tabProps('contratosLaborales')} onClick={() => setActiveTab('contratosLaborales')}>
                                             {CLIENT_TABS.contratosLaborales}
                                         </Button>
+                                        <div className='ml-auto'>
+                                            <Button
+                                                {...tabProps('configuracion')}
+                                                icon='HeroCog8Tooth'
+                                                onClick={() => setActiveTab('configuracion')}>
+                                                Configuración RRHH
+                                            </Button>
+                                        </div>
                                     </div>
                                 </CardBody>
                             </Card>
@@ -201,6 +224,13 @@ const DetalleCliente = () => {
                             )}
                             {activeTab === 'contratosLaborales' && (
                                 <TablaContratosLaboralesCliente detalleCliente={detalleCliente} />
+                            )}
+                            {activeTab === 'configuracion' && (
+                                <ConfiguracionRRHH
+                                    embedded
+                                    empresaIdFijo={detalleCliente.info_cliente.id}
+                                    nombreEmpresa={detalleCliente.info_cliente.nombre}
+                                />
                             )}
                         </>
                     )}

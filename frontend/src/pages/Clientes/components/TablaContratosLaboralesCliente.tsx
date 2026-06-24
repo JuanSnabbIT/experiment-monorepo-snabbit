@@ -3,15 +3,16 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
+import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
-import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { Pages } from '@/config/pages.config';
+import { COLOR_ESTADO } from '@/constants/contrato.constant';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { IContratoTrabajador } from '@/interface/rrhh.interface';
 import CrearContratoTrabajadorWizard from '@/pages/RRHH/modals/CrearContratoTrabajadorWizard';
 import { useGetContratosTrabajadorPorEmpresaClienteQuery } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
     flexRender,
@@ -26,15 +27,6 @@ import dayjs from 'dayjs';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BADGE_COLOR: Record<string, 'amber' | 'emerald' | 'red' | 'violet' | 'zinc'> = {
-    borrador: 'amber',
-    pendiente_aprobacion: 'amber',
-    vigente: 'emerald',
-    terminado: 'violet',
-    anulado: 'red',
-    descartado: 'zinc',
-};
-
 const OPCIONES_ESTADO: TSelectOption[] = [
     { value: 'borrador', label: 'Borrador' },
     { value: 'pendiente_aprobacion', label: 'Pendiente aprobación' },
@@ -43,6 +35,8 @@ const OPCIONES_ESTADO: TSelectOption[] = [
     { value: 'anulado', label: 'Anulado' },
     { value: 'descartado', label: 'Descartado' },
 ];
+
+type TFiltroKpi = 'vigentes' | 'en_proceso' | 'finalizados';
 
 const columnHelper = createColumnHelper<IContratoTrabajador>();
 
@@ -57,14 +51,15 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     const [inputBuscar, setInputBuscar] = useState('');
     const [globalFilter, setGlobalFilter] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<TSelectOption | null>(null);
+    const [filtroKpi, setFiltroKpi] = useState<TFiltroKpi | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [wizardOpen, setWizardOpen] = useState(false);
 
     const handleBuscarChange = (value: string) => {
         setInputBuscar(value);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => setGlobalFilter(value), 300);
     };
-    const [wizardOpen, setWizardOpen] = useState(false);
 
     const empresaClienteId = detalleCliente?.info_cliente?.id;
 
@@ -73,10 +68,43 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
         { skip: !empresaClienteId },
     );
 
-    const contratosFiltradosPorEstado = useMemo(() => {
-        if (!filtroEstado) return contratos;
-        return contratos.filter((contrato) => contrato.estado === filtroEstado.value);
-    }, [contratos, filtroEstado]);
+    const metricas = useMemo(() => ({
+        total: contratos.length,
+        vigentes: contratos.filter((c) => c.estado === 'vigente').length,
+        en_proceso: contratos.filter((c) =>
+            ['borrador', 'pendiente_aprobacion'].includes(c.estado),
+        ).length,
+        finalizados: contratos.filter((c) =>
+            ['terminado', 'anulado', 'descartado'].includes(c.estado),
+        ).length,
+    }), [contratos]);
+
+    const contratosFiltrados = useMemo(() => {
+        let lista = contratos;
+
+        if (filtroKpi === 'vigentes') {
+            lista = lista.filter((c) => c.estado === 'vigente');
+        } else if (filtroKpi === 'en_proceso') {
+            lista = lista.filter((c) =>
+                ['borrador', 'pendiente_aprobacion'].includes(c.estado),
+            );
+        } else if (filtroKpi === 'finalizados') {
+            lista = lista.filter((c) =>
+                ['terminado', 'anulado', 'descartado'].includes(c.estado),
+            );
+        }
+
+        if (filtroEstado) {
+            lista = lista.filter((c) => c.estado === filtroEstado.value);
+        }
+
+        return lista;
+    }, [contratos, filtroKpi, filtroEstado]);
+
+    const handleKpiClick = (kpi: TFiltroKpi) => {
+        setFiltroKpi((prev) => (prev === kpi ? null : kpi));
+        setFiltroEstado(null);
+    };
 
     const columns = useMemo(
         () => [
@@ -118,7 +146,7 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                 cell: (info) => (
                     <Badge
                         variant='solid'
-                        color={BADGE_COLOR[info.getValue()] ?? 'zinc'}
+                        color={COLOR_ESTADO[info.getValue()] ?? 'zinc'}
                         className='capitalize'>
                         {info.row.original.estado_label ?? info.getValue()}
                     </Badge>
@@ -152,7 +180,6 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                                 icon='HeroEye'
                                 size='sm'
                                 onClick={() => {
-                                    // TODO RBAC: validar permiso explicito de lectura de contrato laboral por cliente.
                                     navigate(
                                         Pages.rrhh.subPages.detalleContratoTrabajador.to.replace(
                                             ':contratoId',
@@ -170,7 +197,7 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     );
 
     const table = useReactTable({
-        data: contratosFiltradosPorEstado,
+        data: contratosFiltrados,
         columns,
         state: { sorting, globalFilter },
         onSortingChange: setSorting,
@@ -183,15 +210,66 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     });
 
     return (
-        <Card>
-            <CardHeader className='flex justify-between items-start'>
-                <div className='flex flex-col gap-1'>
-                    <h2 className='text-xl font-semibold text-blue-600'>Contratos laborales</h2>
-                    <p className='text-xs text-zinc-500 dark:text-zinc-400'>
-                        Se muestran contratos laborales asociados a la empresa cliente seleccionada.
-                    </p>
+        <div className='flex flex-col gap-4'>
+            {/* ── Métricas ── */}
+            {contratos.length > 0 && (
+                <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+                    <button type='button' className='text-left' onClick={() => { setFiltroKpi(null); setFiltroEstado(null); }}>
+                        <Card className={`transition-all duration-200 ${!filtroKpi ? 'ring-2 ring-blue-500' : ''}`}>
+                            <CardBody className='flex items-center gap-3 py-3'>
+                                <Icon icon='HeroDocumentText' size='text-2xl' className='text-blue-500' />
+                                <div>
+                                    <p className='text-xs text-zinc-500'>Total</p>
+                                    <p className='text-xl font-bold'>{metricas.total}</p>
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </button>
+                    <button type='button' className='text-left' onClick={() => handleKpiClick('vigentes')}>
+                        <Card className={`transition-all duration-200 ${filtroKpi === 'vigentes' ? 'ring-2 ring-emerald-500' : ''}`}>
+                            <CardBody className='flex items-center gap-3 py-3'>
+                                <Icon icon='HeroCheckCircle' size='text-2xl' className='text-emerald-500' />
+                                <div>
+                                    <p className='text-xs text-zinc-500'>Vigentes</p>
+                                    <p className='text-xl font-bold'>{metricas.vigentes}</p>
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </button>
+                    <button type='button' className='text-left' onClick={() => handleKpiClick('en_proceso')}>
+                        <Card className={`transition-all duration-200 ${filtroKpi === 'en_proceso' ? 'ring-2 ring-amber-500' : ''}`}>
+                            <CardBody className='flex items-center gap-3 py-3'>
+                                <Icon icon='HeroClock' size='text-2xl' className='text-amber-500' />
+                                <div>
+                                    <p className='text-xs text-zinc-500'>En proceso</p>
+                                    <p className='text-xl font-bold'>{metricas.en_proceso}</p>
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </button>
+                    <button type='button' className='text-left' onClick={() => handleKpiClick('finalizados')}>
+                        <Card className={`transition-all duration-200 ${filtroKpi === 'finalizados' ? 'ring-2 ring-violet-500' : ''}`}>
+                            <CardBody className='flex items-center gap-3 py-3'>
+                                <Icon icon='HeroArchiveBox' size='text-2xl' className='text-violet-500' />
+                                <div>
+                                    <p className='text-xs text-zinc-500'>Finalizados</p>
+                                    <p className='text-xl font-bold'>{metricas.finalizados}</p>
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </button>
                 </div>
-                <div className='flex items-center gap-2'>
+            )}
+
+            {/* ── Tabla ── */}
+            <Card>
+                <CardHeader className='flex justify-between items-start'>
+                    <div className='flex flex-col gap-1'>
+                        <h2 className='text-xl font-semibold text-blue-600'>Contratos laborales</h2>
+                        <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+                            Se muestran contratos laborales asociados a la empresa cliente seleccionada.
+                        </p>
+                    </div>
                     <div className='flex items-center gap-2'>
                         <Input
                             type='text'
@@ -211,100 +289,97 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                                 placeholder='Estado...'
                             />
                         </div>
+                        <Tooltip text='Crear un nuevo contrato laboral para este cliente'>
+                            <Button
+                                variant='solid'
+                                color='blue'
+                                icon='HeroPlus'
+                                onClick={() => setWizardOpen(true)}>
+                                Nuevo contrato laboral
+                            </Button>
+                        </Tooltip>
                     </div>
-                    <Tooltip text='Crear un nuevo contrato laboral para este cliente'>
-                        <Button
-                            variant='solid'
-                            color='blue'
-                            icon='HeroPlus'
-                            onClick={() => {
-                                // TODO RBAC: validar permiso de creacion de contratos laborales.
-                                setWizardOpen(true);
-                            }}>
-                            Nuevo contrato laboral
-                        </Button>
-                    </Tooltip>
-                </div>
-            </CardHeader>
-            <CardBody>
-                <Table>
-                    <THead>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <Tr key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => (
-                                    <Th key={header.id} isColumnBorder={false} className='text-left'>
-                                        {header.isPlaceholder ? null : (
-                                            <div
-                                                className={
-                                                    header.column.getCanSort()
-                                                        ? 'flex cursor-pointer select-none items-center'
-                                                        : ''
-                                                }
-                                                onClick={header.column.getToggleSortingHandler()}>
-                                                {flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext(),
-                                                )}
-                                                {{
-                                                    asc: (
-                                                        <Icon
-                                                            icon='HeroChevronUp'
-                                                            className='ltr:ml-1.5 rtl:mr-1.5'
-                                                        />
-                                                    ),
-                                                    desc: (
-                                                        <Icon
-                                                            icon='HeroChevronDown'
-                                                            className='ltr:ml-1.5 rtl:mr-1.5'
-                                                        />
-                                                    ),
-                                                }[header.column.getIsSorted() as string] ?? null}
-                                            </div>
-                                        )}
-                                    </Th>
-                                ))}
-                            </Tr>
-                        ))}
-                    </THead>
-                    <TBody>
-                        {isLoading ? (
-                            <Tr>
-                                <Td colSpan={columns.length} className='text-center'>
-                                    Cargando contratos laborales...
-                                </Td>
-                            </Tr>
-                        ) : table.getRowModel().rows.length === 0 ? (
-                            <Tr>
-                                <Td colSpan={columns.length} className='text-center text-zinc-400'>
-                                    {filtroEstado || globalFilter
-                                        ? 'No hay contratos que coincidan con los filtros aplicados.'
-                                        : 'No hay contratos laborales asociados a este cliente.'}
-                                </Td>
-                            </Tr>
-                        ) : (
-                            table.getRowModel().rows.map((row) => (
-                                <Tr key={row.id}>
-                                    {row.getVisibleCells().map((cell) => (
-                                        <Td key={cell.id}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                        </Td>
+                </CardHeader>
+                <CardBody>
+                    <Table>
+                        <THead>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <Tr key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <Th key={header.id} isColumnBorder={false} className='text-left'>
+                                            {header.isPlaceholder ? null : (
+                                                <div
+                                                    className={
+                                                        header.column.getCanSort()
+                                                            ? 'flex cursor-pointer select-none items-center'
+                                                            : ''
+                                                    }
+                                                    onClick={header.column.getToggleSortingHandler()}>
+                                                    {flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext(),
+                                                    )}
+                                                    {{
+                                                        asc: (
+                                                            <Icon
+                                                                icon='HeroChevronUp'
+                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                            />
+                                                        ),
+                                                        desc: (
+                                                            <Icon
+                                                                icon='HeroChevronDown'
+                                                                className='ltr:ml-1.5 rtl:mr-1.5'
+                                                            />
+                                                        ),
+                                                    }[header.column.getIsSorted() as string] ?? null}
+                                                </div>
+                                            )}
+                                        </Th>
                                     ))}
                                 </Tr>
-                            ))
-                        )}
-                    </TBody>
-                </Table>
-                <div className='mt-2'>
-                    <TableCardFooterTemplateV2 table={table} />
-                </div>
-            </CardBody>
+                            ))}
+                        </THead>
+                        <TBody>
+                            {isLoading ? (
+                                <Tr>
+                                    <Td colSpan={columns.length} className='text-center'>
+                                        Cargando contratos laborales...
+                                    </Td>
+                                </Tr>
+                            ) : table.getRowModel().rows.length === 0 ? (
+                                <Tr>
+                                    <Td colSpan={columns.length} className='text-center text-zinc-400'>
+                                        {filtroEstado || filtroKpi || globalFilter
+                                            ? 'No hay contratos que coincidan con los filtros aplicados.'
+                                            : 'No hay contratos laborales asociados a este cliente.'}
+                                    </Td>
+                                </Tr>
+                            ) : (
+                                table.getRowModel().rows.map((row) => (
+                                    <Tr key={row.id}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <Td key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </Td>
+                                        ))}
+                                    </Tr>
+                                ))
+                            )}
+                        </TBody>
+                    </Table>
+                    <div className='mt-2'>
+                        <TableCardFooterTemplateV2 table={table} />
+                    </div>
+                </CardBody>
+            </Card>
 
             <CrearContratoTrabajadorWizard
                 detalleCliente={detalleCliente}
                 externalIsOpen={wizardOpen}
                 onExternalClose={() => setWizardOpen(false)}
             />
-        </Card>
+        </div>
     );
 };
 

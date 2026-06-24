@@ -31,6 +31,7 @@ const BADGE_COLOR_ESTADO: Record<string, 'emerald' | 'red' | 'amber' | 'violet' 
     borrador: 'amber',
     pendiente_aprobacion: 'amber',
     vigente: 'emerald',
+    vencido: 'red',
     terminado: 'violet',
     anulado: 'red',
     descartado: 'zinc',

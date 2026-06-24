@@ -11,6 +11,7 @@ import Card, {
     CardHeaderChild,
 } from '@/components/ui/Card';
 import Tooltip from '@/components/ui/Tooltip';
+import { COLOR_ESTADO } from '@/constants/contrato.constant';
 import TabCondiciones from '@/pages/Contratos/components/TabCondiciones';
 import TabLicencias from '@/pages/Contratos/components/TabLicencias';
 import TabServicios from '@/pages/Contratos/components/TabServicios';
@@ -36,21 +37,7 @@ import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 
 // ── Helpers ──
-
-const colorEstado = (estado: string): 'amber' | 'emerald' | 'red' | 'violet' | 'zinc' => {
-    switch (estado) {
-        case 'borrador':
-            return 'amber';
-        case 'activo':
-            return 'emerald';
-        case 'suspendido':
-        case 'finalizado':
-            return 'red';
-        default:
-            return 'zinc';
-    }
-};
-
+// colorEstado reemplazado por COLOR_ESTADO desde constants/contrato.constant.ts
 // ── Props ──
 
 interface IDetalleContratoInlineProps {
@@ -409,7 +396,7 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
                                         <Badge
                                             className='ml-2'
                                             variant='solid'
-                                            color={colorEstado(contrato.estado)}>
+                                            color={COLOR_ESTADO[contrato.estado] ?? 'zinc'}>
                                             {contrato.estado_label}
                                         </Badge>
                                     </div>
@@ -422,7 +409,7 @@ function DetalleContratoInline({ contratoId, onBack }: IDetalleContratoInlinePro
                                         <Badge
                                             className='ml-2'
                                             variant='solid'
-                                            color={colorEstado(contrato.estado)}>
+                                            color={COLOR_ESTADO[contrato.estado] ?? 'zinc'}>
                                             {contrato.estado_label}
                                         </Badge>
                                     </>
