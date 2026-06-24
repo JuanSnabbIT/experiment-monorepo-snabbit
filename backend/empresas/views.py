@@ -496,6 +496,47 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'inline; filename="{nombre_archivo}"'
         return response
 
+    @action(detail=False, methods=["get"], url_path=r"historial-ficha/(?P<usuario_empresa_pk>\d+)")
+    def historial_ficha(self, request, usuario_empresa_pk=None):
+        """
+        GET /api/usuarios-empresa/historial-ficha/{usuario_empresa_pk}/
+        Timeline agregado de todos los contratos laborales del trabajador.
+        """
+        from rrhh.views import ContratoTrabajadorViewSet as _CTVS
+
+        ue, err = self._get_ue_cliente_con_permisos(request, usuario_empresa_pk)
+        if err:
+            return err
+
+        vs = _CTVS()
+        eventos = []
+
+        for contrato in ue.contratos_laborales.all().order_by("-fecha_inicio"):
+            etiqueta = contrato.get_tipo_contrato_display()
+
+            for r in contrato.historia.all().order_by("-history_date")[:50]:
+                e = vs._build_contrato_trab_history_event(r)
+                if e:
+                    e["contrato_id"] = contrato.id
+                    e["contrato_tipo_label"] = etiqueta
+                    eventos.append(e)
+
+            for anexo in contrato.anexos.all():
+                for r in anexo.historia.all().order_by("-history_date")[:10]:
+                    e = vs._build_anexo_history_event(r)
+                    e["contrato_id"] = contrato.id
+                    e["contrato_tipo_label"] = etiqueta
+                    eventos.append(e)
+
+            for envio in contrato.envios_aprobacion_empleador.all().order_by("fecha_envio"):
+                for e in _CTVS._build_envio_aprobacion_events(envio):
+                    e["contrato_id"] = contrato.id
+                    e["contrato_tipo_label"] = etiqueta
+                    eventos.append(e)
+
+        eventos.sort(key=lambda e: e["fecha"] or "", reverse=True)
+        return Response(eventos)
+
 
 class RelacionEmpresaViewSet(viewsets.ModelViewSet):
     queryset = RelacionEmpresa.objects.all()

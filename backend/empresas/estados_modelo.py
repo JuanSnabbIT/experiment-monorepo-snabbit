@@ -1,6 +1,7 @@
 ESTADO_USUARIO_EMPRESA = (
     ('1', 'Activo'),
     ('2', 'Inactivo'),
+    ('3', 'Pendiente'),
 )
 
 TIPOS_RELACION_EMPRESA = [

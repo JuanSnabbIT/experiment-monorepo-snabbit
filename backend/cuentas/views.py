@@ -66,7 +66,9 @@ async def get_grupos_user(request):
     if not user or not user.is_active:
         return JsonResponse({"error": "Usuario no autenticado o inactivo"}, status=401)
 
-    # Envuelves también la obtención de los grupos en sync_to_async:
+    # Obtener grupos de TODOS los UsuarioEmpresa del usuario.
+    # Los grupos son transversales a sucursales — si es superadmin en una, lo es en todas.
+    # La visibilidad de datos sigue protegida por multi-tenancy a nivel de queryset.
     grupos_usuario_empresa = await sync_to_async(
         lambda: list(
             UsuarioEmpresa.objects.filter(usuario=user)
@@ -76,7 +78,7 @@ async def get_grupos_user(request):
     )()
 
     response_data = {
-        "grupos": grupos_usuario_empresa,
+        "grupos": [g for g in grupos_usuario_empresa if g is not None],
     }
     return JsonResponse(response_data)
 
@@ -147,10 +149,17 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
 
         if SucursalEmpresa.objects.filter(pk=sucursal_id).exists():
             sucursal = SucursalEmpresa.objects.get(pk=sucursal_id)
-            UsuarioEmpresa.objects.get_or_create(
+            ue, _ = UsuarioEmpresa.objects.get_or_create(
                 usuario=user,
                 sucursal=sucursal,
             )
+            # Asignar grupos de rol si vienen en el payload — whitelist explícita
+            GRUPOS_PERMITIDOS = ["superadmin", "rrhh", "staff"]
+            grupos_payload = request.data.get("grupos", [])
+            grupos_validos = [g for g in grupos_payload if g in GRUPOS_PERMITIDOS]
+            if grupos_validos:
+                from django.contrib.auth.models import Group as DjangoGroup
+                ue.grupos.set(DjangoGroup.objects.filter(name__in=grupos_validos))
         else:
             sucursal = "Sucursal sin Nombre"
 

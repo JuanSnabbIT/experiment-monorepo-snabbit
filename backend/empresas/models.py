@@ -147,18 +147,11 @@ class UsuarioEmpresa(ModeloBase):
         return f"{self.usuario.get_nombre()}"
 
     def get_fecha_inicio_laboral(self):
-        """
-        Retorna la fecha de inicio laboral real del trabajador.
-        Cascada: fecha_contrato (campo denormalizado) → primer ContratoTrabajador
-        activado (vigente/terminado) ordenado por fecha_inicio ASC → None.
-        """
-        if self.fecha_contrato:
-            return self.fecha_contrato
-        primer_contrato = self.contratos_laborales.filter(
-            estado__in=["vigente", "terminado"],
+        contrato_vigente = self.contratos_laborales.filter(
+            estado="vigente",
             fecha_inicio__isnull=False,
         ).order_by("fecha_inicio").first()
-        return primer_contrato.fecha_inicio if primer_contrato else None
+        return contrato_vigente.fecha_inicio if contrato_vigente else None
 
     def tiene_derecho_a_vacaciones(self):
         """Verifica si el empleado ha cumplido al menos un año de servicio."""
@@ -223,14 +216,29 @@ class UsuarioEmpresa(ModeloBase):
         return dias_disponibles
 
     def calcular_dias_desde_contratacion(self):
-        """Calcula los días que han pasado desde la contratación, incluyendo fines de semana y feriados."""
-        fecha = self.get_fecha_inicio_laboral()
-        if not fecha:
+        """Calcula los días que han pasado desde la contratación, incluyendo fines de semana y feriados.
+
+        Para contratos en estado 'vencido', la antigüedad se congela en fecha_termino
+        en lugar de seguir acumulando hasta hoy.
+        """
+        contrato_vencido = self.contratos_laborales.filter(
+            estado="vencido",
+            fecha_inicio__isnull=False,
+            fecha_termino__isnull=False,
+        ).order_by("fecha_inicio").first()
+
+        if contrato_vencido:
+            fecha = contrato_vencido.fecha_inicio
+            fecha_referencia = contrato_vencido.fecha_termino
+        else:
+            fecha = self.get_fecha_inicio_laboral()
+            fecha_referencia = date.today()
+
+        if not fecha or not fecha_referencia:
             return {"dias_totales": 0, "años": 0, "meses": 0, "dias": 0, "formato": "Sin fecha de contratación"}
 
-        hoy = date.today()
-        dias_totales = (hoy - fecha).days
-        delta = relativedelta(hoy, fecha)
+        dias_totales = (fecha_referencia - fecha).days
+        delta = relativedelta(fecha_referencia, fecha)
         formato = f"{delta.years} años, {delta.months} meses, {delta.days} días"
 
         return {

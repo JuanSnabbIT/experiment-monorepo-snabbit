@@ -193,17 +193,14 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
                 "fecha_inicio": str(c.fecha_inicio),
                 "fecha_termino": str(c.fecha_termino) if c.fecha_termino else None,
                 "archivo_pdf": pdf_url,
+                "sueldo": str(c.sueldo) if c.sueldo is not None else None,
+                "tipo_sueldo": c.tipo_sueldo,
+                "moneda": c.moneda,
             })
         return result
 
     def get_contrato_laboral_vigente(self, obj):
-        """Retorna el contrato laboral RRHH mas relevante del trabajador."""
-        PRIORIDAD = ["vigente", "pendiente_aprobacion", "borrador"]
-        contrato = None
-        for estado in PRIORIDAD:
-            contrato = obj.contratos_laborales.filter(estado=estado).order_by("-fecha_creacion").first()
-            if contrato:
-                break
+        contrato = obj.contratos_laborales.filter(estado="vigente").order_by("-fecha_creacion").first()
         if not contrato:
             return None
         return {
@@ -214,8 +211,8 @@ class UsuarioEmpresaSerializer(serializers.ModelSerializer):
             "jornada_label": contrato.get_jornada_display(),
             "cargo": contrato.cargo,
             "lugar_trabajo": contrato.lugar_trabajo,
-            "sueldo_base": str(contrato.sueldo_base),
-            "sueldo_liquido": str(contrato.sueldo_liquido) if contrato.sueldo_liquido else None,
+            "sueldo": str(contrato.sueldo),
+            "tipo_sueldo": contrato.tipo_sueldo,
             "moneda": contrato.moneda,
             "tipo_gratificacion": getattr(contrato, 'tipo_gratificacion', None),
             "tipo_gratificacion_label": contrato.get_tipo_gratificacion_display() if hasattr(contrato, 'tipo_gratificacion') else None,
