@@ -55,4 +55,8 @@ app.conf.beat_schedule = {
         'task': 'retroalimentacion.tasks.verificar_retroalimentaciones_v3_pendientes',
         'schedule': crontab(minute=0),  # Cada hora
     },
+    'verificar_contratos_vencidos_rrhh': {
+        'task': 'rrhh.tasks.verificar_contratos_vencidos',
+        'schedule': crontab(hour=0, minute=30),  # Diariamente a las 00:30
+    },
 }

@@ -30,3 +30,5 @@ reportlab
 django-prometheus
 Twisted[http2,tls]
 firebase-admin
+requests
+beautifulsoup4
