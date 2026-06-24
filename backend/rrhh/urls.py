@@ -11,6 +11,7 @@ from .views import (
     ContratoAprobacionPublicaView,
     ContratoAprobacionResponderView,
     ContratoTrabajadorViewSet,
+    FiniquitoContratoViewSet,
     GrupoTurnoViewSet,
     NacionalidadCatalogoViewSet,
     TurnoLaboralViewSet,
@@ -61,6 +62,11 @@ router.register(
     r"rrhh/grupos-turno",
     GrupoTurnoViewSet,
     basename="grupos-turno",
+)
+router.register(
+    r"rrhh/finiquitos-contrato",
+    FiniquitoContratoViewSet,
+    basename="finiquitos-contrato",
 )
 
 urlpatterns = [

@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import date, timedelta
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
@@ -12,7 +13,9 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from core.permissions import IsAdminOrRRHH
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -31,6 +34,7 @@ from .models import (
     ConfiguracionLaboral,
     ContratoTrabajador,
     EnvioAprobacionEmpleador,
+    FiniquitoContrato,
     GrupoTurno,
     NacionalidadCatalogo,
     SlotTurno,
@@ -48,6 +52,7 @@ from .serializers import (
     ContratoTrabajadorWriteSerializer,
     CrearContratoConTrabajadorSerializer,
     EnvioAprobacionEmpleadorSerializer,
+    FiniquitoContratoSerializer,
     GrupoTurnoSerializer,
     NacionalidadCatalogoSerializer,
     SnapshotGetBlockSerializer,
@@ -128,7 +133,7 @@ class CargoCatalogoViewSet(viewsets.ModelViewSet):
     """CRUD para el catalogo de cargos de la empresa."""
 
     serializer_class = CargoCatalogoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -149,7 +154,7 @@ class AfpCatalogoViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = AfpCatalogoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -196,7 +201,7 @@ class BancoCatalogoViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = BancoCatalogoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -243,7 +248,7 @@ class NacionalidadCatalogoViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = NacionalidadCatalogoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -290,7 +295,7 @@ class ConfiguracionLaboralViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = ConfiguracionLaboralSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -327,7 +332,7 @@ class TurnoLaboralViewSet(viewsets.ModelViewSet):
     """Catalogo de turnos laborales: globales (empresa=null) + por empresa."""
 
     serializer_class = TurnoLaboralSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -390,7 +395,7 @@ class GrupoTurnoViewSet(viewsets.ModelViewSet):
     """CRUD de grupos de turnos rotativos por empresa."""
 
     serializer_class = GrupoTurnoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -437,11 +442,49 @@ class GrupoTurnoViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
+def _derivar_tipo_anexo(anexo):
+    """Deriva el tipo del anexo según los campos completados."""
+    if anexo.nuevo_tipo_contrato:
+        return "cambio_tipo_contrato"
+    if anexo.nueva_fecha_termino:
+        return "prorroga"
+
+    categorias = []
+    if (
+        anexo.nuevo_sueldo is not None
+        or anexo.nuevo_tipo_gratificacion
+        or anexo.nuevo_bono_movilizacion is not None
+        or anexo.nuevo_bono_colacion is not None
+    ):
+        categorias.append("sueldo")
+    if anexo.nuevo_cargo:
+        categorias.append("cargo")
+    if anexo.nuevas_funciones:
+        categorias.append("funciones")
+    if anexo.nueva_jornada or anexo.nuevas_horas_semanales is not None:
+        categorias.append("jornada")
+    if anexo.nuevo_lugar_trabajo:
+        categorias.append("lugar")
+
+    if not categorias:
+        return "otro"
+    if len(categorias) > 1:
+        return "modificacion_general"
+
+    return {
+        "sueldo":    "modificacion_sueldo",
+        "cargo":     "modificacion_cargo",
+        "funciones": "modificacion_funciones",
+        "jornada":   "modificacion_jornada",
+        "lugar":     "cambio_lugar_trabajo",
+    }[categorias[0]]
+
+
 class AnexoContratoViewSet(viewsets.ModelViewSet):
     """CRUD de anexos / modificaciones contractuales."""
 
     serializer_class = AnexoContratoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
@@ -458,24 +501,140 @@ class AnexoContratoViewSet(viewsets.ModelViewSet):
         return qs.order_by("-fecha_efectiva", "-fecha_creacion")
 
     def perform_create(self, serializer):
-        anexo = serializer.save(creado_por=self.request.user)
-        if anexo.tipo == "prorroga" and anexo.nueva_fecha_termino:
-            contrato = anexo.contrato
-            contrato.fecha_termino = anexo.nueva_fecha_termino
-            contrato.save(update_fields=["fecha_termino"])
+        contrato = serializer.validated_data.get("contrato")
+        nuevo_tipo_contrato = serializer.validated_data.get("nuevo_tipo_contrato")
+
+        if contrato.estado == "vencido":
+            if not nuevo_tipo_contrato:
+                raise APIValidationError({
+                    "contrato": "Un contrato vencido solo admite el anexo de conversión a indefinido."
+                })
+        elif contrato.estado != "vigente":
+            raise APIValidationError(
+                {"contrato": "Solo se pueden crear anexos en contratos con estado vigente o vencido."}
+            )
+
+        serializer.save(creado_por=self.request.user, estado="borrador")
+
+    @action(detail=True, methods=["post"], url_path="activar")
+    def activar(self, request, pk=None):
+        """Aplica los cambios del anexo al contrato y lo marca como vigente."""
+        anexo = self.get_object()
+
+        if anexo.estado != "borrador":
+            raise APIValidationError(
+                {"estado": "Solo se pueden activar anexos en estado borrador."}
+            )
+        if anexo.contrato.estado not in ("vigente", "vencido"):
+            raise APIValidationError(
+                {"contrato": "El contrato no está en un estado que permita activar anexos."}
+            )
+
+        contrato = anexo.contrato
+        with transaction.atomic():
+            tipo_derivado = _derivar_tipo_anexo(anexo)
+            update_anexo = ["tipo", "estado"]
+            anexo.tipo = tipo_derivado
+            anexo.estado = "vigente"
+
+            update_contrato = []
+
+            if tipo_derivado == "cambio_tipo_contrato":
+                contrato.tipo_contrato = "indefinido"
+                contrato.fecha_termino = None
+                if contrato.estado == "vencido":
+                    contrato.estado = "vigente"
+                    update_contrato.append("estado")
+                update_contrato += ["tipo_contrato", "fecha_termino"]
+
+            elif tipo_derivado == "prorroga":
+                contrato.fecha_termino = anexo.nueva_fecha_termino
+                update_contrato.append("fecha_termino")
+                ultimo = (
+                    AnexoContrato.objects.filter(
+                        contrato=contrato, tipo="prorroga", estado="vigente"
+                    )
+                    .exclude(pk=anexo.pk)
+                    .aggregate(models.Max("numero_prorroga"))["numero_prorroga__max"]
+                )
+                anexo.numero_prorroga = (ultimo or 0) + 1
+                update_anexo.append("numero_prorroga")
+
+            else:
+                if anexo.nuevo_sueldo is not None:
+                    contrato.sueldo = anexo.nuevo_sueldo
+                    update_contrato.append("sueldo")
+                if anexo.nuevo_tipo_sueldo is not None:
+                    contrato.tipo_sueldo = anexo.nuevo_tipo_sueldo
+                    update_contrato.append("tipo_sueldo")
+                if anexo.nuevo_tipo_gratificacion:
+                    contrato.tipo_gratificacion = anexo.nuevo_tipo_gratificacion
+                    update_contrato.append("tipo_gratificacion")
+                if anexo.nuevo_bono_movilizacion is not None:
+                    contrato.bono_movilizacion = anexo.nuevo_bono_movilizacion
+                    update_contrato.append("bono_movilizacion")
+                if anexo.nuevo_bono_colacion is not None:
+                    contrato.bono_colacion = anexo.nuevo_bono_colacion
+                    update_contrato.append("bono_colacion")
+                if anexo.nuevo_cargo:
+                    contrato.cargo = anexo.nuevo_cargo
+                    update_contrato.append("cargo")
+                if anexo.nuevas_funciones:
+                    contrato.funciones = anexo.nuevas_funciones
+                    update_contrato.append("funciones")
+                if anexo.nueva_jornada:
+                    contrato.jornada = anexo.nueva_jornada
+                    update_contrato.append("jornada")
+                if anexo.nuevas_horas_semanales is not None:
+                    contrato.horas_semanales = anexo.nuevas_horas_semanales
+                    update_contrato.append("horas_semanales")
+                if anexo.nuevo_lugar_trabajo:
+                    contrato.lugar_trabajo = anexo.nuevo_lugar_trabajo
+                    update_contrato.append("lugar_trabajo")
+
+            anexo.save(update_fields=update_anexo)
+            if update_contrato:
+                contrato.save(update_fields=update_contrato)
+
+        serializer = self.get_serializer(anexo)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        anexo = self.get_object()
+        if anexo.estado != "borrador":
+            return Response(
+                {"detail": "Solo se pueden eliminar anexos en estado borrador."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
     """CRUD + transiciones para contratos laborales."""
 
     queryset = ContratoTrabajador.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
             return ContratoTrabajadorWriteSerializer
         return ContratoTrabajadorSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        """Lazy transition: transita vigente → vencido si el plazo venció."""
+        instance = self.get_object()
+        if (
+            instance.estado == "vigente"
+            and instance.tipo_contrato == "plazo_fijo"
+            and instance.fecha_termino
+            and instance.fecha_termino < date.today()
+        ):
+            instance.estado = "vencido"
+            instance._change_reason = "[SISTEMA] Contrato expiró por vencimiento de plazo"
+            instance.save(update_fields=["estado", "fecha_modificacion"])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -525,6 +684,68 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(creado_por=self.request.user)
+
+    @action(detail=False, methods=["post", "get"], url_path="consultar-afp")
+    def consultar_afp(self, request):
+        """Consulta de afiliacion AFP/AFC por RUT (spensiones.cl).
+
+        Funciona igual para trabajador nuevo o existente (la key Redis es por RUT).
+        - POST {rut, forzar?}: si hay cache y no se fuerza, lo devuelve; si no,
+          dispara la Celery task y responde 202 con task_id.
+        - GET ?rut=: devuelve el resultado cacheado o status=pending (polling).
+        """
+        from .afp_scraper import normalizar_rut, rut_sin_guion
+        from .tasks import CACHE_PREFIX_AFP, consultar_afiliacion_afp
+
+        if request.method == "GET":
+            rut = normalizar_rut(request.query_params.get("rut"))
+        else:
+            rut = normalizar_rut(request.data.get("rut"))
+
+        if not rut or len(rut) < 3:
+            return Response(
+                {"detail": "RUT requerido o invalido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache_key = f"{CACHE_PREFIX_AFP}{rut_sin_guion(rut)}"
+        cached = cache.get(cache_key)
+
+        def _formatear(payload):
+            if payload.get("status") == "failed":
+                return {"status": "failed", "error": payload.get("error")}
+            return {"status": "completed", "resultado": payload}
+
+        if request.method == "GET":
+            if cached:
+                return Response(_formatear(cached))
+            return Response({"status": "pending"})
+
+        # POST
+        forzar = bool(request.data.get("forzar"))
+        if cached and cached.get("status") == "completed" and not forzar:
+            return Response(_formatear(cached))
+
+        rate_key = f"afp_ratelimit:{rut_sin_guion(rut)}"
+        if not forzar and cache.get(rate_key):
+            # Ya se consulto en las ultimas 24h: si hay cache lo devolvemos,
+            # si no, dejamos que el front siga polleando el GET.
+            if cached:
+                return Response(_formatear(cached))
+            return Response({"status": "pending"})
+
+        # Al forzar, limpiar el resultado viejo para que el polling GET no
+        # devuelva datos obsoletos antes de que la nueva task los sobrescriba.
+        if forzar:
+            cache.delete(cache_key)
+
+        empresa = _empresa_actual(request)
+        task = consultar_afiliacion_afp.delay(rut, empresa.id if empresa else None)
+        cache.set(rate_key, True, 24 * 3600)
+        return Response(
+            {"status": "pending", "task_id": task.id},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     @action(detail=True, methods=["get"], url_path="get-block")
     def get_block(self, request, pk=None):
@@ -886,8 +1107,8 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 _aplicar_datos_extra(ue, ue.usuario, trabajador_data)
                 datos_trabajador_nuevo = None
             else:
-                # modo == "nuevo": solo se valida el payload y se guarda en datos_trabajador_nuevo.
-                # El User y UsuarioEmpresa se crean cuando el empleador apruebe el contrato.
+                # modo == "nuevo": crear User + UsuarioEmpresa en estado Pendiente ('3').
+                # Cuando el contrato pase a vigente, se activará automáticamente.
                 email = trabajador_data["email"].lower().strip()
                 sucursal_id = trabajador_data["sucursal_id"]
                 sucursal = SucursalEmpresa.objects.filter(pk=sucursal_id).first()
@@ -901,12 +1122,20 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                         {"detail": "Ya existe un usuario con ese email."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                ue = None
-                datos_trabajador_nuevo = {
-                    k: _normalizar_valores_json(v)
-                    for k, v in trabajador_data.items()
-                }
-                datos_trabajador_nuevo["email"] = email  # normalizado
+                nuevo_user = User.objects.create_user(
+                    email=email,
+                    first_name=trabajador_data.get("first_name", ""),
+                    last_name=trabajador_data.get("last_name", ""),
+                    is_active=False,
+                )
+                ue = UsuarioEmpresa.objects.create(
+                    usuario=nuevo_user,
+                    sucursal=sucursal,
+                    rut=trabajador_data.get("rut") or None,
+                    estado="3",
+                )
+                _aplicar_datos_extra(ue, nuevo_user, trabajador_data)
+                datos_trabajador_nuevo = None
 
             contrato_data["usuario_empresa"] = ue.id if ue else None
             ser = ContratoTrabajadorWriteSerializer(data=contrato_data)
@@ -966,7 +1195,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
             "tipo_contrato", "fecha_inicio", "fecha_termino",
             "cargo", "funciones", "jornada", "horas_semanales",
             "horario_detalle", "tiempo_colacion", "lugar_trabajo",
-            "sueldo_base", "moneda", "tipo_gratificacion",
+            "sueldo", "tipo_sueldo", "moneda", "tipo_gratificacion",
             "bono_movilizacion", "bono_colacion",
             "plantilla_contrato", "lugar_celebracion_contrato", "observaciones",
             "cantidad_meses", "dias_semana", "turnos_rotativo",
@@ -1055,8 +1284,8 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
         CAMPOS_LEGIBLES = {
             "estado": "Estado",
             "cargo": "Cargo",
-            "sueldo_base": "Sueldo base",
-            "sueldo_liquido": "Sueldo liquido",
+            "sueldo": "Sueldo",
+            "tipo_sueldo": "Tipo de sueldo",
             "moneda": "Moneda",
             "fecha_inicio": "Fecha inicio",
             "fecha_termino": "Fecha termino",
@@ -1102,8 +1331,8 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
         CAMPOS_LEGIBLES = {
             "estado": "Estado",
             "cargo": "Cargo",
-            "sueldo_base": "Sueldo base",
-            "sueldo_liquido": "Sueldo liquido",
+            "sueldo": "Sueldo",
+            "tipo_sueldo": "Tipo de sueldo",
             "moneda": "Moneda",
             "fecha_inicio": "Fecha inicio",
             "fecha_termino": "Fecha termino",
@@ -1223,13 +1452,48 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
             })
         return eventos
 
+    @staticmethod
+    def _diff_campos_anexo(registro):
+        """Retorna diffs de campos relevantes de un AnexoContrato."""
+        CAMPOS_LEGIBLES = {
+            "cargo": "Cargo",
+            "sueldo": "Sueldo",
+            "tipo_sueldo": "Tipo de sueldo",
+            "tipo_contrato": "Tipo de contrato",
+            "fecha_termino": "Fecha termino",
+            "jornada": "Jornada",
+            "horas_semanales": "Horas semanales",
+            "lugar_trabajo": "Lugar de trabajo",
+            "bono_movilizacion": "Bono movilizacion",
+            "bono_colacion": "Bono colacion",
+        }
+        try:
+            prev = registro.prev_record
+            if prev is None:
+                return []
+            delta = registro.diff_against(prev)
+            result = []
+            for change in delta.changes:
+                if change.field not in CAMPOS_LEGIBLES:
+                    continue
+                result.append({
+                    "campo": CAMPOS_LEGIBLES[change.field],
+                    "valor_anterior": str(change.old) if change.old is not None else None,
+                    "valor_nuevo": str(change.new) if change.new is not None else None,
+                })
+            return result
+        except Exception:
+            return []
+
     def _build_anexo_history_event(self, registro):
         if registro.history_type == "+":
             evento_tipo = "anexo_creado"
             detalle = "Se creo un anexo al contrato."
+            cambios = self._diff_campos_anexo(registro)
         else:
             evento_tipo = "modificacion_campos"
             detalle = "Se modifico un anexo del contrato."
+            cambios = self._diff_campos_anexo(registro)
         # Cambios en anexos siempre son de la empresa prestadora
         actor = "rrhh"
         return {
@@ -1240,7 +1504,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
             "evento_tipo": evento_tipo,
             "origen": "anexo",
             "detalle": detalle,
-            "cambios": [],
+            "cambios": cambios,
         }
 
     @action(detail=True, methods=["get"], url_path="historial")
@@ -1448,8 +1712,18 @@ class ContratoAprobacionResponderView(APIView):
                 update_fields = ["estado", "fecha_modificacion"]
                 contrato.estado = "vigente"
 
-                # Si hay trabajador pendiente (modo nuevo del wizard), crear User + UsuarioEmpresa ahora.
-                if contrato.datos_trabajador_nuevo:
+                # CASO A — Trabajador nuevo ya creado en estado Pendiente ('3') por el wizard.
+                if contrato.usuario_empresa_id and contrato.usuario_empresa.estado == "3":
+                    with transaction.atomic():
+                        ue = contrato.usuario_empresa
+                        ue.estado = "1"
+                        ue.save(update_fields=["estado", "fecha_modificacion"])
+                        user = ue.usuario
+                        user.is_active = True
+                        user.save(update_fields=["is_active"])
+
+                # CASO B — Contratos legacy con datos_trabajador_nuevo (backward compat).
+                elif contrato.datos_trabajador_nuevo:
                     with transaction.atomic():
                         datos = contrato.datos_trabajador_nuevo
                         email_trab = datos["email"].lower().strip()
@@ -1621,3 +1895,158 @@ class ContratoAprobacionResponderView(APIView):
                 "decision_label": envio.get_decision_display(),
             }
         )
+
+
+class FiniquitoContratoViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestión de finiquitos laborales."""
+
+    serializer_class = FiniquitoContratoSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        if not empresa:
+            return FiniquitoContrato.objects.none()
+        ids_visibles = [empresa.id, *_empresas_clientes_ids(empresa)]
+        qs = FiniquitoContrato.objects.filter(
+            contrato__usuario_empresa__sucursal__empresa_id__in=ids_visibles
+        ).select_related("contrato", "contrato__usuario_empresa")
+        contrato_id = self.request.query_params.get("contrato")
+        if contrato_id:
+            qs = qs.filter(contrato_id=contrato_id)
+        return qs
+
+    @action(detail=False, methods=["post"], url_path="calcular")
+    def calcular(self, request):
+        """Crea el finiquito calculando conceptos base automáticamente."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .services import FiniquitoService
+
+        contrato_id = request.data.get("contrato_id")
+        if not contrato_id:
+            return Response({"detail": "contrato_id es requerido."}, status=status.HTTP_400_BAD_REQUEST)
+        dias_tomados = int(request.data.get("dias_vacaciones_tomados", 0) or 0)
+        aviso_previo = bool(request.data.get("aviso_previo_30_dias", True))
+        try:
+            finiquito = FiniquitoService.calcular_y_crear(
+                contrato_id,
+                request.user,
+                dias_vacaciones_tomados=dias_tomados,
+                aviso_previo_30_dias=aviso_previo,
+            )
+        except DjangoValidationError as e:
+            return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(FiniquitoContratoSerializer(finiquito).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch"], url_path="conceptos")
+    def actualizar_conceptos(self, request, pk=None):
+        """Reemplaza los conceptos del finiquito y recalcula totales."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .services import FiniquitoService
+
+        finiquito = self.get_object()
+        conceptos = request.data.get("conceptos", [])
+        try:
+            finiquito = FiniquitoService.actualizar_conceptos(finiquito.pk, conceptos, request.user)
+        except DjangoValidationError as e:
+            return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(FiniquitoContratoSerializer(finiquito).data)
+
+    @action(detail=True, methods=["post"], url_path="generar-pdf")
+    def generar_pdf(self, request, pk=None):
+        """Genera PDF del finiquito y avanza a estado 'calculado'."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from contratos.servicio_pdf import generar_pdf_finiquito, PlantillaNoDisponibleError
+        from .services import FiniquitoService
+
+        finiquito = self.get_object()
+        with transaction.atomic():
+            try:
+                generar_pdf_finiquito(finiquito, persistir=True)
+            except PlantillaNoDisponibleError as e:
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                finiquito = FiniquitoService.avanzar_estado(finiquito.pk, "calculado", request.user)
+            except DjangoValidationError as e:
+                return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(FiniquitoContratoSerializer(finiquito).data)
+
+    @action(detail=True, methods=["post"], url_path="regenerar-pdf")
+    def regenerar_pdf(self, request, pk=None):
+        """Regenera el PDF sin cambiar el estado. Solo permitido en 'calculado' o 'firmado'."""
+        from contratos.servicio_pdf import generar_pdf_finiquito, PlantillaNoDisponibleError
+
+        finiquito = self.get_object()
+        if finiquito.estado not in ("calculado", "firmado"):
+            return Response(
+                {"detail": "Solo se puede regenerar el PDF en estado 'calculado' o 'firmado'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            generar_pdf_finiquito(finiquito, persistir=True)
+        except PlantillaNoDisponibleError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(FiniquitoContratoSerializer(finiquito).data)
+
+    @action(detail=True, methods=["post"], url_path="marcar-firmado")
+    def marcar_firmado(self, request, pk=None):
+        """Avanza el finiquito a estado 'firmado'."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .services import FiniquitoService
+
+        finiquito = self.get_object()
+        fecha_firma = request.data.get("fecha_firma")
+        try:
+            finiquito = FiniquitoService.avanzar_estado(
+                finiquito.pk, "firmado", request.user, fecha_firma=fecha_firma
+            )
+        except DjangoValidationError as e:
+            return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(FiniquitoContratoSerializer(finiquito).data)
+
+    @action(detail=True, methods=["post"], url_path="marcar-pagado")
+    def marcar_pagado(self, request, pk=None):
+        """Avanza el finiquito a estado 'pagado'."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .services import FiniquitoService
+
+        finiquito = self.get_object()
+        try:
+            finiquito = FiniquitoService.avanzar_estado(finiquito.pk, "pagado", request.user)
+        except DjangoValidationError as e:
+            return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(FiniquitoContratoSerializer(finiquito).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="aprobar",
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
+    def aprobar(self, request, pk=None):
+        """Aprueba el finiquito manualmente (borrador o calculado → firmado).
+
+        Acepta opcionalmente el documento firmado como archivo adjunto.
+        Si se sube un archivo, reemplaza el PDF del finiquito.
+        """
+        from datetime import date
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from .services import FiniquitoService
+
+        finiquito = self.get_object()
+        fecha_firma = request.data.get("fecha_firma") or str(date.today())
+        archivo = request.FILES.get("archivo_firmado")
+
+        with transaction.atomic():
+            try:
+                finiquito = FiniquitoService.avanzar_estado(
+                    finiquito.pk, "firmado", request.user, fecha_firma=fecha_firma
+                )
+            except DjangoValidationError as e:
+                return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
+
+            if archivo:
+                nombre = f"finiquito_firmado_{finiquito.contrato_id}.pdf"
+                finiquito.archivo_pdf.save(nombre, archivo, save=True)
+
+        return Response(FiniquitoContratoSerializer(finiquito).data)

@@ -73,7 +73,7 @@ def _contrato_base(usuario_empresa):
         fecha_inicio=datetime.date.today(),
         cargo="Desarrollador",
         jornada="completa",
-        sueldo_base=1000000,
+        sueldo=1000000,
         moneda="CLP",
     )
 
@@ -174,7 +174,7 @@ class ContratoTrabajadorEmpresaClienteFilterTest(APITestCase):
             fecha_inicio=datetime.date.today(),
             cargo="Tecnico",
             jornada="completa",
-            sueldo_base=750000,
+            sueldo=750000,
             moneda="CLP",
         )
         self.contrato_json_str_cliente = ContratoTrabajador.objects.create(
@@ -189,7 +189,7 @@ class ContratoTrabajadorEmpresaClienteFilterTest(APITestCase):
             fecha_inicio=datetime.date.today(),
             cargo="Analista",
             jornada="completa",
-            sueldo_base=760000,
+            sueldo=760000,
             moneda="CLP",
         )
 
@@ -208,7 +208,7 @@ class ContratoTrabajadorEmpresaClienteFilterTest(APITestCase):
             fecha_inicio=datetime.date.today(),
             cargo="Coordinador",
             jornada="completa",
-            sueldo_base=780000,
+            sueldo=780000,
             moneda="CLP",
         )
 
@@ -459,7 +459,7 @@ class CrearConTrabajadorTest(APITestCase):
             "fecha_inicio": datetime.date.today().isoformat(),
             "cargo": "Analista",
             "jornada": "completa",
-            "sueldo_base": "800000",
+            "sueldo": "800000",
             "moneda": "CLP",
         }
 
@@ -492,7 +492,7 @@ class CrearConTrabajadorTest(APITestCase):
                 "fecha_inicio": datetime.date.today().isoformat(),
                 "cargo": "Analista",
                 "jornada": "completa",
-                "sueldo_base": "800000",
+                "sueldo": "800000",
                 "moneda": "CLP",
             },
         }

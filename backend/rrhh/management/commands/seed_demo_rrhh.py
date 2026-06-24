@@ -681,7 +681,7 @@ class Command(BaseCommand):
                     "estado": "borrador",
                     "fecha_inicio": hoy,
                     "cargo": "Desarrollador de Software",
-                    "sueldo_base": Decimal("2500000"),
+                    "sueldo": Decimal("2500000"),
                 },
                 {
                     "trabajador_email": "juan.soto@demo.cl",
@@ -689,7 +689,7 @@ class Command(BaseCommand):
                     "estado": "vigente",
                     "fecha_inicio": hoy - timedelta(days=30),
                     "cargo": "Analista de Sistemas",
-                    "sueldo_base": Decimal("2300000"),
+                    "sueldo": Decimal("2300000"),
                 },
                 {
                     "trabajador_email": "carla.rojas@demo.cl",
@@ -697,7 +697,7 @@ class Command(BaseCommand):
                     "estado": "terminado",
                     "fecha_inicio": hoy - timedelta(days=180),
                     "cargo": "Administrativo",
-                    "sueldo_base": Decimal("1800000"),
+                    "sueldo": Decimal("1800000"),
                 },
                 {
                     "trabajador_email": "pedro.alarcon@demo.cl",
@@ -705,7 +705,7 @@ class Command(BaseCommand):
                     "estado": "vigente",
                     "fecha_inicio": hoy - timedelta(days=913),
                     "cargo": "Diseñador UX",
-                    "sueldo_base": Decimal("2800000"),
+                    "sueldo": Decimal("2800000"),
                 },
             ]
 
@@ -731,7 +731,7 @@ class Command(BaseCommand):
                         "estado": contrato_data["estado"],
                         "cargo": contrato_data["cargo"],
                         "jornada": "completa",
-                        "sueldo_base": contrato_data["sueldo_base"],
+                        "sueldo": contrato_data["sueldo"],
                         "moneda": "CLP",
                         "plantilla_contrato": plantilla_default,
                     },

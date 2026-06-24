@@ -3,7 +3,7 @@
 from core.validators import validate_rut_chileno
 from rest_framework import serializers
 
-from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, GrupoTurno, NacionalidadCatalogo, SlotTurno, TurnoLaboral
+from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, FiniquitoContrato, GrupoTurno, NacionalidadCatalogo, SlotTurno, TurnoLaboral
 
 
 def _normalize_first_capitalized(value: str | None) -> str | None:
@@ -162,7 +162,7 @@ class AnexoContratoSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnexoContrato
         fields = "__all__"
-        read_only_fields = ("fecha_creacion", "fecha_modificacion", "creado_por", "numero_anexo")
+        read_only_fields = ("fecha_creacion", "fecha_modificacion", "creado_por", "numero_anexo", "numero_prorroga", "tipo")
 
     def get_tipo_label(self, obj):
         return obj.get_tipo_display()
@@ -179,6 +179,8 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     estado_label = serializers.SerializerMethodField()
     moneda_label = serializers.SerializerMethodField()
     motivo_termino_label = serializers.SerializerMethodField()
+    hora_inicio_display = serializers.SerializerMethodField()
+    hora_fin_display = serializers.SerializerMethodField()
 
     nombre_trabajador = serializers.SerializerMethodField()
     email_trabajador = serializers.SerializerMethodField()
@@ -204,6 +206,7 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     secciones_generadas = serializers.SerializerMethodField()
 
     anexos = AnexoContratoSerializer(many=True, read_only=True)
+    finiquito = serializers.SerializerMethodField()
 
     class Meta:
         model = ContratoTrabajador
@@ -231,6 +234,12 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
 
     def get_motivo_termino_label(self, obj):
         return obj.get_motivo_termino_display() if obj.motivo_termino else None
+
+    def get_hora_inicio_display(self, obj):
+        return obj.hora_inicio.strftime("%H:%M") if obj.hora_inicio else None
+
+    def get_hora_fin_display(self, obj):
+        return obj.hora_fin.strftime("%H:%M") if obj.hora_fin else None
 
     def get_nombre_trabajador(self, obj):
         if obj.usuario_empresa:
@@ -340,6 +349,7 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
         return {
             **antiguedad,
             "dias_vacaciones_acumulados": round(float(ue.calcular_dias_vacaciones_acumulados()), 1),
+            "dias_vacaciones_tomados": round(float(ue.calcular_dias_vacaciones_tomados()), 1),
             "dias_vacaciones_disponibles": round(float(ue.dias_vacaciones_disponibles()), 1),
         }
 
@@ -356,6 +366,12 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
             }
             for s in secciones
         ]
+
+    def get_finiquito(self, obj):
+        try:
+            return FiniquitoContratoSerializer(obj.finiquito).data
+        except FiniquitoContrato.DoesNotExist:
+            return None
 
 
 SNAPSHOT_DOCUMENTO_EDITABLE_PATHS: dict[str, tuple[type, ...]] = {
@@ -427,8 +443,8 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
         causal_reemplazo = attrs.get("causal_reemplazo") if "causal_reemplazo" in attrs else (
             instance.causal_reemplazo if instance else None
         )
-        sueldo_base = attrs.get("sueldo_base") if "sueldo_base" in attrs else (
-            instance.sueldo_base if instance else None
+        sueldo = attrs.get("sueldo") if "sueldo" in attrs else (
+            instance.sueldo if instance else None
         )
 
         if tipo == "plazo_fijo" and not fecha_termino:
@@ -462,9 +478,20 @@ class ContratoTrabajadorWriteSerializer(serializers.ModelSerializer):
                 {"causal_reemplazo": "Debes indicar la causal de reemplazo."}
             )
 
-        if sueldo_base is not None and sueldo_base <= 0:
+        if sueldo is not None and sueldo <= 0:
             raise serializers.ValidationError(
-                {"sueldo_base": "El sueldo base debe ser mayor a 0."}
+                {"sueldo": "El sueldo debe ser mayor a 0."}
+            )
+
+        hora_inicio = attrs.get("hora_inicio") if "hora_inicio" in attrs else (
+            instance.hora_inicio if instance else None
+        )
+        hora_fin = attrs.get("hora_fin") if "hora_fin" in attrs else (
+            instance.hora_fin if instance else None
+        )
+        if hora_inicio and hora_fin and hora_fin <= hora_inicio:
+            raise serializers.ValidationError(
+                {"hora_fin": "La hora de fin debe ser posterior a la hora de inicio."}
             )
 
         return attrs
@@ -662,7 +689,8 @@ class ContratoAprobacionPublicaSerializer(serializers.ModelSerializer):
             "fecha_termino",
             "jornada",
             "jornada_label",
-            "sueldo_base",
+            "sueldo",
+            "tipo_sueldo",
             "moneda",
             "nombre_trabajador",
             "email_trabajador",
@@ -696,3 +724,29 @@ class ContratoAprobacionPublicaSerializer(serializers.ModelSerializer):
             return obj.usuario_empresa.sucursal.empresa.nombre
         except Exception:
             return None
+
+class FiniquitoContratoSerializer(serializers.ModelSerializer):
+    """Serializer para FiniquitoContrato."""
+
+    estado_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FiniquitoContrato
+        fields = "__all__"
+        read_only_fields = (
+            "calculado_por",
+            "fecha_creacion",
+            "fecha_modificacion",
+        )
+
+    def get_estado_label(self, obj):
+        return obj.get_estado_display()
+
+    def validate_conceptos(self, value):
+        required_keys = {"id", "nombre", "detalle", "monto"}
+        for item in value:
+            if not required_keys.issubset(item.keys()):
+                raise serializers.ValidationError(
+                    f"Cada concepto debe tener las claves: {required_keys}"
+                )
+        return value

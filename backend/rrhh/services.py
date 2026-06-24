@@ -28,7 +28,13 @@ from .models import (
     AnexoContrato,
     EnvioAprobacionEmpleador,
 )
-from .estados_modelo import TRANSICIONES_CONTRATO, MOTIVO_TERMINO_CONTRATO
+from .estados_modelo import (
+    TRANSICIONES_CONTRATO,
+    MOTIVO_TERMINO_CONTRATO,
+    CAUSALES_CON_INDEMNIZACION,
+    CAUSALES_CON_AVISO_PREVIO,
+    CAUSALES_CON_RECARGO,
+)
 from empresas.models import UsuarioEmpresa, SucursalEmpresa
 from core.tasks import send_email_task
 from contratos.servicio_pdf import generar_pdf as _generar_pdf, PlantillaNoDisponibleError
@@ -213,6 +219,10 @@ class RRHHContratosService:
             ue = contrato.usuario_empresa
             ue_updates = []
 
+            if ue.estado != "1":
+                ue.estado = "1"
+                ue_updates.append("estado")
+
             if contrato.cargo:
                 ue.cargo = contrato.cargo
                 ue_updates.append("cargo")
@@ -224,6 +234,11 @@ class RRHHContratosService:
             if ue_updates:
                 ue_updates.append("fecha_modificacion")
                 ue.save(update_fields=ue_updates)
+
+            user = ue.usuario
+            if not user.is_active:
+                user.is_active = True
+                user.save(update_fields=["is_active"])
 
         logger.info(
             f"Contrato {contrato_id} activado a vigente por {usuario.id}",
@@ -351,19 +366,40 @@ class RRHHContratosService:
 
         contrato.save(update_fields=update_fields)
 
-        # Sync UsuarioEmpresa cuando se llega a vigente por ruta directa
-        if nuevo_estado == "vigente" and contrato.usuario_empresa_id:
+        # Sync UsuarioEmpresa según nuevo estado
+        if contrato.usuario_empresa_id:
             ue = contrato.usuario_empresa
-            ue_updates = []
-            if contrato.cargo:
-                ue.cargo = contrato.cargo
-                ue_updates.append("cargo")
-            if contrato.fecha_inicio and not ue.fecha_contrato:
-                ue.fecha_contrato = contrato.fecha_inicio
-                ue_updates.append("fecha_contrato")
-            if ue_updates:
-                ue_updates.append("fecha_modificacion")
+
+            if nuevo_estado == "vigente":
+                ue_updates = ["estado", "fecha_modificacion"]
+                ue.estado = "1"
+                if contrato.cargo:
+                    ue.cargo = contrato.cargo
+                    ue_updates.append("cargo")
+                if contrato.fecha_inicio and not ue.fecha_contrato:
+                    ue.fecha_contrato = contrato.fecha_inicio
+                    ue_updates.append("fecha_contrato")
                 ue.save(update_fields=ue_updates)
+                user = ue.usuario
+                if not user.is_active:
+                    user.is_active = True
+                    user.save(update_fields=["is_active"])
+
+            elif nuevo_estado in ("terminado", "anulado"):
+                tiene_vigente = ue.contratos_laborales.filter(
+                    estado__in=["vigente", "vencido"]
+                ).exclude(pk=contrato.pk).exists()
+                if not tiene_vigente:
+                    ue.estado = "2"
+                    ue.save(update_fields=["estado", "fecha_modificacion"])
+
+            elif nuevo_estado == "descartado":
+                if ue.estado == "3":
+                    tiene_otros = ue.contratos_laborales.exclude(pk=contrato.pk).exists()
+                    if not tiene_otros:
+                        user = ue.usuario
+                        ue.delete()
+                        user.delete()
 
         logger.info(
             f"Contrato {contrato_id} cambió a estado {nuevo_estado}",
@@ -597,4 +633,230 @@ def _enviar_email_aprobacion_async(envio_id: int) -> None:
         logger.info(f"Email de aprobación enviado a {envio.enviado_a}")
     except Exception as e:
         logger.error(f"Error enviando email de aprobación: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Servicio de Finiquito
+# ---------------------------------------------------------------------------
+
+# Transiciones permitidas en el flujo de finiquito
+_TRANSICIONES_FINIQUITO = {
+    "borrador":   ["calculado", "firmado"],   # firmado: aprobación manual directa
+    "calculado":  ["firmado"],
+    "firmado":    ["pagado"],
+    "pagado":     [],
+}
+
+
+class FiniquitoService:
+    """Servicio centralizado para operaciones sobre finiquitos laborales."""
+
+    @staticmethod
+    @transaction.atomic
+    def calcular_y_crear(
+        contrato_id: int,
+        usuario,
+        dias_vacaciones_tomados: int = 0,
+        aviso_previo_30_dias: bool = True,
+    ) -> "FiniquitoContrato":
+        """
+        Crea el FiniquitoContrato calculando conceptos base automáticamente.
+
+        Solo aplica a contratos en estado 'terminado'.
+        Los conceptos son un punto de partida — el usuario puede ajustarlos.
+
+        Args:
+            dias_vacaciones_tomados: Días de vacaciones ya utilizados (descuenta de proporcional).
+            aviso_previo_30_dias: Si False y la causal lo contempla, agrega concepto de
+                                  indemnización sustitutiva del aviso previo (Art. 162 CT).
+        """
+        from math import floor
+        from decimal import Decimal
+        from .models import FiniquitoContrato
+
+        contrato = ContratoTrabajador.objects.select_for_update().get(pk=contrato_id)
+
+        if contrato.estado != "terminado":
+            raise ValidationError(
+                f"Solo contratos en estado 'terminado' pueden tener finiquito. "
+                f"Este contrato está en '{contrato.get_estado_display()}'."
+            )
+
+        if FiniquitoContrato.objects.filter(contrato=contrato).exists():
+            raise ValidationError("Este contrato ya tiene un finiquito registrado.")
+
+        fecha_termino = contrato.fecha_termino_real or contrato.fecha_termino
+        fecha_inicio = contrato.fecha_inicio
+
+        if not fecha_termino or not fecha_inicio:
+            raise ValidationError(
+                "El contrato no tiene fecha de inicio o de término registrada."
+            )
+
+        # Remuneración íntegra mensual (Art. 71 CT) = sueldo + bonos fijos
+        sueldo = (
+            (contrato.sueldo or Decimal("0"))
+            + (contrato.bono_movilizacion or Decimal("0"))
+            + (contrato.bono_colacion or Decimal("0"))
+        )
+
+        dias_corridos = (fecha_termino - fecha_inicio).days
+        años_servicio = dias_corridos / 365
+        conceptos = []
+
+        # — Sueldo proporcional del mes de término —
+        dias_mes = fecha_termino.day
+        monto_proporcional = (sueldo / Decimal("30")) * Decimal(dias_mes)
+        conceptos.append({
+            "id": "sueldo_proporcional",
+            "nombre": "Sueldo proporcional",
+            "detalle": f"{dias_mes} días trabajados en {fecha_termino.strftime('%B %Y')}",
+            "monto": float(round(monto_proporcional, 0)),
+        })
+
+        # — Vacaciones proporcionales (días hábiles, aprox. 261/365) —
+        # Fórmula: días_corridos × (261/365) × (15/261) = días_corridos × (15/365)
+        dias_habiles_acumulados = round(dias_corridos * 15 / 365)
+        dias_vac_netos = max(0, dias_habiles_acumulados - int(dias_vacaciones_tomados))
+        if dias_vac_netos > 0:
+            # Valor día hábil = sueldo / 30 (convención CT)
+            monto_vacaciones = (sueldo / Decimal("30")) * Decimal(dias_vac_netos)
+            detalle_vac = f"{dias_vac_netos} días hábiles"
+            if dias_vacaciones_tomados > 0:
+                detalle_vac += f" (acumulados {dias_habiles_acumulados} – tomados {dias_vacaciones_tomados})"
+            conceptos.append({
+                "id": "vacaciones_proporcionales",
+                "nombre": "Vacaciones proporcionales",
+                "detalle": detalle_vac,
+                "monto": float(round(monto_vacaciones, 0)),
+            })
+
+        # — Gratificación proporcional (Art. 47) —
+        if contrato.tipo_gratificacion == "art_47":
+            meses_trabajados = min(12, round(dias_corridos / 30.4))
+            monto_grat = min(
+                sueldo * Decimal(meses_trabajados) / Decimal("12"),
+                sueldo * Decimal("4.75") / Decimal("12"),
+            )
+            if monto_grat > 0:
+                conceptos.append({
+                    "id": "gratificacion_proporcional",
+                    "nombre": "Gratificación proporcional (Art. 47 CT)",
+                    "detalle": f"{meses_trabajados} meses trabajados",
+                    "monto": float(round(monto_grat, 0)),
+                })
+
+        # — Indemnización por años de servicio (solo causales Art. 161) —
+        if contrato.motivo_termino in CAUSALES_CON_INDEMNIZACION:
+            # Tope 90 UF (Art. 163 CT)
+            try:
+                from contratos.currency_utils import obtener_tipos_cambio_actuales
+                _, uf = obtener_tipos_cambio_actuales()
+                tope_mensual = Decimal("90") * (uf or Decimal("35000"))
+                sueldo_indemnizacion = min(sueldo, tope_mensual)
+            except Exception:
+                sueldo_indemnizacion = sueldo
+
+            anos_completos = floor(años_servicio)
+            if anos_completos >= 1:
+                meses_max = min(anos_completos, 11)
+                monto_indemnizacion = sueldo_indemnizacion * Decimal(meses_max)
+                conceptos.append({
+                    "id": "indemnizacion_anos_servicio",
+                    "nombre": "Indemnización por años de servicio (Art. 163 CT)",
+                    "detalle": f"{anos_completos} año(s) → {meses_max} mes(es) (máx. 11, tope 90 UF)",
+                    "monto": float(round(monto_indemnizacion, 0)),
+                })
+
+                # — Recargo por despido injustificado (Art. 168 CT — mínimo 30%) —
+                if contrato.motivo_termino in CAUSALES_CON_RECARGO:
+                    recargo = round(monto_indemnizacion * Decimal("0.30"), 0)
+                    conceptos.append({
+                        "id": "recargo_despido_injustificado",
+                        "nombre": "Recargo despido injustificado (Art. 168 CT — 30%)",
+                        "detalle": "30% adicional sobre la indemnización. Ajustable si el tribunal fijó un porcentaje mayor.",
+                        "monto": float(recargo),
+                    })
+
+            # — Indemnización sustitutiva del aviso previo (Art. 162 CT) —
+            if contrato.motivo_termino in CAUSALES_CON_AVISO_PREVIO and not aviso_previo_30_dias:
+                conceptos.append({
+                    "id": "aviso_previo",
+                    "nombre": "Indemnización sustitutiva del aviso previo (Art. 162 CT)",
+                    "detalle": "El empleador no avisó con 30 días de anticipación",
+                    "monto": float(round(sueldo, 0)),
+                })
+
+        total_bruto = Decimal(sum(c["monto"] for c in conceptos))
+
+        finiquito = FiniquitoContrato.objects.create(
+            contrato=contrato,
+            conceptos=conceptos,
+            total_bruto=total_bruto,
+            total_descuentos=Decimal("0"),
+            total_neto=total_bruto,
+            estado="borrador",
+            calculado_por=usuario,
+        )
+
+        logger.info(
+            f"Finiquito {finiquito.id} creado para contrato {contrato_id}",
+            extra={"finiquito_id": finiquito.id, "contrato_id": contrato_id},
+        )
+        return finiquito
+
+    @staticmethod
+    @transaction.atomic
+    def actualizar_conceptos(finiquito_id: int, conceptos: list, usuario) -> "FiniquitoContrato":
+        """Reemplaza los conceptos y recalcula totales. Solo en estado 'borrador'."""
+        from decimal import Decimal
+        from .models import FiniquitoContrato
+
+        finiquito = FiniquitoContrato.objects.select_for_update().get(pk=finiquito_id)
+
+        if finiquito.estado != "borrador":
+            raise ValidationError(
+                "Solo se pueden editar los conceptos de un finiquito en estado 'borrador'."
+            )
+
+        total_bruto = Decimal(sum(float(c.get("monto", 0)) for c in conceptos))
+        finiquito.conceptos = conceptos
+        finiquito.total_bruto = total_bruto
+        finiquito.total_neto = total_bruto - finiquito.total_descuentos
+        finiquito.save(update_fields=[
+            "conceptos", "total_bruto", "total_neto", "fecha_modificacion"
+        ])
+        return finiquito
+
+    @staticmethod
+    @transaction.atomic
+    def avanzar_estado(finiquito_id: int, nuevo_estado: str, usuario, **kwargs) -> "FiniquitoContrato":
+        """Avanza el estado del finiquito según las transiciones permitidas."""
+        from .models import FiniquitoContrato
+
+        finiquito = FiniquitoContrato.objects.select_for_update().get(pk=finiquito_id)
+        estados_posibles = _TRANSICIONES_FINIQUITO.get(finiquito.estado, [])
+
+        if nuevo_estado not in estados_posibles:
+            raise ValidationError(
+                f"No se puede pasar de '{finiquito.estado}' a '{nuevo_estado}'. "
+                f"Transiciones válidas: {estados_posibles or 'ninguna (estado terminal)'}."
+            )
+
+        finiquito.estado = nuevo_estado
+
+        if nuevo_estado == "firmado" and kwargs.get("fecha_firma"):
+            finiquito.fecha_firma = kwargs["fecha_firma"]
+
+        update_fields = ["estado", "fecha_modificacion"]
+        if nuevo_estado == "firmado" and finiquito.fecha_firma:
+            update_fields.append("fecha_firma")
+
+        finiquito.save(update_fields=update_fields)
+
+        logger.info(
+            f"Finiquito {finiquito_id} avanzó a '{nuevo_estado}'",
+            extra={"finiquito_id": finiquito_id, "nuevo_estado": nuevo_estado},
+        )
+        return finiquito
         # NO re-raise: no queremos que afecte otros procesos

@@ -181,7 +181,7 @@ EMPRESA1_USUARIOS = [
         "cargo": "Desarrollador Senior",
         "estado_contrato": "borrador",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("1_800_000"),
+        "sueldo": Decimal("1_800_000"),
     },
     {
         "email": "carlos.mendoza@alpha.demo",
@@ -191,7 +191,7 @@ EMPRESA1_USUARIOS = [
         "cargo": "Analista de QA",
         "estado_contrato": "pendiente_aprobacion",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("2_100_000"),
+        "sueldo": Decimal("2_100_000"),
     },
     {
         "email": "maria.torres@alpha.demo",
@@ -201,7 +201,7 @@ EMPRESA1_USUARIOS = [
         "cargo": "Diseñador UX/UI",
         "estado_contrato": "vigente",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("2_500_000"),
+        "sueldo": Decimal("2_500_000"),
     },
     {
         "email": "pedro.vega@alpha.demo",
@@ -211,7 +211,7 @@ EMPRESA1_USUARIOS = [
         "cargo": "Soporte Técnico",
         "estado_contrato": "terminado",
         "tipo_contrato": "plazo_fijo",
-        "sueldo_base": Decimal("1_950_000"),
+        "sueldo": Decimal("1_950_000"),
     },
     {
         "email": "laura.espinoza@alpha.demo",
@@ -221,7 +221,7 @@ EMPRESA1_USUARIOS = [
         "cargo": "Coordinador de Proyectos",
         "estado_contrato": "anulado",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("2_000_000"),
+        "sueldo": Decimal("2_000_000"),
     },
     {
         "email": "diego.morales@alpha.demo",
@@ -231,7 +231,7 @@ EMPRESA1_USUARIOS = [
         "cargo": "Administrativo",
         "estado_contrato": "descartado",
         "tipo_contrato": "plazo_fijo",
-        "sueldo_base": Decimal("1_600_000"),
+        "sueldo": Decimal("1_600_000"),
     },
 ]
 
@@ -303,7 +303,7 @@ EMPRESA2_USUARIOS = [
         "cargo": "Consultor Senior",
         "estado_contrato": "borrador",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("2_200_000"),
+        "sueldo": Decimal("2_200_000"),
     },
     {
         "email": "roberto.salas@beta.demo",
@@ -313,7 +313,7 @@ EMPRESA2_USUARIOS = [
         "cargo": "Analista de Procesos",
         "estado_contrato": "pendiente_aprobacion",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("1_900_000"),
+        "sueldo": Decimal("1_900_000"),
     },
     {
         "email": "andrea.moya@beta.demo",
@@ -323,7 +323,7 @@ EMPRESA2_USUARIOS = [
         "cargo": "Especialista en Compensaciones",
         "estado_contrato": "vigente",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("2_800_000"),
+        "sueldo": Decimal("2_800_000"),
     },
     {
         "email": "felipe.castro@beta.demo",
@@ -333,7 +333,7 @@ EMPRESA2_USUARIOS = [
         "cargo": "Asistente de RRHH",
         "estado_contrato": "terminado",
         "tipo_contrato": "plazo_fijo",
-        "sueldo_base": Decimal("1_400_000"),
+        "sueldo": Decimal("1_400_000"),
     },
     {
         "email": "carmen.rios@beta.demo",
@@ -343,7 +343,7 @@ EMPRESA2_USUARIOS = [
         "cargo": "Jefe de Capacitación",
         "estado_contrato": "anulado",
         "tipo_contrato": "indefinido",
-        "sueldo_base": Decimal("2_300_000"),
+        "sueldo": Decimal("2_300_000"),
     },
     {
         "email": "hector.lima@beta.demo",
@@ -353,7 +353,7 @@ EMPRESA2_USUARIOS = [
         "cargo": "Administrativo",
         "estado_contrato": "descartado",
         "tipo_contrato": "plazo_fijo",
-        "sueldo_base": Decimal("1_350_000"),
+        "sueldo": Decimal("1_350_000"),
     },
 ]
 
@@ -539,14 +539,14 @@ class Command(BaseCommand):
                 estado=u["estado_contrato"],
                 tipo_contrato=u["tipo_contrato"],
                 cargo_nombre=u["cargo"],
-                sueldo_base=u["sueldo_base"],
+                sueldo_arg=u["sueldo"],
             )
 
         return empresa
 
     # ── Contratos por estado ──────────────────────────────────────────────────
 
-    def _crear_contrato(self, ue, user, empresa, sucursal, admin_user, estado, tipo_contrato, cargo_nombre, sueldo_base):
+    def _crear_contrato(self, ue, user, empresa, sucursal, admin_user, estado, tipo_contrato, cargo_nombre, sueldo_arg):
         hoy = timezone.now().date()
         ahora = timezone.now()
 
@@ -556,7 +556,7 @@ class Command(BaseCommand):
             "cargo": cargo_nombre,
             "jornada": "completa",
             "moneda": "CLP",
-            "sueldo_base": sueldo_base,
+            "sueldo": sueldo_arg,
             "bono_movilizacion": Decimal("40000"),
             "bono_colacion": Decimal("50000"),
             "tipo_gratificacion": "art_47",
@@ -606,7 +606,7 @@ class Command(BaseCommand):
                             "cargo": cargo_nombre,
                             "tipo_contrato": tipo_contrato,
                             "fecha_inicio": str(fecha_inicio),
-                            "sueldo_base": str(sueldo_base),
+                            "sueldo": str(sueldo_arg),
                             "moneda": "CLP",
                             "jornada": "completa",
                         },
@@ -654,7 +654,7 @@ class Command(BaseCommand):
                         "fecha_efectiva": hoy - timedelta(days=30),
                         "descripcion": (
                             f"Modificación de remuneración. Nuevo sueldo base: "
-                            f"${sueldo_base + Decimal('200000'):,.0f} CLP vigente desde la fecha indicada."
+                            f"${sueldo_arg + Decimal('200000'):,.0f} CLP vigente desde la fecha indicada."
                         ),
                         "creado_por": admin_user,
                     },

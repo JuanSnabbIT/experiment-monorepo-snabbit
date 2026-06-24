@@ -124,7 +124,7 @@ class Command(BaseCommand):
                     horas_semanales=44,
                     horario_detalle="Lunes a viernes 09:00 a 18:00",
                     lugar_trabajo=sucursal.nombre,
-                    sueldo_base=Decimal("850000"),
+                    sueldo=Decimal("850000"),
                     moneda="CLP",
                     estado="borrador",
                 )

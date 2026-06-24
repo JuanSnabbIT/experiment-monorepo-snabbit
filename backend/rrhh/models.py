@@ -14,12 +14,14 @@ from .estados_modelo import (
     CAUSAL_REEMPLAZO,
     ESTADO_CIVIL,
     ESTADO_CONTRATO,
+    ESTADO_FINIQUITO,
     JORNADA_CONTRATO,
     MONEDA_CONTRATO,
     MOTIVO_TERMINO_CONTRATO,
     TIPO_GRATIFICACION,
     TIPO_ANEXO,
     TIPO_CONTRATO,
+    TIPO_SUELDO,
 )
 
 
@@ -86,13 +88,15 @@ class ContratoTrabajador(ModeloBaseHistorico):
     jornada = models.CharField(max_length=20, choices=JORNADA_CONTRATO)
     horas_semanales = models.PositiveSmallIntegerField(blank=True, null=True)
     horario_detalle = models.CharField(max_length=500, blank=True, null=True)
+    hora_inicio = models.TimeField(null=True, blank=True, help_text="Hora de entrada para jornada fija.")
+    hora_fin    = models.TimeField(null=True, blank=True, help_text="Hora de salida para jornada fija.")
     tiempo_colacion = models.PositiveIntegerField(default=30, blank=True, null=True)
     lugar_trabajo = models.CharField(max_length=255, blank=True, null=True)
 
-    sueldo_base = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    sueldo_liquido = models.DecimalField(
-        max_digits=12, decimal_places=2, blank=True, null=True,
-    )
+    sueldo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tipo_sueldo = models.CharField(max_length=10, choices=TIPO_SUELDO, default="base")
+    descuento_prevision_activo = models.BooleanField(default=False)
+    descuento_salud_activo = models.BooleanField(default=False)
     moneda = models.CharField(max_length=5, choices=MONEDA_CONTRATO, default="CLP")
     tipo_gratificacion = models.CharField(
         max_length=20,
@@ -101,6 +105,8 @@ class ContratoTrabajador(ModeloBaseHistorico):
     )
     bono_movilizacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     bono_colacion = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    bono_movilizacion_activo = models.BooleanField(default=False)
+    bono_colacion_activo     = models.BooleanField(default=False)
 
     archivo_pdf = models.FileField(upload_to=archivo_contrato_path, blank=True, null=True)
 
@@ -195,9 +201,22 @@ class AnexoContrato(ModeloBaseHistorico):
 
     tipo = models.CharField(max_length=30, choices=TIPO_ANEXO)
     fecha_efectiva = models.DateField()
-    descripcion = models.TextField()
+    descripcion = models.TextField(blank=True, default='')
     nueva_fecha_termino = models.DateField(null=True, blank=True)
     archivo_pdf = models.FileField(upload_to=archivo_anexo_path, blank=True, null=True)
+
+    nuevo_sueldo = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    nuevo_tipo_sueldo = models.CharField(max_length=10, choices=TIPO_SUELDO, null=True, blank=True)
+    nuevo_tipo_gratificacion = models.CharField(max_length=20, choices=TIPO_GRATIFICACION, null=True, blank=True)
+    nuevo_bono_movilizacion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    nuevo_bono_colacion = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    nuevo_cargo = models.CharField(max_length=150, null=True, blank=True)
+    nuevas_funciones = models.TextField(null=True, blank=True)
+    nueva_jornada = models.CharField(max_length=20, choices=JORNADA_CONTRATO, null=True, blank=True)
+    nuevas_horas_semanales = models.PositiveSmallIntegerField(null=True, blank=True)
+    nuevo_lugar_trabajo = models.CharField(max_length=300, null=True, blank=True)
+    nuevo_tipo_contrato = models.CharField(max_length=20, choices=TIPO_CONTRATO, null=True, blank=True)
+    numero_prorroga = models.PositiveIntegerField(null=True, blank=True)
 
     estado = models.CharField(max_length=25, choices=ESTADO_CONTRATO, default="borrador")
     numero_anexo = models.PositiveIntegerField(null=True, blank=True)
@@ -516,3 +535,40 @@ class EnvioAprobacionEmpleador(ModeloBase):
 
     def __str__(self):
         return f"Aprobacion contrato {self.contrato_id} -> {self.enviado_a} ({self.decision})"
+
+
+def archivo_finiquito_path(instance, filename):
+    """Ruta de almacenamiento del PDF del finiquito."""
+    return f"rrhh/finiquitos/{instance.contrato_id}/{filename}"
+
+
+class FiniquitoContrato(ModeloBaseHistorico):
+    """Documento de finiquito para un ContratoTrabajador terminado."""
+
+    contrato = models.OneToOneField(
+        ContratoTrabajador,
+        on_delete=models.CASCADE,
+        related_name="finiquito",
+    )
+    # Lista de conceptos: [{id, nombre, detalle, monto}]
+    conceptos = models.JSONField(default=list)
+    total_bruto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_descuentos = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_neto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    estado = models.CharField(max_length=20, choices=ESTADO_FINIQUITO, default="borrador")
+    archivo_pdf = models.FileField(upload_to=archivo_finiquito_path, blank=True, null=True)
+    fecha_firma = models.DateField(null=True, blank=True)
+    calculado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="finiquitos_calculados",
+    )
+
+    class Meta:
+        verbose_name = "Finiquito de contrato"
+        verbose_name_plural = "Finiquitos de contratos"
+
+    def __str__(self):
+        return f"Finiquito contrato {self.contrato_id}"
