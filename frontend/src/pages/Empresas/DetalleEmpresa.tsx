@@ -1061,7 +1061,7 @@ function DetalleEmpresa() {
                     )}
 
                     {activeComponent === 'ConfiguracionRRHH' && detalleEmpresa?.id && (
-                        <ConfiguracionRRHH embedded empresaIdFijo={Number(detalleEmpresa.id)} />
+                        <ConfiguracionRRHH embedded empresaIdFijo={Number(detalleEmpresa.id)} nombreEmpresa={detalleEmpresa.nombre} />
                     )}
                 </div>
             </Container>

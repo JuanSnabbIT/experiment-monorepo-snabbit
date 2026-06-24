@@ -1,29 +1,14 @@
+import { COLOR_ESTADO } from '@/constants/contrato.constant';
 import type { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import type { TColors } from '@/types/colors.type';
 import type { IContratoEdicion } from './contrato.types';
 
 /**
  * Devuelve el color del Badge según el estado del contrato.
- *
- * Mapeo:
- *  - borrador  → amber
- *  - activo    → emerald
- *  - suspendido / finalizado → red
- *  - default   → zinc
+ * Usa el diccionario centralizado COLOR_ESTADO desde constants/contrato.constant.ts
  */
 export const colorEstadoContrato = (estado: string): TColors => {
-    switch (estado) {
-        case 'borrador':
-            return 'amber';
-        case 'activo':
-            return 'emerald';
-        case 'suspendido':
-        case 'finalizado':
-        case 'rechazado_cliente':
-            return 'red';
-        default:
-            return 'zinc';
-    }
+    return COLOR_ESTADO[estado] ?? 'zinc';
 };
 
 /**
