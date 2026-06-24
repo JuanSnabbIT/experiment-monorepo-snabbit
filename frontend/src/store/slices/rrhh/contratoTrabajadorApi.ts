@@ -1,5 +1,6 @@
 import type {
     IAnexoContrato,
+    IConsultaAfpResponse,
     IContratoTrabajador,
     IContratoTrabajadorHistorialEvento,
     IContratoTrabajadorSnapshotBlock,
@@ -112,6 +113,7 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             {
                 id: number;
                 estado: TEstadoContrato;
+                accion?: string;
                 fecha_termino_real?: string;
                 motivo_termino?: TMotivoTerminoContrato;
                 observaciones_termino?: string;
@@ -137,10 +139,13 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
                 method: 'post',
                 data,
             }),
-            invalidatesTags: (_r, _e, arg) => {
+            invalidatesTags: (result, _e, arg) => {
                 const tags: Array<{ type: 'ContratoTrabajadorList' | 'ClienteUsuarios'; id: string | number }> = [
                     { type: 'ContratoTrabajadorList', id: 'LIST' },
                 ];
+                if (result?.usuario_empresa_id) {
+                    tags.push({ type: 'ContratoTrabajadorList', id: `UE-${result.usuario_empresa_id}` });
+                }
                 if (arg.sucursal_id_invalidar) {
                     tags.push({ type: 'ClienteUsuarios', id: arg.sucursal_id_invalidar });
                 }
@@ -179,7 +184,36 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
         crearAnexoContrato: builder.mutation<IAnexoContrato, FormData>({
             query: (fd) => ({ url: `/api/rrhh/anexos-contrato/`, method: 'post', data: fd }),
             invalidatesTags: (result) =>
-                result ? [{ type: 'AnexoContrato' as const, id: `C-${result.contrato}` }] : [],
+                result
+                    ? [
+                          { type: 'AnexoContrato' as const, id: `C-${result.contrato}` },
+                          { type: 'ContratoTrabajador' as const, id: result.contrato },
+                      ]
+                    : [],
+        }),
+
+        eliminarAnexoContrato: builder.mutation<void, { id: number; contratoId: number }>({
+            query: ({ id }) => ({
+                url: `/api/rrhh/anexos-contrato/${id}/`,
+                method: 'delete',
+            }),
+            invalidatesTags: (_r, _e, { contratoId }) => [
+                { type: 'AnexoContrato' as const, id: `C-${contratoId}` },
+            ],
+        }),
+
+        activarAnexoContrato: builder.mutation<IAnexoContrato, number>({
+            query: (id) => ({
+                url: `/api/rrhh/anexos-contrato/${id}/activar/`,
+                method: 'post',
+            }),
+            invalidatesTags: (result) =>
+                result
+                    ? [
+                          { type: 'AnexoContrato' as const, id: `C-${result.contrato}` },
+                          { type: 'ContratoTrabajador' as const, id: result.contrato },
+                      ]
+                    : [],
         }),
 
         actualizarAnexoContrato: builder.mutation<
@@ -293,6 +327,19 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             }),
             invalidatesTags: [{ type: 'ContratoTrabajadorList', id: 'LIST' }],
         }),
+
+        // ── Consulta de afiliación AFP (spensiones.cl) ──────────────────
+        // Dispara la Celery task. No usa tags: no toca entidades persistidas.
+        dispararConsultaAfp: builder.mutation<IConsultaAfpResponse, { rut: string; forzar?: boolean }>({
+            query: (data) => ({ url: `${BASE}/consultar-afp/`, method: 'post', data }),
+        }),
+        // Polling por RUT contra el cache Redis (usar pollingInterval + skip).
+        getConsultaAfp: builder.query<IConsultaAfpResponse, { rut: string }>({
+            query: ({ rut }) => ({
+                url: `${BASE}/consultar-afp/?rut=${encodeURIComponent(rut)}`,
+                method: 'get',
+            }),
+        }),
     }),
 });
 
@@ -310,6 +357,8 @@ export const {
     useSubirPdfContratoTrabajadorMutation,
     useGetAnexosContratoQuery,
     useCrearAnexoContratoMutation,
+    useEliminarAnexoContratoMutation,
+    useActivarAnexoContratoMutation,
     useActualizarAnexoContratoMutation,
     useEnviarAprobacionEmpleadorMutation,
     useGetEstadoAprobacionEmpleadorQuery,
@@ -319,4 +368,7 @@ export const {
     useUpdateContratoTrabajadorSnapshotBlockMutation,
     useGetHistorialContratoTrabajadorQuery,
     useCrearCopiaContratoMutation,
+    useDispararConsultaAfpMutation,
+    useGetConsultaAfpQuery,
+    useLazyGetConsultaAfpQuery,
 } = contratoTrabajadorApi;

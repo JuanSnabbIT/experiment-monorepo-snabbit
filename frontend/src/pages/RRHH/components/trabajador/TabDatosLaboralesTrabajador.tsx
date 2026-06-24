@@ -39,8 +39,21 @@ const Campo = ({ label, value }: { label: string; value: string | number | null 
     </div>
 );
 
+const getAntiguedadDisplay = (fechaInicio: string | null): string | null => {
+    if (!fechaInicio) return null;
+    const inicio = dayjs(fechaInicio);
+    const hoy = dayjs();
+    const años = hoy.diff(inicio, 'year');
+    const meses = hoy.diff(inicio.add(años, 'year'), 'month');
+    const partes: string[] = [];
+    if (años > 0) partes.push(`${años} año${años !== 1 ? 's' : ''}`);
+    if (meses > 0) partes.push(`${meses} mes${meses !== 1 ? 'es' : ''}`);
+    return partes.length > 0 ? partes.join(', ') : 'Menos de 1 mes';
+};
+
 const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
     const esBorrador = contrato.estado === 'borrador';
+    const esVigente = contrato.estado === 'vigente';
     const [modalOpen, setModalOpen] = useState(false);
 
     const { data: cargosCatalogo = [] } = useGetCargosCatalogoQuery(undefined, { skip: !modalOpen });
@@ -166,6 +179,12 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
                                         : '—')
                                 }
                             />
+                            {esVigente && (
+                                <Campo
+                                    label='Antigüedad'
+                                    value={getAntiguedadDisplay(contrato.fecha_inicio)}
+                                />
+                            )}
                         </div>
 
                         {contrato.grupo_turno_snapshot ? (

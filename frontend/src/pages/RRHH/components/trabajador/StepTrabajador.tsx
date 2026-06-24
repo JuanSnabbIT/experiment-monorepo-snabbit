@@ -4,6 +4,8 @@ import RadioCard from '@/components/form/RadioCard';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
+import Badge from '@/components/ui/Badge';
+import Icon from '@/components/icon/Icon';
 import type { IUseContratoWizardReturn } from '@/hooks/useContratoWizard';
 import { IRelacionEmpresa, IUsuarioEmpresa } from '@/interface/empresas.interface';
 import {
@@ -31,6 +33,8 @@ interface Props {
     sucursales: { id: number; nombre: string }[];
     empresasCliente?: IRelacionEmpresa[];
     wizard?: IUseContratoWizardReturn;
+    bloqueado?: boolean;
+    nombreTrabajador?: string;
 }
 
 const StepTrabajador = ({
@@ -38,6 +42,8 @@ const StepTrabajador = ({
     usuariosCliente,
     sucursales,
     empresasCliente,
+    bloqueado,
+    nombreTrabajador,
 }: Props) => {
     const { values, errors, touched, setFieldValue, handleChange, handleBlur } = formik;
     const { data: nacionalidadesCatalogo = [] } = useGetNacionalidadCatalogoQuery();
@@ -124,6 +130,31 @@ const StepTrabajador = ({
             .sort((a, b) => a.localeCompare(b, 'es-CL'))
             .map((item) => ({ value: item, label: item }));
     }, [nacionalidadesCatalogoNormalizadas, nacionalidadesUsuarios, nacionalidadesCreadas]);
+
+    if (bloqueado) {
+        return (
+            <div className='space-y-4'>
+                <div className='rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/60'>
+                    <div className='flex items-center gap-3'>
+                        <Icon icon='HeroUserCircle' className='h-9 w-9 shrink-0 text-blue-400' />
+                        <div className='min-w-0 flex-1'>
+                            <p className='text-xs text-zinc-500 dark:text-zinc-400'>Trabajador</p>
+                            <p className='truncate font-semibold text-zinc-800 dark:text-zinc-100'>
+                                {nombreTrabajador ?? 'Trabajador seleccionado'}
+                            </p>
+                        </div>
+                        <Badge color='blue' variant='outline'>
+                            Preseleccionado
+                        </Badge>
+                    </div>
+                    <p className='mt-3 text-xs text-zinc-400 dark:text-zinc-500'>
+                        El trabajador fue seleccionado desde su ficha. Para cambiar el trabajador,
+                        cierra este formulario y ábrelo desde otro contexto.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className='space-y-4'>
@@ -251,10 +282,12 @@ const StepTrabajador = ({
                                 ) || null
                             }
                             onChange={(opt) => {
-                                setFieldValue(
-                                    'trab_usuario_empresa_id',
-                                    opt ? Number((opt as TSelectOption).value) : '',
-                                );
+                                const ueId = opt ? Number((opt as TSelectOption).value) : '';
+                                setFieldValue('trab_usuario_empresa_id', ueId);
+                                // Propagar el RUT del trabajador elegido para que el
+                                // Step Previsión pueda consultar afiliación AFP.
+                                const elegido = usuariosFiltrados.find((u) => u.id === ueId);
+                                setFieldValue('trab_rut', elegido?.papeleta?.rut ?? '');
                                 formik.setFieldTouched('trab_usuario_empresa_id', true, false);
                             }}
                         />

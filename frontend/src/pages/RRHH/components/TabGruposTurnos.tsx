@@ -290,7 +290,7 @@ const ModalGrupo = ({ isOpen, onClose, grupoEditar, empresaId }: IModalGrupoProp
                             icon='HeroPlusCircle'
                             onClick={agregarSlot}
                             size='sm'>
-                            Agregar slot
+                            Agregar posición
                         </Button>
                         <SlotPreview slots={draft.slots} turnos={turnos} />
                     </div>

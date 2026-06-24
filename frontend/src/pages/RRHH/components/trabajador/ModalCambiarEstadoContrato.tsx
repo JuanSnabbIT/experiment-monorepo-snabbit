@@ -9,19 +9,28 @@ interface Props {
   estado: string;
   onConfirm: (data: Record<string, string | undefined>) => Promise<void>;
   onCancel: () => void;
+  motivoInicial?: string;
+  fechaInicial?: string;
 }
 
 const MOTIVO_TERMINO_OPTIONS: TSelectOption[] = [
-  { value: 'renuncia', label: 'Renuncia voluntaria' },
-  { value: 'mutuo_acuerdo', label: 'Mutuo acuerdo' },
-  { value: 'vencimiento_plazo', label: 'Vencimiento del plazo' },
-  { value: 'necesidades_empresa', label: 'Necesidades de la empresa' },
-  { value: 'incumplimiento_grave', label: 'Incumplimiento grave de obligaciones' },
-  { value: 'falta_probidad', label: 'Falta de probidad' },
-  { value: 'inasistencias_injustificadas', label: 'Inasistencias injustificadas' },
-  { value: 'abandono_trabajo', label: 'Abandono del trabajo' },
-  { value: 'caso_fortuito_fuerza_mayor', label: 'Caso fortuito o fuerza mayor' },
-  { value: 'otro', label: 'Otro' },
+  // Art. 159 — Sin indemnización
+  { value: 'renuncia',                   label: 'Renuncia voluntaria (Art. 159 N°2)' },
+  { value: 'mutuo_acuerdo',              label: 'Mutuo acuerdo (Art. 159 N°1)' },
+  { value: 'vencimiento_plazo',          label: 'Vencimiento del plazo (Art. 159 N°4)' },
+  { value: 'conclusion_obra_faena',      label: 'Conclusión de obra o faena (Art. 159 N°5)' },
+  { value: 'caso_fortuito_fuerza_mayor', label: 'Caso fortuito o fuerza mayor (Art. 159 N°6)' },
+  // Art. 160 — Sin indemnización (causa imputable)
+  { value: 'incumplimiento_grave',       label: 'Incumplimiento grave de obligaciones (Art. 160)' },
+  { value: 'falta_probidad',             label: 'Falta de probidad (Art. 160 N°1)' },
+  { value: 'inasistencias_injustificadas', label: 'Inasistencias injustificadas (Art. 160 N°3)' },
+  { value: 'abandono_trabajo',           label: 'Abandono del trabajo (Art. 160 N°4)' },
+  // Art. 161 — Con indemnización
+  { value: 'necesidades_empresa',        label: 'Necesidades de la empresa (Art. 161)' },
+  { value: 'desahucio_empleador',        label: 'Desahucio del empleador (Art. 161 inc. 2)' },
+  // Despido injustificado
+  { value: 'despido_injustificado',      label: 'Despido injustificado' },
+  { value: 'otro',                       label: 'Otro' },
 ];
 
 const MOTIVO_ANULACION_OPTIONS: TSelectOption[] = [
@@ -37,9 +46,11 @@ const ModalCambiarEstadoContrato: React.FC<Props> = ({
   estado,
   onConfirm,
   onCancel,
+  motivoInicial,
+  fechaInicial,
 }) => {
-  const [motivo, setMotivo] = useState<string>('');
-  const [fecha, setFecha] = useState<string>('');
+  const [motivo, setMotivo] = useState<string>(motivoInicial ?? '');
+  const [fecha, setFecha] = useState<string>(fechaInicial ?? '');
   const [observaciones, setObservaciones] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -97,6 +108,14 @@ const ModalCambiarEstadoContrato: React.FC<Props> = ({
 
       <ModalBody>
         <div className='space-y-4'>
+          {/* Nota de pre-llenado automático */}
+          {motivoInicial && (
+            <div className='rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20'>
+              <p className='text-xs text-blue-700 dark:text-blue-300'>
+                El motivo y la fecha fueron determinados automáticamente. Puedes modificarlos si el caso lo requiere.
+              </p>
+            </div>
+          )}
           {/* Motivo */}
           <div>
             <Label htmlFor={motivoKey}>

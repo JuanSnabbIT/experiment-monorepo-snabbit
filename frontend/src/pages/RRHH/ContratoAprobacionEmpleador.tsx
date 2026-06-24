@@ -495,9 +495,11 @@ const ContratoAprobacionEmpleador = () => {
                                         </div>
                                     )}
                                     <div className='grid grid-cols-[140px,1fr] gap-3 px-5 py-3'>
-                                        <dt className='text-gray-500 dark:text-zinc-400'>Sueldo base</dt>
+                                        <dt className='text-gray-500 dark:text-zinc-400'>
+                                            {contrato.tipo_sueldo === 'liquido' ? 'Sueldo líquido' : 'Sueldo base'}
+                                        </dt>
                                         <dd className='font-medium text-gray-900 dark:text-zinc-100'>
-                                            {formatCurrency(contrato.sueldo_base, contrato.moneda)}
+                                            {formatCurrency(contrato.sueldo, contrato.moneda)}
                                         </dd>
                                     </div>
                                 </dl>

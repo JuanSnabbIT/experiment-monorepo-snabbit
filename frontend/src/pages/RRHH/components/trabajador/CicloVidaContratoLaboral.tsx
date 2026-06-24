@@ -5,15 +5,16 @@ const ESTADOS_CICLO = [
     { key: 'borrador', label: 'Borrador' },
     { key: 'pendiente_aprobacion', label: 'Pend. aprobacion' },
     { key: 'vigente', label: 'Vigente' },
+    { key: 'vencido', label: 'Vencido' },
     { key: 'terminado', label: 'Terminado' },
     { key: 'anulado', label: 'Anulado' },
     { key: 'descartado', label: 'Descartado' },
 ] as const;
 
-// Orden lineal principal: borrador -> pendiente_aprobacion -> vigente -> terminado
+// Orden lineal principal: borrador -> pendiente_aprobacion -> vigente -> vencido -> terminado
 // anulado: solo desde vigente (acto grave)
 // descartado: desde borrador o pendiente_aprobacion (rechazo administrativo)
-const ORDEN_PRINCIPAL = ['borrador', 'pendiente_aprobacion', 'vigente', 'terminado'];
+const ORDEN_PRINCIPAL = ['borrador', 'pendiente_aprobacion', 'vigente', 'vencido', 'terminado'];
 
 interface ICicloVidaContratoLaboralProps {
     estado: string;
@@ -36,15 +37,17 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
     const est = estado.toLowerCase();
     const esAnulado = est === 'anulado';
     const esDescartado = est === 'descartado';
+    const esVencido = est === 'vencido';
     const esAnuladoPorRechazo = esAnulado && rechazado;
 
-    // Para el stepper de 4 pasos principales, el indice del paso activo en el orden principal
+    // Para el stepper, el indice del paso activo en el orden principal
     const indiceEnOrden = ORDEN_PRINCIPAL.indexOf(est);
 
-    // Anulado y Descartado solo aparecen cuando el contrato está en ese estado
+    // Anulado, Descartado y Vencido solo aparecen cuando el contrato está en ese estado
     const pasosMostrar = ESTADOS_CICLO.filter((paso) => {
         if (paso.key === 'anulado') return esAnulado;
         if (paso.key === 'descartado') return esDescartado;
+        if (paso.key === 'vencido') return esVencido;
         return true;
     });
 
@@ -140,9 +143,9 @@ const CicloVidaContratoLaboral = ({ estado, rechazado = false }: ICicloVidaContr
                                 'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap',
                                 {
                                     'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-700':
-                                        esActivo && !esAnuladoPorRechazo && !esDescartado,
+                                        esActivo && !esAnuladoPorRechazo && !esDescartado && !esVencido,
                                     'bg-red-500 text-white ring-2 ring-red-300 dark:ring-red-700':
-                                        esActivo && esAnuladoPorRechazo,
+                                        esActivo && (esAnuladoPorRechazo || esVencido),
                                     'bg-zinc-400 text-white ring-2 ring-zinc-300 dark:ring-zinc-600':
                                         esActivo && esDescartado,
                                     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300': esCompletado,

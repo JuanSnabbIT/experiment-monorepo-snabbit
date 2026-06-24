@@ -51,7 +51,7 @@ const DIAS_SEMANA = [
     { key: 'D', label: 'Domingo' },
 ];
 
-type TTabId = 'parametros' | 'afp' | 'bancos' | 'turnos' | 'plantillas' | 'cargos' | 'grupos_turnos';
+type TTabId = 'parametros' | 'afp' | 'bancos' | 'turnos' | 'plantillas' | 'grupos_turnos';
 
 const TABS: { id: TTabId; label: string }[] = [
     { id: 'parametros', label: 'Parámetros' },
@@ -59,7 +59,6 @@ const TABS: { id: TTabId; label: string }[] = [
     { id: 'bancos', label: 'Bancos' },
     { id: 'turnos', label: 'Turnos' },
     { id: 'plantillas', label: 'Plantillas' },
-    { id: 'cargos', label: 'Cargos' },
     { id: 'grupos_turnos', label: 'Grupos de Turnos' },
 ];
 
@@ -69,7 +68,7 @@ const BadgeAmbito = ({ esGlobal }: { esGlobal: boolean }) =>
             Global
         </Badge>
     ) : (
-        <Badge variant='outline' color='blue'>
+        <Badge variant='outline' color='violet'>
             De empresa
         </Badge>
     );
@@ -81,6 +80,7 @@ interface ITabProps {
 interface IConfiguracionRRHHProps {
     embedded?: boolean;
     empresaIdFijo?: number | null;
+    nombreEmpresa?: string;
 }
 
 // ── Tab Parámetros ───────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ const TabParametros = ({ empresaId }: ITabProps) => {
                             {item.es_global ? (
                                 empresaId ? (
                                     <Button size='sm' variant='outline' onClick={() => crearOverride(item)}>
-                                        Crear override
+                                        Crear ajuste
                                     </Button>
                                 ) : null
                             ) : editId === item.id ? (
@@ -576,25 +576,8 @@ const TabPlantillas = ({ empresaId }: ITabProps) => {
     );
 };
 
-// ── Tab Cargos ───────────────────────────────────────────────────────────────
-const TabCargos = () => {
-    const navigate = useNavigate();
-    return (
-        <Alert variant='outline' color='blue' icon='HeroInformationCircle'>
-            Los cargos se gestionan por empresa y se crean directamente durante la creación
-            de contratos (selector "Cargo" del wizard). Esta sección consolidará su
-            administración próximamente.
-            <span className='mt-2 block'>
-                <Button size='sm' variant='outline' onClick={() => navigate('/rrhh/contratos')}>
-                    Ir a contratos
-                </Button>
-            </span>
-        </Alert>
-    );
-};
-
 // ── Página principal ───────────────────────────────────────────────────────────
-const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null }: IConfiguracionRRHHProps) => {
+const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null, nombreEmpresa }: IConfiguracionRRHHProps) => {
     const dispatch = useAppDispatch();
     const { listaMisClientes } = useAppSelector((s) => s.empresa);
     const { personalizacionUsuario } = useAppSelector((s) => s.auth);
@@ -603,6 +586,24 @@ const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null }: IConfigur
     const [activeTab, setActiveTab] = useState<TTabId>('parametros');
 
     const empresaIdActiva = empresaIdFijo ?? empresaId;
+
+    const innerTabProps = (tab: TTabId) =>
+        activeTab === tab
+            ? {
+                  size: 'sm' as const,
+                  rounded: 'rounded-full' as const,
+                  className: 'border',
+                  isActive: true,
+                  color: 'blue' as const,
+                  colorIntensity: '500' as const,
+                  variant: 'solid' as const,
+              }
+            : {
+                  size: 'sm' as const,
+                  color: 'zinc' as const,
+                  rounded: 'rounded-full' as const,
+                  className: 'border',
+              };
 
     useEffect(() => {
         if (!embedded && personalizacionUsuario?.empresa && listaMisClientes.length === 0) {
@@ -622,26 +623,20 @@ const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null }: IConfigur
                 <CardHeaderChild>
                     <CardTitle>
                         {empresaIdActiva
-                            ? `Configuración de ${empresaValue?.label || 'empresa seleccionada'}`
+                            ? `Configuración de ${nombreEmpresa ?? empresaValue?.label ?? 'empresa seleccionada'}`
                             : 'Configuración global'}
                     </CardTitle>
                 </CardHeaderChild>
             </CardHeader>
             <CardBody>
-                <div className='mb-4 flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700'>
+                <div className='mb-4 flex flex-wrap gap-2'>
                     {TABS.map((tab) => (
-                        <button
+                        <Button
                             key={tab.id}
-                            type='button'
-                            onClick={() => setActiveTab(tab.id)}
-                            className={[
-                                'px-4 py-2 text-sm font-medium transition-colors',
-                                activeTab === tab.id
-                                    ? 'border-b-2 border-blue-500 text-blue-500'
-                                    : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
-                            ].join(' ')}>
+                            {...innerTabProps(tab.id)}
+                            onClick={() => setActiveTab(tab.id)}>
                             {tab.label}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
@@ -650,7 +645,6 @@ const ConfiguracionRRHH = ({ embedded = false, empresaIdFijo = null }: IConfigur
                 {activeTab === 'bancos' && <TabBancos empresaId={empresaIdActiva} />}
                 {activeTab === 'turnos' && <TabTurnos empresaId={empresaIdActiva} />}
                 {activeTab === 'plantillas' && <TabPlantillas empresaId={empresaIdActiva} />}
-                {activeTab === 'cargos' && <TabCargos />}
                 {activeTab === 'grupos_turnos' && (
                     <TabGruposTurnos empresaId={empresaIdActiva ?? ''} />
                 )}

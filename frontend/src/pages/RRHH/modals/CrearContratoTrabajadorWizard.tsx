@@ -18,15 +18,19 @@ import { ICrearContratoConTrabajadorPayload } from '@/interface/rrhh.interface';
 import { useAppSelector } from '@/store';
 import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
+import { useGetAfpCatalogoQuery } from '@/store/slices/rrhh/catalogosRrhhApi';
 import { useGetGruposTurnoQuery } from '@/store/slices/rrhh/grupoTurnoApi';
 import {
     useCrearContratoConTrabajadorMutation,
+    useGenerarPdfContratoTrabajadorMutation,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import { IContratoTrabajador } from '@/interface/rrhh.interface';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { validarRut } from '@/utils/rut.util';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
 import StepJornada from '../components/trabajador/StepJornada';
@@ -41,10 +45,10 @@ interface Props {
     externalIsOpen?: boolean;
     onExternalClose?: () => void;
     contratoId?: number | null;
-    usuarioEmpresaInicial?: { id: number; nombre: string };
+    usuarioEmpresaInicial?: { id: number; nombre: string; sucursalId?: number };
 }
 
-type TStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type TStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 const STEP_LABELS: Record<TStep, string> = {
     1: 'Básicos',
@@ -54,6 +58,7 @@ const STEP_LABELS: Record<TStep, string> = {
     5: 'Previsión',
     6: 'Remun.',
     7: 'Revisión',
+    8: 'PDF listo',
 };
 
 // Campos a validar (y marcar como touched) al intentar avanzar de cada step.
@@ -81,8 +86,9 @@ const STEP_FIELDS: Record<TStep, (keyof IFormValuesContratoTrabajador)[]> = {
         'tipo_cuenta_bancaria',
         'numero_cuenta_bancaria',
     ],
-    6: ['sueldo_base', 'tipo_gratificacion', 'bono_colacion', 'bono_movilizacion'],
+    6: ['sueldo', 'tipo_gratificacion', 'bono_colacion', 'bono_movilizacion'],
     7: [],
+    8: [],
 };
 
 const validationSchema = Yup.object({
@@ -162,7 +168,7 @@ const validationSchema = Yup.object({
         then: (s) => s.required('Requerido'),
         otherwise: (s) => s.notRequired(),
     }),
-    sueldo_base: Yup.number()
+    sueldo: Yup.number()
         .typeError('Debe ser un numero')
         .required('Requerido')
         .min(1, 'Debe ser mayor a 0'),
@@ -273,8 +279,8 @@ const initialValues: IFormValuesContratoTrabajador = {
     fecha_firma: '',
     trab_trabajador_reemplazado_id: '',
     causal_reemplazo: '',
-    sueldo_base: '',
-    sueldo_liquido: '',
+    sueldo: '',
+    tipo_sueldo: 'base' as const,
     moneda: 'CLP',
     tipo_gratificacion: '',
     gratificacion_activa: false,
@@ -285,7 +291,9 @@ const initialValues: IFormValuesContratoTrabajador = {
     bono_colacion: '',
     bono_colacion_activo: false,
     afp: null,
+    descuento_prevision_activo: false,
     sistema_salud: '',
+    descuento_salud_activo: false,
     nombre_isapre: '',
     sistema_salud_otro: '',
     banco: '',
@@ -367,18 +375,25 @@ const CrearContratoTrabajadorWizard = ({
     contratoId,
     usuarioEmpresaInicial,
 }: Props) => {
+    const navigate = useNavigate();
     const { detalleCliente: detalleClienteStore } = useAppSelector(
         (state) => state.empresa,
     );
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
     const detalleCliente = detalleClienteProp ?? detalleClienteStore;
 
-    const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery();
-    const wizard = useContratoWizard(contratoId ?? null);
-
+    // isOpen se calcula antes de las queries para usarlo como skip condition.
     const isControlledExternally = externalIsOpen !== undefined;
     const [internalIsOpen, setInternalIsOpen] = useState(false);
     const isOpen = isControlledExternally ? externalIsOpen : internalIsOpen;
+
+    // Las plantillas y AFP solo se necesitan cuando el modal está abierto.
+    // Sin skip, estas queries disparan al montar el componente causando
+    // un cascade de re-renders si el usuario abre el modal antes de que
+    // el caché esté caliente (freeze en primera visita).
+    const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery(undefined, { skip: !isOpen });
+    const { data: afpList = [] } = useGetAfpCatalogoQuery(undefined, { skip: !isOpen });
+    const wizard = useContratoWizard(contratoId ?? null);
 
     const setIsOpen = (val: boolean) => {
         if (isControlledExternally) {
@@ -393,6 +408,7 @@ const CrearContratoTrabajadorWizard = ({
         formik.resetForm();
         setStep(1);
         setStepAttempted(false);
+        setContratoCreado(null);
     };
 
     const [step, setStep] = useState<TStep>(1);
@@ -405,26 +421,15 @@ const CrearContratoTrabajadorWizard = ({
 
     const [crearContratoConTrabajador, { isLoading: creandoCT }] =
         useCrearContratoConTrabajadorMutation();
+    const [generarPdf, { isLoading: generandoPdf }] =
+        useGenerarPdfContratoTrabajadorMutation();
+    const [contratoCreado, setContratoCreado] = useState<IContratoTrabajador | null>(null);
 
     const formik = useFormik<IFormValuesContratoTrabajador>({
         initialValues,
         validationSchema,
         onSubmit: async (values) => {
             try {
-                // Calcular sueldo_liquido con la misma lógica del StepRemuneraciones
-                const _base = Number(values.sueldo_base) || 0;
-                const _gratif =
-                    values.gratificacion_activa && values.tipo_gratificacion === 'art_50_mensual'
-                        ? Math.round(_base * 0.25)
-                        : 0;
-                const _colacion = values.bono_colacion_activo ? Number(values.bono_colacion) || 0 : 0;
-                const _movil = values.bono_movilizacion_activo ? Number(values.bono_movilizacion) || 0 : 0;
-                const _bruto = _base + _gratif + _colacion + _movil;
-                const _desc = values.descuentos_activos
-                    ? Math.round(_base * ((Number(values.porcentaje_descuentos) || 0) / 100))
-                    : 0;
-                const _sueldoLiquido = Math.max(0, _bruto - _desc);
-
                 // Construir payload del contrato
                 const contratoPayload: Record<string, unknown> = {
                     referencia_interna: values.referencia_interna || null,
@@ -444,12 +449,18 @@ const CrearContratoTrabajadorWizard = ({
                     lugar_trabajo: values.lugar_trabajo || null,
                     enviar_al_empleador: values.enviar_al_empleador,
                     cantidad_meses: values.cantidad_meses || null,
-                    sueldo_base: values.sueldo_base || 0,
-                    sueldo_liquido: _sueldoLiquido,
+                    sueldo: values.sueldo || 0,
+                    tipo_sueldo: values.tipo_sueldo,
+                    descuento_prevision_activo: values.descuento_prevision_activo,
+                    descuento_salud_activo: values.descuento_salud_activo,
                     moneda: 'CLP',
                     tipo_gratificacion: values.gratificacion_activa ? values.tipo_gratificacion : 'no_aplica',
                     bono_movilizacion: values.bono_movilizacion_activo ? Number(values.bono_movilizacion) || 0 : 0,
                     bono_colacion: values.bono_colacion_activo ? Number(values.bono_colacion) || 0 : 0,
+                    bono_movilizacion_activo: values.bono_movilizacion_activo,
+                    bono_colacion_activo: values.bono_colacion_activo,
+                    hora_inicio: values.jornada !== 'turnos' ? (values.hora_inicio || null) : null,
+                    hora_fin:    values.jornada !== 'turnos' ? (values.hora_fin || null)    : null,
                     lugar_celebracion_contrato: values.lugar_celebracion_contrato || null,
                     fecha_firma: values.fecha_firma || null,
                     plantilla_contrato: values.plantilla_contrato_id || null,
@@ -475,6 +486,24 @@ const CrearContratoTrabajadorWizard = ({
                     direccion: values.trab_direccion || undefined,
                 };
 
+                // Función interna: genera PDF, cierra el modal y navega al detalle del contrato
+                const _finalizarCreacion = async (contrato: IContratoTrabajador, mensaje: string) => {
+                    toast.success(mensaje);
+                    if (contrato.plantilla_contrato) {
+                        try {
+                            await generarPdf(contrato.id).unwrap();
+                        } catch {
+                            toast.warning('Contrato creado, pero no se pudo generar el PDF.');
+                        }
+                    }
+                    formik.resetForm();
+                    setStep(1);
+                    setStepAttempted(false);
+                    setContratoCreado(null);
+                    setIsOpen(false);
+                    navigate(`/rrhh/contratos/${contrato.id}`);
+                };
+
                 if (values.trab_modo === 'existente') {
                     // Usar el endpoint atomico tambien para 'existente' para que aplique
                     // los datos previsionales/bancarios/personales al UE/User.
@@ -489,10 +518,7 @@ const CrearContratoTrabajadorWizard = ({
                         contrato: contratoPayload as never,
                     };
                     const resp = await crearContratoConTrabajador(payload).unwrap();
-                    toast.success('Contrato laboral creado.');
-                    setIsOpen(false);
-                    formik.resetForm();
-                    setStep(1);
+                    await _finalizarCreacion(resp.contrato ?? resp as never, 'Contrato laboral creado.');
                     return resp;
                 }
 
@@ -514,14 +540,10 @@ const CrearContratoTrabajadorWizard = ({
                     sucursal_id_invalidar: Number(values.trab_sucursal_id),
                 };
                 const resp = await crearContratoConTrabajador(payload).unwrap();
-                toast.success(
-                    resp.invitacion_enviada
-                        ? 'Contrato creado e invitacion enviada.'
-                        : 'Contrato creado.',
+                await _finalizarCreacion(
+                    resp.contrato ?? resp as never,
+                    resp.invitacion_enviada ? 'Contrato creado e invitación enviada.' : 'Contrato creado.',
                 );
-                setIsOpen(false);
-                formik.resetForm();
-                setStep(1);
                 return resp;
             } catch (err) {
                 toast.error(getErrorMessage(err));
@@ -538,6 +560,7 @@ const CrearContratoTrabajadorWizard = ({
                     ...initialValues,
                     trab_modo: 'existente',
                     trab_usuario_empresa_id: usuarioEmpresaInicial.id,
+                    trab_sucursal_id: usuarioEmpresaInicial.sucursalId ?? '',
                 },
             });
             setStep(1);
@@ -621,6 +644,8 @@ const CrearContratoTrabajadorWizard = ({
                             formik={formik}
                             usuariosCliente={usuariosCliente}
                             sucursales={sucursales}
+                            bloqueado={!!usuarioEmpresaInicial}
+                            nombreTrabajador={usuarioEmpresaInicial?.nombre}
                         />
                     </>
                 );
@@ -723,9 +748,13 @@ const CrearContratoTrabajadorWizard = ({
                         </p>
                         {/* Plantilla de contrato */}
                         {(() => {
-                            const plantillasFiltradas = todasLasPlantillas.filter(
-                                (p) => p.tipo_contrato === 'trabajador' && p.activa,
-                            );
+                            const plantillasFiltradas = todasLasPlantillas.filter((p) => {
+                                if (p.tipo_contrato !== 'trabajador' || !p.activa) return false;
+                                // Mostrar plantillas universales (sin subtipo) o que coincidan con el tipo de contrato
+                                const subtipo = (p as unknown as { subtipo_trabajador?: string | null }).subtipo_trabajador;
+                                if (!subtipo) return true;
+                                return subtipo === formik.values.tipo_contrato;
+                            });
                             const globales = plantillasFiltradas.filter((p) => p.es_global);
                             const deEmpresa = plantillasFiltradas.filter((p) => !p.es_global);
                             const gruposOpciones: TSelectGroups = [
@@ -902,10 +931,12 @@ const CrearContratoTrabajadorWizard = ({
                                 Remuneraciones
                             </h4>
                             <dl className='grid grid-cols-2 gap-x-4 gap-y-1 text-xs'>
-                                <dt className='text-zinc-500'>Sueldo base:</dt>
+                                <dt className='text-zinc-500'>
+                                    {formik.values.tipo_sueldo === 'base' ? 'Sueldo base:' : 'Sueldo líquido:'}
+                                </dt>
                                 <dd className='font-medium'>
-                                    {formik.values.sueldo_base
-                                        ? `$${Number(formik.values.sueldo_base).toLocaleString('es-CL')} CLP`
+                                    {formik.values.sueldo
+                                        ? `$${Number(formik.values.sueldo).toLocaleString('es-CL')} CLP`
                                         : '—'}
                                 </dd>
                                 {formik.values.descuentos_activos && (
@@ -949,13 +980,56 @@ const CrearContratoTrabajadorWizard = ({
                     </div>
                 );
             }
+            case 8:
+                return (
+                    <div className='flex flex-col items-center gap-5 py-6 text-center'>
+                        <div className='flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30'>
+                            <svg className='h-7 w-7 text-emerald-600 dark:text-emerald-400' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2.5} d='M5 13l4 4L19 7' />
+                            </svg>
+                        </div>
+                        <div>
+                            <p className='text-lg font-semibold text-zinc-900 dark:text-zinc-100'>
+                                Contrato creado exitosamente
+                            </p>
+                            {contratoCreado?.referencia_interna && (
+                                <p className='mt-0.5 text-sm text-zinc-500 dark:text-zinc-400'>
+                                    {contratoCreado.referencia_interna}
+                                </p>
+                            )}
+                        </div>
+                        {generandoPdf && (
+                            <p className='text-sm text-zinc-500 dark:text-zinc-400'>
+                                Generando PDF...
+                            </p>
+                        )}
+                        {contratoCreado?.archivo_pdf && (
+                            <a
+                                href={contratoCreado.archivo_pdf}
+                                target='_blank'
+                                rel='noreferrer'
+                                className='inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700'>
+                                <svg className='h-4 w-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' />
+                                </svg>
+                                Ver PDF del contrato
+                            </a>
+                        )}
+                        {!contratoCreado?.archivo_pdf && !generandoPdf && (
+                            <p className='text-sm text-amber-600 dark:text-amber-400'>
+                                El PDF se generará cuando asignes una plantilla al contrato.
+                            </p>
+                        )}
+                    </div>
+                );
             default:
                 return null;
         }
     };
 
     const isLast = step === 7;
-    const isLoading = creandoCT || formik.isSubmitting;
+    const isPdfStep = step === 8;
+    const isLoading = creandoCT || formik.isSubmitting || generandoPdf;
     // Deshabilita "Siguiente" solo si el usuario ya intentó avanzar (stepAttempted)
     // y aún hay errores en los campos del paso actual.
     const stepHasErrors =
@@ -1033,7 +1107,7 @@ const CrearContratoTrabajadorWizard = ({
                     </div>
                 </ModalHeader>
                 <ModalBody isScrollable>
-                    <Stepper step={step} />
+                    {!isPdfStep && <Stepper step={step} />}
                     {renderStep()}
                     {contratoId && (
                         <div className='mt-4 flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/30'>
@@ -1069,37 +1143,39 @@ const CrearContratoTrabajadorWizard = ({
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild>
-                        <Button onClick={handleClose}>Cancelar</Button>
+                        <Button onClick={handleClose}>{isPdfStep ? 'Cerrar' : 'Cancelar'}</Button>
                     </ModalFooterChild>
-                    <ModalFooterChild>
-                        {step > 1 && (
-                            <Button onClick={() => setStep((s) => (s - 1) as TStep)}>
-                                Atras
-                            </Button>
-                        )}
-                        {!isLast ? (
-                            <Button
-                                variant='solid'
-                                color='blue'
-                                isDisable={stepHasErrors}
-                                onClick={handleNext}>
-                                Siguiente
-                            </Button>
-                        ) : (
-                            <Tooltip text='Debes seleccionar una plantilla antes de generar el contrato'>
-                                <span className='inline-flex'>
-                                    <Button
-                                        variant='solid'
-                                        color='blue'
-                                        isDisable={isLoading || !formik.values.plantilla_contrato_id}
-                                        icon='HeroCheckCircle'
-                                        onClick={handleGenerar}>
-                                        {isLoading ? 'Guardando...' : 'Generar contrato'}
-                                    </Button>
-                                </span>
-                            </Tooltip>
-                        )}
-                    </ModalFooterChild>
+                    {!isPdfStep && (
+                        <ModalFooterChild>
+                            {step > 1 && (
+                                <Button onClick={() => setStep((s) => (s - 1) as TStep)}>
+                                    Atras
+                                </Button>
+                            )}
+                            {!isLast ? (
+                                <Button
+                                    variant='solid'
+                                    color='blue'
+                                    isDisable={stepHasErrors}
+                                    onClick={handleNext}>
+                                    Siguiente
+                                </Button>
+                            ) : (
+                                <Tooltip text='Debes seleccionar una plantilla antes de generar el contrato'>
+                                    <span className='inline-flex'>
+                                        <Button
+                                            variant='solid'
+                                            color='blue'
+                                            isDisable={isLoading || !formik.values.plantilla_contrato_id}
+                                            icon='HeroCheckCircle'
+                                            onClick={handleGenerar}>
+                                            {isLoading ? 'Guardando...' : 'Generar contrato'}
+                                        </Button>
+                                    </span>
+                                </Tooltip>
+                            )}
+                        </ModalFooterChild>
+                    )}
                 </ModalFooter>
             </Modal>
         </>

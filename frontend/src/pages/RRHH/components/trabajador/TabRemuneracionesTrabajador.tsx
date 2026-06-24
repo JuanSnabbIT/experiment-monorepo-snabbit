@@ -7,6 +7,7 @@ import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
+import { useGetAfpCatalogoQuery } from '@/store/slices/rrhh/catalogosRrhhApi';
 import { useUpdateContratoTrabajadorMutation } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import { formatCurrency } from '@/utils/currency';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -28,29 +29,20 @@ const PORCENTAJE_DESCUENTO_OPTIONS = [
 ];
 
 const deriveInitialValues = (c: IContratoTrabajador) => {
-    const base = parseFloat(c.sueldo_base || '0') || 0;
-    const colacion = parseFloat(c.bono_colacion || '0') || 0;
-    const movil = parseFloat(c.bono_movilizacion || '0') || 0;
-    const gratif = c.tipo_gratificacion === 'art_50_mensual' ? Math.round(base * 0.25) : 0;
-    const bruto = base + gratif + colacion + movil;
-    const liquido = parseFloat(c.sueldo_liquido || '0') || 0;
-    const tieneDescuentos = liquido > 0 && liquido < bruto;
-    const diff = bruto - liquido;
-    const pctMatch = PORCENTAJE_DESCUENTO_OPTIONS.find(
-        (p) => Math.round(base * (Number(p.value) / 100)) === diff,
-    );
-
     return {
-        sueldo_base: c.sueldo_base ?? '',
+        sueldo: c.sueldo ?? '',
+        tipo_sueldo: (c.tipo_sueldo ?? 'base') as 'base' | 'liquido',
         moneda: c.moneda ?? 'CLP',
         gratificacion_activa: !!c.tipo_gratificacion && c.tipo_gratificacion !== 'no_aplica',
         tipo_gratificacion: c.tipo_gratificacion ?? 'no_aplica',
-        descuentos_activos: tieneDescuentos,
-        porcentaje_descuentos: tieneDescuentos ? (pctMatch?.value ?? '20') : '20',
-        bono_colacion_activo: colacion > 0,
+        descuentos_activos: false,
+        porcentaje_descuentos: '20',
+        bono_colacion_activo: parseFloat(c.bono_colacion || '0') > 0,
         bono_colacion: c.bono_colacion ?? '',
-        bono_movilizacion_activo: movil > 0,
+        bono_movilizacion_activo: parseFloat(c.bono_movilizacion || '0') > 0,
         bono_movilizacion: c.bono_movilizacion ?? '',
+        descuento_prevision_activo: c.descuento_prevision_activo ?? false,
+        descuento_salud_activo: c.descuento_salud_activo ?? false,
     };
 };
 
@@ -59,6 +51,13 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
     const [modalOpen, setModalOpen] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [updateContrato] = useUpdateContratoTrabajadorMutation();
+    const { data: afpList = [] } = useGetAfpCatalogoQuery();
+
+    // AFP del trabajador (para tasas de cotización)
+    const afpId = contrato.datos_previsionales_trabajador?.afp_id;
+    const afpObj = afpId ? afpList.find((a) => a.id === afpId) : null;
+    const tasaAfp = Number(afpObj?.tasa_cotizacion ?? 0.1144);
+    const afpNombre = afpObj?.nombre ?? contrato.datos_previsionales_trabajador?.afp;
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -66,36 +65,19 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
         onSubmit: async (values) => {
             setGuardando(true);
             try {
-                const _base = Number(values.sueldo_base) || 0;
-                const _gratif =
-                    values.gratificacion_activa && values.tipo_gratificacion === 'art_50_mensual'
-                        ? Math.round(_base * 0.25)
-                        : 0;
-                const _colacion = values.bono_colacion_activo ? Number(values.bono_colacion) || 0 : 0;
-                const _movil = values.bono_movilizacion_activo
-                    ? Number(values.bono_movilizacion) || 0
-                    : 0;
-                const _bruto = _base + _gratif + _colacion + _movil;
-                const _desc = values.descuentos_activos
-                    ? Math.round(_base * ((Number(values.porcentaje_descuentos) || 0) / 100))
-                    : 0;
-                const _liquido = Math.max(0, _bruto - _desc);
-
                 await updateContrato({
                     id: contrato.id,
                     data: {
-                        sueldo_base: values.sueldo_base !== '' ? values.sueldo_base : undefined,
+                        sueldo: values.sueldo !== '' ? values.sueldo : undefined,
+                        tipo_sueldo: values.tipo_sueldo,
                         moneda: values.moneda,
                         tipo_gratificacion: values.gratificacion_activa
                             ? values.tipo_gratificacion
                             : 'no_aplica',
-                        bono_colacion: values.bono_colacion_activo
-                            ? values.bono_colacion
-                            : '0',
-                        bono_movilizacion: values.bono_movilizacion_activo
-                            ? values.bono_movilizacion
-                            : '0',
-                        sueldo_liquido: String(_liquido),
+                        bono_colacion: values.bono_colacion_activo ? values.bono_colacion : '0',
+                        bono_movilizacion: values.bono_movilizacion_activo ? values.bono_movilizacion : '0',
+                        descuento_prevision_activo: values.descuento_prevision_activo,
+                        descuento_salud_activo: values.descuento_salud_activo,
                     } as Partial<IContratoTrabajador>,
                 }).unwrap();
                 toast.success('Remuneraciones actualizadas');
@@ -108,41 +90,41 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
         },
     });
 
-    // ── Cálculos en tiempo real (modal) ───────────────────────────────
+    // ── Cálculos en tiempo real (modal) — solo para modo base ────────
     const fmtModal = (v: number) => formatCurrency(v, formik.values.moneda);
-    const mBase = Number(formik.values.sueldo_base) || 0;
-    const mColacion = formik.values.bono_colacion_activo
-        ? Number(formik.values.bono_colacion) || 0
-        : 0;
-    const mMovil = formik.values.bono_movilizacion_activo
-        ? Number(formik.values.bono_movilizacion) || 0
-        : 0;
+    const esModoBase = formik.values.tipo_sueldo === 'base';
+    const mBase = Number(formik.values.sueldo) || 0;
+    const mColacion = formik.values.bono_colacion_activo ? Number(formik.values.bono_colacion) || 0 : 0;
+    const mMovil = formik.values.bono_movilizacion_activo ? Number(formik.values.bono_movilizacion) || 0 : 0;
     const mGratif =
-        formik.values.gratificacion_activa &&
-        formik.values.tipo_gratificacion === 'art_50_mensual'
+        formik.values.gratificacion_activa && formik.values.tipo_gratificacion === 'art_50_mensual'
             ? Math.round(mBase * 0.25)
             : 0;
     const mBruto = mBase + mGratif + mColacion + mMovil;
-    const mDesc = formik.values.descuentos_activos
+    const mDescGeneral = formik.values.descuentos_activos
         ? Math.round(mBase * ((Number(formik.values.porcentaje_descuentos) || 0) / 100))
         : 0;
-    const mLiquido = Math.max(0, mBruto - mDesc);
+    const mDescPrevision = formik.values.descuento_prevision_activo
+        ? Math.round(mBase * tasaAfp)
+        : 0;
+    const mDescSalud = formik.values.descuento_salud_activo
+        ? Math.round(mBase * 0.07)
+        : 0;
+    const mLiquido = Math.max(0, mBruto - mDescGeneral - mDescPrevision - mDescSalud);
 
     // ── Modo lectura ──────────────────────────────────────────────────
     const monedaLabel = contrato.moneda_label ?? contrato.moneda;
     const fmtR = (v: number) => formatCurrency(v, contrato.moneda);
-    const rBase = parseFloat(contrato.sueldo_base || '0');
+    const rBase = parseFloat(contrato.sueldo || '0');
+    const rEsModoBase = contrato.tipo_sueldo === 'base';
     const rColacion = parseFloat(contrato.bono_colacion || '0');
     const rMovil = parseFloat(contrato.bono_movilizacion || '0');
     const rGratif =
         contrato.tipo_gratificacion === 'art_50_mensual' ? Math.round(rBase * 0.25) : 0;
     const rBruto = rBase + rGratif + rColacion + rMovil;
-    const rLiquido =
-        contrato.sueldo_liquido && contrato.sueldo_liquido !== '0.00'
-            ? parseFloat(contrato.sueldo_liquido)
-            : null;
-    const rDescuentos = rLiquido !== null ? rBruto - rLiquido : 0;
-    const rLiquidoFinal = rLiquido ?? rBruto;
+    const rDescPrevision = contrato.descuento_prevision_activo ? Math.round(rBase * tasaAfp) : 0;
+    const rDescSalud = contrato.descuento_salud_activo ? Math.round(rBase * 0.07) : 0;
+    const rLiquidoEstimado = Math.max(0, rBruto - rDescPrevision - rDescSalud);
 
     return (
         <>
@@ -169,7 +151,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                     <CardBody>
                         <div className='space-y-1 rounded-xl bg-zinc-50 p-4 text-sm dark:bg-zinc-800/50'>
                             <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
-                                <span>Sueldo base</span>
+                                <span>{rEsModoBase ? 'Sueldo base (bruto)' : 'Sueldo líquido (neto)'}</span>
                                 <span>{fmtR(rBase)}</span>
                             </div>
                             {rGratif > 0 && (
@@ -202,18 +184,30 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                     {fmtR(rBruto)}
                                 </span>
                             </div>
-                            {rDescuentos > 0 && (
+                            {rDescPrevision > 0 && (
                                 <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
-                                    <span>Descuentos legales</span>
-                                    <span className='text-red-500'>-{fmtR(rDescuentos)}</span>
+                                    <span>
+                                        Cotización previsional AFP
+                                        {afpNombre ? ` (${afpNombre})` : ''}
+                                        {' '}({(tasaAfp * 100).toFixed(2)}%)
+                                    </span>
+                                    <span className='text-red-500'>-{fmtR(rDescPrevision)}</span>
                                 </div>
                             )}
-                            <div className='mt-1 flex justify-between border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700'>
-                                <span>Liquido</span>
-                                <span className='text-emerald-600 dark:text-emerald-400'>
-                                    {fmtR(rLiquidoFinal)}
-                                </span>
-                            </div>
+                            {rDescSalud > 0 && (
+                                <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                                    <span>Cotización de salud (7%)</span>
+                                    <span className='text-red-500'>-{fmtR(rDescSalud)}</span>
+                                </div>
+                            )}
+                            {rEsModoBase && (
+                                <div className='mt-1 flex justify-between border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700'>
+                                    <span>Líquido estimado</span>
+                                    <span className='text-emerald-600 dark:text-emerald-400'>
+                                        {fmtR(rLiquidoEstimado)}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </CardBody>
                 </Card>
@@ -223,20 +217,22 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                 <ModalHeader>Editar remuneraciones</ModalHeader>
                 <ModalBody>
                     <div className='space-y-5'>
-                        {/* Sueldo base + moneda */}
+                        {/* Sueldo + moneda */}
                         <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                             <div>
-                                <Label htmlFor='m_sueldo_base'>Sueldo base</Label>
+                                <Label htmlFor='m_sueldo'>
+                                    {esModoBase ? 'Sueldo base (bruto)' : 'Sueldo líquido (neto)'}
+                                </Label>
                                 <p className='mb-1.5 text-xs text-zinc-500 dark:text-zinc-400'>
                                     Moneda: {formik.values.moneda}
                                 </p>
                                 <Input
-                                    id='m_sueldo_base'
-                                    name='sueldo_base'
+                                    id='m_sueldo'
+                                    name='sueldo'
                                     type='number'
                                     min={0}
                                     placeholder='0'
-                                    value={formik.values.sueldo_base}
+                                    value={formik.values.sueldo}
                                     onChange={formik.handleChange}
                                 />
                             </div>
@@ -253,10 +249,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                         ) ?? null
                                     }
                                     onChange={(opt) =>
-                                        formik.setFieldValue(
-                                            'moneda',
-                                            (opt as TSelectOption)?.value ?? 'CLP',
-                                        )
+                                        formik.setFieldValue('moneda', (opt as TSelectOption)?.value ?? 'CLP')
                                     }
                                 />
                             </div>
@@ -271,10 +264,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                     name='gratificacion_activa'
                                     checked={formik.values.gratificacion_activa}
                                     onChange={(e) => {
-                                        formik.setFieldValue(
-                                            'gratificacion_activa',
-                                            e.target.checked,
-                                        );
+                                        formik.setFieldValue('gratificacion_activa', e.target.checked);
                                         if (!e.target.checked)
                                             formik.setFieldValue('tipo_gratificacion', 'no_aplica');
                                     }}
@@ -290,8 +280,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                             )}
                                             value={
                                                 TIPO_GRATIFICACION_OPTIONS.find(
-                                                    (o) =>
-                                                        o.value === formik.values.tipo_gratificacion,
+                                                    (o) => o.value === formik.values.tipo_gratificacion,
                                                 ) ?? null
                                             }
                                             onChange={(opt) =>
@@ -306,7 +295,35 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                 )}
                             </div>
 
-                            {/* Descuentos legales */}
+                            {/* Cotización previsional AFP */}
+                            {afpId && (
+                                <Checkbox
+                                    id='m_descuento_prevision_activo'
+                                    name='descuento_prevision_activo'
+                                    checked={formik.values.descuento_prevision_activo}
+                                    onChange={(e) =>
+                                        formik.setFieldValue('descuento_prevision_activo', e.target.checked)
+                                    }
+                                    label={`Cotización previsional AFP${afpNombre ? ` (${afpNombre} · ${(tasaAfp * 100).toFixed(2)}%)` : ''}`}
+                                    dimension='sm'
+                                />
+                            )}
+
+                            {/* Cotización de salud */}
+                            {contrato.datos_previsionales_trabajador?.sistema_salud && (
+                                <Checkbox
+                                    id='m_descuento_salud_activo'
+                                    name='descuento_salud_activo'
+                                    checked={formik.values.descuento_salud_activo}
+                                    onChange={(e) =>
+                                        formik.setFieldValue('descuento_salud_activo', e.target.checked)
+                                    }
+                                    label='Cotización de salud (7%)'
+                                    dimension='sm'
+                                />
+                            )}
+
+                            {/* Descuentos legales genéricos */}
                             <div>
                                 <Checkbox
                                     id='m_descuentos_activos'
@@ -315,7 +332,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                     onChange={(e) =>
                                         formik.setFieldValue('descuentos_activos', e.target.checked)
                                     }
-                                    label='Descuentos legales'
+                                    label='Otros descuentos legales'
                                     dimension='sm'
                                 />
                                 {formik.values.descuentos_activos && (
@@ -325,9 +342,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                             options={PORCENTAJE_DESCUENTO_OPTIONS}
                                             value={
                                                 PORCENTAJE_DESCUENTO_OPTIONS.find(
-                                                    (o) =>
-                                                        o.value ===
-                                                        formik.values.porcentaje_descuentos,
+                                                    (o) => o.value === formik.values.porcentaje_descuentos,
                                                 ) ?? PORCENTAJE_DESCUENTO_OPTIONS[2]
                                             }
                                             onChange={(opt) =>
@@ -348,12 +363,8 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                     name='bono_colacion_activo'
                                     checked={formik.values.bono_colacion_activo}
                                     onChange={(e) => {
-                                        formik.setFieldValue(
-                                            'bono_colacion_activo',
-                                            e.target.checked,
-                                        );
-                                        if (!e.target.checked)
-                                            formik.setFieldValue('bono_colacion', '');
+                                        formik.setFieldValue('bono_colacion_activo', e.target.checked);
+                                        if (!e.target.checked) formik.setFieldValue('bono_colacion', '');
                                     }}
                                     label='Bono colación'
                                     dimension='sm'
@@ -380,12 +391,8 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                     name='bono_movilizacion_activo'
                                     checked={formik.values.bono_movilizacion_activo}
                                     onChange={(e) => {
-                                        formik.setFieldValue(
-                                            'bono_movilizacion_activo',
-                                            e.target.checked,
-                                        );
-                                        if (!e.target.checked)
-                                            formik.setFieldValue('bono_movilizacion', '');
+                                        formik.setFieldValue('bono_movilizacion_activo', e.target.checked);
+                                        if (!e.target.checked) formik.setFieldValue('bono_movilizacion', '');
                                     }}
                                     label='Bono movilización'
                                     dimension='sm'
@@ -424,9 +431,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                 formik.values.tipo_gratificacion === 'art_47' && (
                                     <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
                                         <span>Gratificación anual (Art.47)</span>
-                                        <span className='text-xs text-zinc-400'>
-                                            Se calcula al año
-                                        </span>
+                                        <span className='text-xs text-zinc-400'>Se calcula al año</span>
                                     </div>
                                 )}
                             {mColacion > 0 && (
@@ -451,13 +456,24 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                                     {fmtModal(mBruto)}
                                 </span>
                             </div>
-                            {formik.values.descuentos_activos && (
+                            {mDescPrevision > 0 && (
                                 <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
                                     <span>
-                                        Descuentos legales (~
-                                        {formik.values.porcentaje_descuentos}%)
+                                        Cotización AFP ({(tasaAfp * 100).toFixed(2)}%)
                                     </span>
-                                    <span className='text-red-500'>-{fmtModal(mDesc)}</span>
+                                    <span className='text-red-500'>-{fmtModal(mDescPrevision)}</span>
+                                </div>
+                            )}
+                            {mDescSalud > 0 && (
+                                <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                                    <span>Cotización de salud (7%)</span>
+                                    <span className='text-red-500'>-{fmtModal(mDescSalud)}</span>
+                                </div>
+                            )}
+                            {formik.values.descuentos_activos && mDescGeneral > 0 && (
+                                <div className='flex justify-between text-zinc-600 dark:text-zinc-400'>
+                                    <span>Otros descuentos (~{formik.values.porcentaje_descuentos}%)</span>
+                                    <span className='text-red-500'>-{fmtModal(mDescGeneral)}</span>
                                 </div>
                             )}
                             <div className='mt-1 flex justify-between border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-700'>
@@ -470,10 +486,7 @@ const TabRemuneracionesTrabajador = ({ contrato }: Props) => {
                     </div>
                 </ModalBody>
                 <ModalFooter>
-                    <Button
-                        type='button'
-                        onClick={() => setModalOpen(false)}
-                        isDisable={guardando}>
+                    <Button type='button' onClick={() => setModalOpen(false)} isDisable={guardando}>
                         Cancelar
                     </Button>
                     <Button

@@ -1,3 +1,4 @@
+import Checkbox from '@/components/form/Checkbox';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
@@ -7,15 +8,18 @@ import {
     useGetAfpCatalogoQuery,
     useGetBancoCatalogoQuery,
 } from '@/store/slices/rrhh/catalogosRrhhApi';
+import Alert from '@/components/ui/Alert';
+import Button from '@/components/ui/Button';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { FormikProps } from 'formik';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import {
     IFormValuesContratoTrabajador,
     SISTEMA_SALUD_OPTIONS,
     TIPO_CUENTA_OPTIONS,
 } from './types';
+import { confirmarConsultaAfpLegal, useConsultaAfp } from './useConsultaAfp';
 
 interface Props {
     formik: FormikProps<IFormValuesContratoTrabajador>;
@@ -55,6 +59,18 @@ const StepPrevisionBanco = ({ formik }: Props) => {
         }
     };
 
+    // Consulta de afiliación AFP (spensiones.cl). El RUT está en trab_rut tanto
+    // para trabajador nuevo como existente (StepTrabajador lo propaga al elegir).
+    const { consultar, afiliacion, isConsultando } = useConsultaAfp();
+    const rutDisponible = (values.trab_rut || '').trim();
+
+    // Al obtener la afiliación, pre-llenar el select si hubo match en catálogo.
+    useEffect(() => {
+        if (afiliacion?.afp_id) {
+            setFieldValue('afp', afiliacion.afp_id);
+        }
+    }, [afiliacion, setFieldValue]);
+
     return (
         <div className='space-y-5'>
             {/* Datos previsionales */}
@@ -77,22 +93,87 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                     title='Datos previsionales (opcional)'
                 />
                 <div className='space-y-3'>
-                    {/* AFP a ancho completo */}
+                    {/* AFP */}
                     <div>
-                        <Label htmlFor='afp'>AFP *</Label>
+                        <div className='flex items-center justify-between'>
+                            <Label htmlFor='afp'>AFP</Label>
+                            <Button
+                                type='button'
+                                variant='plain'
+                                color='blue'
+                                size='sm'
+                                icon='HeroMagnifyingGlass'
+                                isLoading={isConsultando}
+                                isDisable={!rutDisponible || isConsultando}
+                                onClick={async () => {
+                                    if (await confirmarConsultaAfpLegal()) consultar(rutDisponible);
+                                }}>
+                                {isConsultando ? 'Consultando...' : 'Consultar Afiliación'}
+                            </Button>
+                        </div>
+                        {!rutDisponible && (
+                            <p className='mb-1 text-xs text-zinc-400'>
+                                Ingresa el RUT del trabajador para consultar su afiliación.
+                            </p>
+                        )}
                         <SelectReact
                             name='afp'
                             options={afpOptions}
                             value={afpOptions.find((o) => o.value === String(values.afp)) || null}
-                            onChange={(opt) => setFieldValue('afp', (opt as TSelectOption)?.value ? Number((opt as TSelectOption).value) : null)}
+                            onChange={(opt) => {
+                                setFieldValue('afp', (opt as TSelectOption)?.value ? Number((opt as TSelectOption).value) : null);
+                                if (!(opt as TSelectOption)?.value) setFieldValue('descuento_prevision_activo', false);
+                            }}
                             isClearable
                             placeholder='Seleccionar AFP...'
                         />
+                        {afiliacion && (
+                            <Alert
+                                className='mt-2'
+                                variant='outline'
+                                color={afiliacion.afp_id ? 'emerald' : 'amber'}
+                                icon={afiliacion.afp_id ? 'HeroCheckCircle' : 'HeroExclamationTriangle'}
+                                iconSize='text-xl'>
+                                <p className='text-sm font-semibold'>
+                                    {afiliacion.afp_id
+                                        ? `AFP ${afiliacion.afp_nombre} seleccionada automáticamente`
+                                        : `AFP ${afiliacion.afp_nombre ?? '—'} — sin coincidencia en tu catálogo`}
+                                </p>
+                                {!afiliacion.afp_id && (
+                                    <p className='text-xs'>
+                                        Selecciónala manualmente en el campo de arriba.
+                                    </p>
+                                )}
+                                <p className='mt-1 text-xs opacity-80'>
+                                    Afiliación AFP desde {afiliacion.afp_fecha_afiliacion ?? '—'}
+                                    {afiliacion.afc_fecha_afiliacion
+                                        ? ` · AFC desde ${afiliacion.afc_fecha_afiliacion}`
+                                        : ''}
+                                </p>
+                                {afiliacion.afp_datos_al_mes && (
+                                    <p className='text-xs opacity-60'>
+                                        Datos a {afiliacion.afp_datos_al_mes} · fuente: spensiones.cl
+                                    </p>
+                                )}
+                            </Alert>
+                        )}
+                        {values.afp && (
+                            <div className='mt-2 pl-1'>
+                                <Checkbox
+                                    id='descuento_prevision_activo'
+                                    name='descuento_prevision_activo'
+                                    checked={values.descuento_prevision_activo}
+                                    onChange={(e) => setFieldValue('descuento_prevision_activo', e.target.checked)}
+                                    label='Incluir cotización previsional en el cálculo de sueldo líquido'
+                                    dimension='sm'
+                                />
+                            </div>
+                        )}
                     </div>
                     {/* Sistema de salud + ISAPRE en la misma fila */}
                     <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
                         <div>
-                            <Label htmlFor='sistema_salud'>Sistema de salud *</Label>
+                            <Label htmlFor='sistema_salud'>Sistema de salud</Label>
                             <SelectReact
                                 name='sistema_salud'
                                 options={SISTEMA_SALUD_OPTIONS}
@@ -101,13 +182,23 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                                         (o) => o.value === values.sistema_salud,
                                     ) || null
                                 }
-                                onChange={(opt) =>
-                                    setFieldValue(
-                                        'sistema_salud',
-                                        (opt as TSelectOption)?.value || '',
-                                    )
-                                }
+                                onChange={(opt) => {
+                                    setFieldValue('sistema_salud', (opt as TSelectOption)?.value || '');
+                                    if (!(opt as TSelectOption)?.value) setFieldValue('descuento_salud_activo', false);
+                                }}
                             />
+                            {values.sistema_salud && (
+                                <div className='mt-2 pl-1'>
+                                    <Checkbox
+                                        id='descuento_salud_activo'
+                                        name='descuento_salud_activo'
+                                        checked={values.descuento_salud_activo}
+                                        onChange={(e) => setFieldValue('descuento_salud_activo', e.target.checked)}
+                                        label='Incluir cotización de salud en el cálculo de sueldo líquido'
+                                        dimension='sm'
+                                    />
+                                </div>
+                            )}
                         </div>
                         {values.sistema_salud === 'isapre' && (
                             <div>

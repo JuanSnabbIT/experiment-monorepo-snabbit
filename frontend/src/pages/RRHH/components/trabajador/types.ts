@@ -53,8 +53,8 @@ export interface IFormValuesContratoTrabajador {
     causal_reemplazo: string;
 
     // Step 4 - Remuneraciones
-    sueldo_base: number | '';
-    sueldo_liquido: number | '';
+    sueldo: number | '';
+    tipo_sueldo: 'base' | 'liquido';
     moneda: TMonedaContrato;
     tipo_gratificacion: 'art_47' | 'art_50_mensual' | 'no_aplica' | '';
     gratificacion_activa: boolean;
@@ -65,7 +65,9 @@ export interface IFormValuesContratoTrabajador {
     bono_colacion: number | '';
     bono_colacion_activo: boolean;
     afp: number | null;
+    descuento_prevision_activo: boolean;
     sistema_salud: '' | 'fonasa' | 'isapre' | 'otro';
+    descuento_salud_activo: boolean;
     nombre_isapre: string;
     sistema_salud_otro: string;
     banco: string;
