@@ -52,6 +52,9 @@ export interface IContratoLaboralHistorial {
     fecha_inicio: string;
     fecha_termino: string | null;
     archivo_pdf: string | null;
+    sueldo: string | null;
+    tipo_sueldo: string | null;
+    moneda: string | null;
 }
 
 export interface IContratoLaboralVigente {
@@ -62,8 +65,8 @@ export interface IContratoLaboralVigente {
     jornada_label: string;
     cargo: string | null;
     lugar_trabajo: string | null;
-    sueldo_base: string;
-    sueldo_liquido: string | null;
+    sueldo: string;
+    tipo_sueldo: 'base' | 'liquido';
     moneda: 'CLP' | 'UF' | 'USD';
     tipo_gratificacion?: string | null;
     tipo_gratificacion_label?: string | null;

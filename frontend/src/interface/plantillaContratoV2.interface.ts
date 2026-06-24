@@ -41,6 +41,8 @@ export interface ISeccionPlantillaV2 {
     es_editable_en_contrato: boolean;
     es_obligatoria: boolean;
     mostrar_numero: boolean;
+    condicion_aparicion: string | null;
+    condicion_aparicion_label: string | null;
 }
 
 export interface IPlantillaContratoV2 {
@@ -51,6 +53,8 @@ export interface IPlantillaContratoV2 {
     activa: boolean;
     tipo_contrato: string;
     tipo_contrato_label: string;
+    subtipo_trabajador: string | null;
+    subtipo_trabajador_label: string | null;
     empresa_prestadora: number;
     empresa_cliente: number | null;
     empresa_cliente_nombre: string | null;
@@ -74,6 +78,8 @@ export interface IPlantillaContratoV2List {
     activa: boolean;
     tipo_contrato: string;
     tipo_contrato_label: string;
+    subtipo_trabajador: string | null;
+    subtipo_trabajador_label: string | null;
     empresa_cliente: number | null;
     empresa_cliente_nombre: string | null;
     es_default: boolean;
@@ -89,6 +95,7 @@ export interface ICreatePlantillaV2Payload {
     titulo: string;
     descripcion?: string;
     tipo_contrato: string;
+    subtipo_trabajador?: string | null;
     empresa_cliente?: number | null;
     activa?: boolean;
     requiere_nda?: boolean;

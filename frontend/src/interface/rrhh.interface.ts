@@ -1,5 +1,7 @@
 // Interfaces del modulo RRHH (contratos laborales y anexos)
 
+export type TTipoSueldo = 'base' | 'liquido';
+
 export interface ITrabajadorCliente {
     tipo: 'confirmado' | 'pendiente';
     ref_id: number;
@@ -23,6 +25,7 @@ export type TEstadoContrato =
     | 'borrador'
     | 'pendiente_aprobacion'
     | 'vigente'
+    | 'vencido'
     | 'terminado'
     | 'anulado'
     | 'descartado';
@@ -30,24 +33,35 @@ export type TEstadoContrato =
 export type TMonedaContrato = 'CLP' | 'UF' | 'USD';
 
 export type TMotivoTerminoContrato =
+    // Art. 159 — sin indemnización
     | 'renuncia'
     | 'mutuo_acuerdo'
     | 'vencimiento_plazo'
-    | 'necesidades_empresa'
+    | 'conclusion_obra_faena'
+    | 'caso_fortuito_fuerza_mayor'
+    // Art. 160 — sin indemnización (causa imputable)
     | 'incumplimiento_grave'
     | 'falta_probidad'
     | 'inasistencias_injustificadas'
     | 'abandono_trabajo'
-    | 'caso_fortuito_fuerza_mayor'
+    // Art. 161 — con indemnización
+    | 'necesidades_empresa'
+    | 'desahucio_empleador'
+    // Despido injustificado
+    | 'despido_injustificado'
     | 'otro';
 
 export type TTipoGratificacion = 'art_47' | 'art_50_mensual' | 'no_aplica';
 
 export type TTipoAnexoContrato =
+    | 'prorroga'
+    | 'cambio_tipo_contrato'
     | 'modificacion_sueldo'
     | 'modificacion_cargo'
+    | 'modificacion_funciones'
     | 'modificacion_jornada'
-    | 'prorroga'
+    | 'cambio_lugar_trabajo'
+    | 'modificacion_general'
     | 'otro';
 
 export interface ITurnoLaboral {
@@ -136,6 +150,18 @@ export interface IAnexoContrato {
     creado_por: number | null;
     fecha_creacion: string;
     fecha_modificacion: string;
+    nuevo_sueldo?: string | null;
+    nuevo_tipo_sueldo?: TTipoSueldo | null;
+    nuevo_tipo_gratificacion?: TTipoGratificacion | null;
+    nuevo_bono_movilizacion?: string | null;
+    nuevo_bono_colacion?: string | null;
+    nuevo_cargo?: string | null;
+    nuevas_funciones?: string | null;
+    nueva_jornada?: TJornadaContrato | null;
+    nuevas_horas_semanales?: number | null;
+    nuevo_lugar_trabajo?: string | null;
+    nuevo_tipo_contrato?: string | null;
+    numero_prorroga?: number | null;
 }
 
 export interface IContratoTrabajador {
@@ -156,12 +182,23 @@ export interface IContratoTrabajador {
     horas_semanales: number | null;
     lugar_trabajo: string | null;
 
-    sueldo_base: string;
+    sueldo: string;
+    tipo_sueldo: TTipoSueldo;
+    tipo_sueldo_label?: string;
+    descuento_prevision_activo: boolean;
+    descuento_salud_activo: boolean;
     moneda: TMonedaContrato;
     moneda_label?: string;
     tipo_gratificacion: TTipoGratificacion;
     bono_movilizacion: string;
     bono_colacion: string;
+    bono_movilizacion_activo: boolean;
+    bono_colacion_activo: boolean;
+
+    hora_inicio: string | null;
+    hora_fin: string | null;
+    hora_inicio_display?: string | null;
+    hora_fin_display?: string | null;
 
     archivo_pdf: string | null;
 
@@ -181,7 +218,8 @@ export interface IContratoTrabajador {
 
     referencia_interna: string | null;
     observaciones: string | null;
-    sueldo_liquido: string | null;
+    /** @deprecated eliminado en Fase 0 — usar sueldo + tipo_sueldo */
+    sueldo_liquido?: string | null;
     horario_detalle: string | null;
     grupo_turno: number | null;
     grupo_turno_data?: IGrupoTurno | null;
@@ -209,6 +247,7 @@ export interface IContratoTrabajador {
         dias: number;
         formato: string;
         dias_vacaciones_acumulados: number;
+        dias_vacaciones_tomados: number;
         dias_vacaciones_disponibles: number;
     } | null;
 
@@ -233,6 +272,7 @@ export interface IContratoTrabajador {
         numero_cuenta_bancaria?: string | null;
     } | null;
     anexos?: IAnexoContrato[];
+    finiquito?: IFiniquitoContrato | null;
     datos_trabajador_nuevo?: {
         email: string;
         first_name?: string;
@@ -257,6 +297,27 @@ export interface IContratoTrabajador {
 export interface IContratoTrabajadorSnapshotBlock {
     path: string;
     value: string | null;
+}
+
+// ── Consulta de afiliación AFP/AFC (spensiones.cl) ──────────────────────
+export interface IAfpAfiliacion {
+    nombre_completo: string | null;
+    rut: string;
+    afp_nombre: string | null;
+    afp_id: number | null; // null => no hubo match en el catálogo
+    afp_fecha_afiliacion: string | null;
+    afc_afiliado: boolean;
+    afc_fecha_afiliacion: string | null;
+    afp_datos_al_mes: string | null;
+    afc_datos_al_mes: string | null;
+    consultado_en: string;
+}
+
+export interface IConsultaAfpResponse {
+    status: 'pending' | 'completed' | 'failed';
+    resultado?: IAfpAfiliacion;
+    task_id?: string;
+    error?: string;
 }
 
 export interface IContratoTrabajadorSnapshotUpdatePayload extends IContratoTrabajadorSnapshotBlock {
@@ -330,6 +391,9 @@ export interface IContratoTrabajadorHistorialEvento {
     origen: 'contrato' | 'anexo' | 'aprobacion_empleador';
     detalle: string;
     cambios: ICambioCampoContrato[];
+    // Presentes solo en el historial agregado de la ficha del trabajador
+    contrato_id?: number;
+    contrato_tipo_label?: string;
 }
 
 export interface IEnvioAprobacionEmpleador {
@@ -359,7 +423,8 @@ export interface IContratoAprobacionPublica {
         fecha_termino: string | null;
         jornada: string;
         jornada_label?: string;
-        sueldo_base: string;
+        sueldo: string;
+        tipo_sueldo: TTipoSueldo;
         moneda: string;
         nombre_trabajador: string | null;
         email_trabajador: string | null;
@@ -376,5 +441,34 @@ export interface IResponderAprobacionPayload {
     cambios_solicitados?: string[];
     notificar_trabajador?: boolean;
     email_trabajador?: string;
+}
+
+// ─── Finiquito ────────────────────────────────────────────────────────────────
+
+export type TEstadoFiniquito = 'borrador' | 'calculado' | 'firmado' | 'pagado';
+
+// TTipoSueldo ya definida al inicio del archivo
+
+export interface IConceptoFiniquito {
+    id: string;
+    nombre: string;
+    detalle: string;
+    monto: number;
+}
+
+export interface IFiniquitoContrato {
+    id: number;
+    contrato: number;
+    conceptos: IConceptoFiniquito[];
+    total_bruto: number;
+    total_descuentos: number;
+    total_neto: number;
+    estado: TEstadoFiniquito;
+    estado_label: string;
+    archivo_pdf: string | null;
+    fecha_firma: string | null;
+    calculado_por: number | null;
+    fecha_creacion: string;
+    fecha_modificacion: string;
 }
 

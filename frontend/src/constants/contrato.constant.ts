@@ -1,9 +1,74 @@
 
-export const ESTADOS_CONTRATO = [
-    { value: 'borrador', label: 'Borrador' },
-    { value: 'activo', label: 'Activo' },
-    { value: 'suspendido', label: 'Suspendido' },
-    { value: 'finalizado', label: 'Finalizado' },
+import type { TEstadoFiniquito } from '@/interface/rrhh.interface';
+
+// ─── Colores de estado para Finiquito ─────────────────────────────────────────
+export const COLOR_ESTADO_FINIQUITO: Record<TEstadoFiniquito, TColors> = {
+    borrador:  'amber',
+    calculado: 'blue',
+    firmado:   'emerald',
+    pagado:    'violet',
+};
+
+// ─── Mapa de colores semánticos por estado (unificado) ───
+//   zinc    → preliminar / sin efecto
+//   amber   → en proceso / pendiente / suspendido
+//   sky     → aprobado por cliente
+//   violet  → firma / finalizado normal
+//   emerald → activo / vigente
+//   red     → rechazado / vencido / anulado / error
+export const COLOR_ESTADO: Record<string, TColors> = {
+    // Contratos Empresa-Cliente
+    borrador: 'zinc',
+    en_aprobacion_cliente: 'amber',
+    cambios_solicitados: 'amber',
+    aprobado_cliente: 'sky',
+    rechazado_cliente: 'red',
+    en_firma: 'violet',
+    activo: 'emerald',
+    suspendido: 'amber',
+    finalizado: 'violet',
+    // RRHH (Contratos Laborales)
+    pendiente_aprobacion: 'amber',
+    vigente: 'emerald',
+    vencido: 'red',
+    terminado: 'violet',
+    anulado: 'red',
+    descartado: 'zinc',
+    // Licencias
+    activa: 'emerald',
+    vencida: 'red',
+    suspendida: 'amber',
+    cancelada: 'zinc',
+};
+
+export const ESTADOS_CONTRATO: {
+    value: string;
+    label: string;
+    color: TColors;
+}[] = [
+    { value: 'borrador',               label: 'Borrador',                  color: 'zinc' },
+    { value: 'en_aprobacion_cliente',  label: 'En aprobación del cliente', color: 'amber' },
+    { value: 'cambios_solicitados',    label: 'Cambios solicitados',       color: 'amber' },
+    { value: 'aprobado_cliente',       label: 'Aprobado por cliente',      color: 'sky' },
+    { value: 'rechazado_cliente',      label: 'Rechazado por cliente',     color: 'red' },
+    { value: 'en_firma',               label: 'En firma',                  color: 'violet' },
+    { value: 'activo',                 label: 'Activo',                    color: 'emerald' },
+    { value: 'suspendido',             label: 'Suspendido',                color: 'amber' },
+    { value: 'finalizado',             label: 'Finalizado',                color: 'violet' },
+];
+
+export const ESTADOS_CONTRATO_RRHH: {
+    value: string;
+    label: string;
+    color: TColors;
+}[] = [
+    { value: 'borrador',              label: 'Borrador',              color: 'zinc' },
+    { value: 'pendiente_aprobacion',  label: 'Pendiente aprobación',  color: 'amber' },
+    { value: 'vigente',               label: 'Vigente',               color: 'emerald' },
+    { value: 'vencido',               label: 'Vencido',               color: 'red' },
+    { value: 'terminado',             label: 'Terminado',             color: 'violet' },
+    { value: 'anulado',               label: 'Anulado',               color: 'red' },
+    { value: 'descartado',            label: 'Descartado',            color: 'zinc' },
 ];
 
 export const TIPO_CONTRATO = [
