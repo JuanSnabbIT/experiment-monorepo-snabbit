@@ -136,6 +136,8 @@ const RtkQueryService = createApi({
         'TurnoLaboral',
         'ConfiguracionLaboral',
         'GrupoTurno',
+        'Finiquito',
+        'FiniquitoList',
         // Plantillas Contrato V2 (Motor Slate)
         'PlantillaContratoV2',
         'PlantillaContratoV2List',

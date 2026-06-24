@@ -102,6 +102,14 @@ BaseService.interceptors.response.use(
     async (error: AxiosError) => {
         const originalRequest = error.config as CustomAxiosRequestConfig;
 
+        // Handler 403 — permiso denegado por rol insuficiente
+        if (error.response?.status === 403) {
+            toast.error('No tienes permisos para realizar esta acción.', {
+                toastId: 'forbidden',
+            });
+            return Promise.reject(error);
+        }
+
         // Solo manejar errores 401 que no sean de login y no hayan sido reintentados
         if (
             error.response &&

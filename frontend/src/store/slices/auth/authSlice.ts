@@ -81,13 +81,17 @@ export const obtenerPersonalizacionThunk = createAsyncThunk<
     IPersonalizacionUsuario,
     void,
     { rejectValue: string }
->('auth/obtenerPersonalizacionThunk', async (_, { rejectWithValue }) => {
+>('auth/obtenerPersonalizacionThunk', async (_, { rejectWithValue, dispatch }) => {
     try {
         // No pasar headers manualmente - el interceptor de BaseService lo hace
         const response = await ApiService.fetchData<IPersonalizacionUsuario[]>({
             url: `/api/personalizacion-usuarios/`,
             method: 'get',
         });
+        // Re-fetch grupos porque la sucursal_principal puede haber cambiado.
+        // get_grupos_user filtra por sucursal_principal activa, por lo que
+        // un cambio de empresa requiere actualizar los grupos del usuario.
+        dispatch(obtenerGruposThunk());
         return response.data[0];
     } catch (error: any) {
         return rejectWithValue(error.response?.data || 'Error al obtener personalización');
