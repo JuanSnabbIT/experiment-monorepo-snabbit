@@ -1,107 +1,63 @@
 ---
 name: testing-status
-description: Estado actual testing — sin cobertura funcional, patrones esperados documentados
-lastUpdated: 2026-06-01
+description: Cobertura real de tests por módulo — 357 tests backend funcionales. Frontend sin runner configurado.
+lastUpdated: 2026-06-22
 relatedFiles:
-  - backend/*/tests.py
-  - frontend/src/__tests__/
-  - .github/instructions/testing.md
+  - backend/*/tests/
+  - .github/skills/qa-suite/SKILL.md
 ---
 
-# Testing Status — Cobertura Actual & Patrones
+# Testing Status — Cobertura Real
 
-## Estado Actual
+## Backend — Estado Actual (verificado 2026-06-22)
 
-🔴 **Sin cobertura de tests funcionales implementada**
+357 tests reales distribuidos en los módulos más críticos.
 
-- Backend: `tests.py` existen pero vacíos/minimal
-- Frontend: `__tests__/` directorio creado, sin tests
-- CI/CD: Sin ejecutor de tests automatizado
+| App | Tests | Archivo(s) | Cobertura |
+|-----|-------|-----------|-----------|
+| contratos | 154 | test_views.py (110), test_models.py (32), test_plantilla_v2.py (12) | Multi-tenancy, estados, PDF, firma, licencias |
+| notificaciones | 48 | tests.py | Eventos, grupos, Celery |
+| rrhh | 43 | test_views.py (29), test_atomicity.py (14) | Tenancy, estados contrato, creación atómica |
+| cotizaciones | 27 | tests.py | Flujo cotización |
+| bodegas | 28 | tests_validaciones.py (22), tests_tenancy_series_plan.py (6) | Validaciones stock, tenancy |
+| ordentrabajov3 | 34 | test_prefactura_otv3.py (30), test_solicitante_prospecto_otv3.py (4) | Prefactura, solicitantes |
+| retroalimentacion | 12 | test_public_otv3.py | Rutas públicas |
+| recursos | 7 | tests.py | — |
+| core | 4 | tests.py | — |
+| contratos (celery) | 2 | test_celery_schedule.py | Imports de tareas beat |
 
-## Patrones Esperados
+## Módulos sin tests (brechas críticas)
 
-### Backend (Django)
+| App | Riesgo | Razón |
+|-----|--------|-------|
+| **empresas** | 🔴 CRÍTICO | Multi-tenancy base sin probar — si falla, todos los filtros de empresa fallan |
+| **cuentas** | 🔴 CRÍTICO | Custom User Model sin ningún test |
+| **vacaciones** | 🔴 Alto | Flujo de solicitud + aprobación sin cobertura |
+| **rendiciones** | 🔴 Alto | Lógica financiera de rendición de gastos sin tests |
+| activos, calendario, items, visitas, ordentrabajov2 | ⚠️ Bajo | Módulos menores o deprecados |
 
-```python
-# backend/app/tests.py
-from django.test import TestCase
-from app.models import MiModelo
+## Frontend — Estado Actual
 
-class MiModeloTestCase(TestCase):
-    def setUp(self):
-        self.empresa = Empresa.objects.create(nombre="Test")
-        self.objeto = MiModelo.objects.create(empresa=self.empresa, ...)
-    
-    def test_modelo_creacion(self):
-        self.assertEqual(self.objeto.nombre, "Test")
-    
-    def test_multi_tenancy_filtro(self):
-        qs = MiModelo.objects.filter(empresa=self.empresa)
-        self.assertIn(self.objeto, qs)
-```
+- `setupTests.ts` existe con `@testing-library/jest-dom` — infraestructura parcial
+- **Sin test runner configurado** (Vitest pendiente de instalar)
+- Scripts `npm run test` no existe en package.json
+- 4 archivos de utilidades puras testables sin tests: `rut.util.ts`, `currency.ts`, `errorHandlers.ts`, `contrato.helpers.ts`
 
-### Frontend (React)
-
-```typescript
-// frontend/src/__tests__/components/Button.test.tsx
-import { render, screen } from '@testing-library/react';
-import Button from '@/components/ui/Button';
-
-describe('Button', () => {
-  it('renders with text', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByText('Click me')).toBeInTheDocument();
-  });
-  
-  it('calls onClick handler', () => {
-    const handleClick = jest.fn();
-    render(<Button onClick={handleClick}>Click</Button>);
-    screen.getByText('Click').click();
-    expect(handleClick).toHaveBeenCalled();
-  });
-});
-```
-
-## Comandos (Cuando esté implementado)
+## Comandos
 
 ```bash
-# Backend
-cd backend
-python manage.py test                    # Todos los tests
-python manage.py test app.tests          # App específica
-python manage.py test --verbosity=2      # Con detalles
+# Backend (requiere venv activo)
+cd backend && python manage.py test --verbosity=2    # Todos los tests
+cd backend && python manage.py test rrhh.tests       # Por módulo
+cd backend && python manage.py test contratos.tests
 
-# Frontend
-cd frontend
-npm run test                             # Jest
-npm run test -- --coverage              # Con cobertura
-npm run test -- --watch                 # Watch mode
+# Frontend (pendiente instalar Vitest)
+cd frontend && npm run test  # No existe aún
 ```
 
-## Requisitos de Cobertura Deseados
+## Próximos pasos
 
-```
-Backend:
-  - ≥ 80% coverage en models.py
-  - ≥ 70% coverage en views.py (endpoints)
-  - ≥ 100% en services.py (lógica crítica)
-  - Multi-tenancy tests obligatorios
-
-Frontend:
-  - ≥ 80% coverage en componentes UI
-  - ≥ 70% coverage en pages
-  - RTK Query hooks testeados
-  - Integration tests para flows críticos
-```
-
-## Próximos Pasos
-
-1. Agregar dependencias (`pytest`, `pytest-django`, `jest`, `@testing-library/react`)
-2. Escribir test suite por app (backend)
-3. Escribir test suite por página (frontend)
-4. Integrar con CI/CD (GitHub Actions)
-5. Enforcement: CI rechaza PR si cobertura < 70%
-
----
-
-**Cuándo usar:** Documentar patrón de tests, planeamiento de test suite, CI setup
+1. Tests críticos faltantes: `empresas/tests.py` — multi-tenancy isolation
+2. Tests críticos faltantes: `cuentas/tests.py` — User model, auth flow
+3. Instalar Vitest en frontend + primer test en `rut.util.ts`
+4. Ver skill `/qa-suite` cuando esté disponible

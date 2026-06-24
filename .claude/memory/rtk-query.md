@@ -1,6 +1,6 @@
 ---
 name: rtk-query
-description: Tags, invalidación, anti-patrón refetch(), deuda técnica, 75+ tags registrados
+description: Tags, invalidación, anti-patrón refetch(), deuda técnica, 109+ tags registrados
 lastUpdated: 2026-06-01
 relatedFiles:
   - frontend/src/services/RtkQueryService.ts
@@ -64,9 +64,9 @@ return (
 );
 ```
 
-## 75+ Tags Registrados
+## 109+ Tags Registrados
 
-En `RtkQueryService.ts`, tags disponibles (actualizado 2026-06-01):
+En `RtkQueryService.ts`, tags disponibles (actualizado 2026-06-22 — verificado por conteo directo):
 
 **Órdenes de Trabajo V3:**
 - `OrdenTrabajoV3`, `OrdenTrabajoV3List`

@@ -53,7 +53,24 @@
       "Bash(Select-Object Name)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(git log *)",
-      "Bash(grep -r \"\\\\`.*\\\\${.*}\\\\`\\\\|\\\\[\\\\`.*\\\\${.*}\\\\`\\\\]\" --include=\"*.tsx\" --include=\"*.ts\")"
+      "Bash(grep -r \"\\\\`.*\\\\${.*}\\\\`\\\\|\\\\[\\\\`.*\\\\${.*}\\\\`\\\\]\" --include=\"*.tsx\" --include=\"*.ts\")",
+      "Skill(commit-sprint)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(rm -f .git/index.lock)",
+      "Bash(git reset *)",
+      "Bash(git commit -q -m ' *)",
+      "Bash(git tag *)",
+      "Bash('/home/soporte/.nvm/versions/node/v24.16.0/bin/node' '/mnt/c/Users/soporte/AppData/Roaming/npm/node_modules/kanban/dist/cli.js' task list --project-path '/mnt/c/Users/soporte/OneDrive - Snabbit Asesores Tecnologicos/experiment-monorepo-snabbit')",
+      "PowerShell($wsl = Get-Command wsl -ErrorAction SilentlyContinue; if \\($wsl\\) { \"wsl: $\\($wsl.Source\\)\"; wsl -e /home/soporte/.nvm/versions/node/v24.16.0/bin/node --version } else { \"no wsl\" })",
+      "PowerShell(Test-Path *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\node.exe\" \"C:\\\\Users\\\\soporte\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\kanban\\\\dist\\\\cli.js\" task list --project-path \"C:\\\\Users\\\\soporte\\\\OneDrive - Snabbit Asesores Tecnologicos\\\\experiment-monorepo-snabbit\")",
+      "Bash(curl *)",
+      "WebFetch(domain:contribution.usercontent.google.com)",
+      "Bash(node -e \"const dayjs = require\\('c:/Users/soporte/OneDrive - Snabbit Asesores Tecnologicos/experiment-monorepo-snabbit/node_modules/dayjs'\\); const d = dayjs\\('2026-08-15'\\); console.log\\(d.format\\('MMMM YYYY'\\), d.format\\('D MMM'\\)\\);\")"
     ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": false
   }
 }

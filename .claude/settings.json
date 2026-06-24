@@ -1,6 +1,7 @@
 {
   "enabledPlugins": {
-    "superpowers@claude-plugins-official": false
+    "superpowers@claude-plugins-official": true,
+    "playwright@claude-plugins-official": false
   },
   "description": "Configuración de Claude Code para monorepo ERP Snabbit",
   "codeGeneration": {
@@ -61,6 +62,31 @@
       "name": "docs-audit",
       "path": ".github/skills/docs-audit/SKILL.md",
       "description": "Skill maestra de auditoria: detecta desalineaciones entre codigo y documentacion. Orquesta visual-styles, rrhh, notificaciones. Modos: --quick (baseline), --full (completo), --fix (corrige bajo riesgo)"
+    },
+    {
+      "name": "system-map",
+      "path": ".github/skills/system-map/SKILL.md",
+      "description": "Lee el estado actual del sistema directamente desde el código fuente. Reemplaza los .md de contexto desactualizados. Modos: --endpoints [app], --models <app>, --states <app>, --routes, --rtk-tags, --interfaces, --all"
+    },
+    {
+      "name": "doc-sync",
+      "path": ".github/skills/doc-sync/SKILL.md",
+      "description": "Sincroniza .claude/memory/ con el código real después de una implementación. Lee git diff, actualiza solo hechos (modelos, endpoints, estados, tags). Ejecutar después de toda implementación crítica."
+    },
+    {
+      "name": "qa-suite",
+      "path": ".github/skills/qa-suite/SKILL.md",
+      "description": "Ejecución de tests reales: Django APITestCase + Vitest. Complementa /build-test (que hace lint/type/build). Modos: --backend [app], --frontend, --coverage, --new-module <nombre>"
+    },
+    {
+      "name": "smoke-test",
+      "path": ".github/skills/smoke-test/SKILL.md",
+      "description": "Pruebas contra el servidor corriendo en localhost:8000. Autentica con JWT real, verifica endpoints críticos y aislamiento multi-tenancy. Requiere runserver activo."
+    },
+    {
+      "name": "permisos",
+      "path": ".github/skills/permisos/SKILL.md",
+      "description": "Arquitectura de permisos por rol (superadmin, rrhh, staff). Usar al implementar módulos nuevos con restricción de acceso, diagnosticar errores 403, o agregar roles nuevos. Cubre 4 capas: DB grupos, API get_grupos_user, Redux listaGrupos, frontend AuthorityCheck."
     }
   ],
   "ignorePatterns": [

@@ -16,6 +16,12 @@ Accede a estos archivos cuando notes referencias a estos temas en solicitudes de
 
 ---
 
+## Features en Desarrollo
+
+- **[afp-consulta-afiliacion](memory/afp-consulta-afiliacion.md)** — Endpoint spensiones.cl analizado, decisiones de scraping + Redis + Celery para consulta AFP en ficha trabajador y wizard contrato
+
+---
+
 ## Módulos Específicos
 
 - **[contratos-b2b](memory/contratos-b2b.md)** — ContratoEmpresaCliente, servicios, licencias, plantillas V2, snapshots
@@ -46,17 +52,7 @@ Accede a estos archivos cuando notes referencias a estos temas en solicitudes de
 
 - **[jira-integration](memory/jira-integration.md)** — Proyecto SEB, scripts Python, workflow (issue → PR → cierre automático)
 
-- **[testing-status](memory/testing-status.md)** — Estado actual (sin cobertura), patrones esperados, requisitos deseados
-
----
-
-## DevOps & Tooling
-
-- **[deployment](memory/deployment.md)** — Dockerfiles, build scripts PowerShell, sin docker-compose ni GitHub Actions (aún)
-
-- **[jira-integration](memory/jira-integration.md)** — Scripts en dev/scripts/jira/, proyecto SEB, credenciales en .env
-
-- **[testing-status](memory/testing-status.md)** — Sin cobertura funcional implementada, patrones documentados en testing.md
+- **[testing-status](memory/testing-status.md)** — 357 tests backend reales, brechas críticas: empresas/cuentas/vacaciones/rendiciones. Frontend sin runner.
 
 ---
 
@@ -122,7 +118,15 @@ Si se conoce históricamente cómo cambió, documenta.
 
 ---
 
-**Última actualización**: 2026-06-01 (FASE 1-4 completadas)
+## Skills del Sistema (no son memoria, son referencia)
+
+Los skills activos reemplazan los .md de contexto desactualizados para hechos del sistema:
+- `/system-map` → lee endpoints, modelos, estados, routes, RTK tags **en vivo desde el código**
+- `/doc-sync` → actualiza esta memoria después de cada implementación crítica
+
+---
+
+**Última actualización**: 2026-06-22
 **Archivos en memoria**: 16 documentos
-**Estructura**: 3 core + 4 módulos + 3 frontend + 4 devops + 2 decisiones = 16 total
-**Próxima revisión sugerida**: 2026-07-01
+**Skills para hechos en vivo**: `/system-map`, `/doc-sync`
+**Próxima revisión sugerida**: usar `/doc-sync --check` al inicio de cada sesión
