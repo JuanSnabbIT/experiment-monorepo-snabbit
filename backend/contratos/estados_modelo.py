@@ -15,6 +15,7 @@ TIPO_CONTRATO = [
     ('venta', 'Venta'),
     ('servicios', 'Servicios'),
     ('trabajador', 'Contrato Laboral'),
+    ('finiquito', 'Finiquito de contrato'),
 ]
 
 FRECUENCIA_VISITA = [

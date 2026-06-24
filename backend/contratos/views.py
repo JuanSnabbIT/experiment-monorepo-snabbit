@@ -3719,7 +3719,7 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
             return PlantillaContrato.objects.none()
         qs = PlantillaContrato.objects.filter(
             models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
-        )
+        ).exclude(tipo_contrato='finiquito')
         tipo = self.request.query_params.get("tipo_contrato")
         if tipo:
             qs = qs.filter(tipo_contrato=tipo)
@@ -4028,8 +4028,10 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
                 empresa_prestadora=empresa, activa=True
             ).order_by("tipo_contrato", "titulo")
 
-        # Listado modulo: todas las plantillas de la empresa (activas e inactivas)
-        qs = PlantillaContrato.objects.filter(empresa_prestadora=empresa)
+        # Listado modulo: plantillas de la empresa + globales (excluye finiquito)
+        qs = PlantillaContrato.objects.filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
+        ).exclude(tipo_contrato='finiquito')
         tipo = self.request.query_params.get("tipo_contrato")
         if tipo:
             qs = qs.filter(tipo_contrato=tipo)
@@ -4154,15 +4156,21 @@ class EtiquetaPlantillaV2ViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
         if empresa:
-            qs = EtiquetaPlantilla.objects.filter(
-                models.Q(empresa_prestadora__isnull=True)
-                | models.Q(empresa_prestadora=empresa)
-            )
+            # Etiquetas empresa-específicas tienen prioridad sobre las globales.
+            # Si existe un override para una clave, se excluye la global.
+            empresa_qs = EtiquetaPlantilla.objects.filter(empresa_prestadora=empresa)
+            claves_override = set(empresa_qs.values_list("clave", flat=True))
+            global_qs = EtiquetaPlantilla.objects.filter(
+                empresa_prestadora__isnull=True
+            ).exclude(clave__in=claves_override)
+            qs = empresa_qs | global_qs
         else:
             qs = EtiquetaPlantilla.objects.filter(empresa_prestadora__isnull=True)
         tipo = self.request.query_params.get("tipo_contrato")
         if tipo:
-            qs = qs.filter(tipo_contrato=tipo)
+            qs = qs.filter(
+                models.Q(tipo_contrato__isnull=True) | models.Q(tipo_contrato=tipo)
+            )
         return qs.order_by("categoria", "nombre_display")
 
 

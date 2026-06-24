@@ -1954,6 +1954,21 @@ class PlantillaContrato(ModeloBase):
         choices=TIPO_CONTRATO,
         default="servicios",
     )
+    subtipo_trabajador = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        choices=[
+            ("indefinido", "Contrato Indefinido"),
+            ("plazo_fijo", "Contrato a Plazo Fijo"),
+            ("reemplazo",  "Contrato de Reemplazo"),
+        ],
+        verbose_name="Subtipo de plantilla laboral",
+        help_text=(
+            "Solo para tipo_contrato='trabajador'. "
+            "Null = plantilla universal para todos los subtipos."
+        ),
+    )
 
     es_default = models.BooleanField(
         default=False,
@@ -2090,6 +2105,32 @@ class SeccionPlantilla(ModeloBase):
         verbose_name="Mostrar número de sección",
     )
 
+    CONDICION_APARICION_CHOICES = [
+        ("siempre",              "Siempre (sin condición)"),
+        ("solo_plazo_fijo",      "Solo contratos a plazo fijo"),
+        ("solo_indefinido",      "Solo contratos indefinidos"),
+        ("solo_reemplazo",       "Solo contratos de reemplazo"),
+        ("si_bono_movilizacion", "Si tiene bono de movilización"),
+        ("si_bono_colacion",     "Si tiene bono de colación"),
+        ("si_grupo_turno",       "Si tiene grupo de turnos asignado"),
+        ("si_gratificacion",     "Si tiene gratificación activa"),
+        ("si_jornada_parcial",   "Si la jornada es parcial"),
+        ("si_banco",             "Si tiene datos bancarios"),
+        ("si_isapre",            "Si cotiza en Isapre"),
+    ]
+    condicion_aparicion = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+        choices=CONDICION_APARICION_CHOICES,
+        default="siempre",
+        verbose_name="Condición de aparición",
+        help_text=(
+            "Solo aplica a plantillas tipo 'trabajador'. "
+            "Si la condición no se cumple, la sección se omite del PDF."
+        ),
+    )
+
     class Meta:
         ordering = ["orden"]
         verbose_name = "Sección de plantilla"
@@ -2134,6 +2175,14 @@ class EtiquetaPlantilla(ModeloBase):
     )
     descripcion = models.TextField(blank=True, null=True)
     valor_default = models.CharField(max_length=255, blank=True, null=True)
+    tipo_contrato = models.CharField(
+        max_length=20,
+        choices=TIPO_CONTRATO,
+        null=True,
+        blank=True,
+        help_text="Null = etiqueta universal (aparece en todos los tipos). "
+                  "Valor = etiqueta exclusiva del tipo indicado.",
+    )
 
     class Meta:
         ordering = ["categoria", "clave"]

@@ -240,15 +240,132 @@ class AdaptadorContratoTrabajador(IContratoBase):
         # Pesos chilenos sin decimales por convencion.
         return f"{num:,.0f}".replace(",", ".")
 
+    _DIAS_SEMANA_MAP = {
+        "L": "Lunes", "M": "Martes", "X": "Miércoles",
+        "J": "Jueves", "V": "Viernes", "S": "Sábado", "D": "Domingo",
+    }
+
+    def _build_dias_semana_texto(self) -> str:
+        dias = self._c.dias_semana or []
+        nombres = [self._DIAS_SEMANA_MAP.get(d, d) for d in dias]
+        return ", ".join(nombres) if nombres else ""
+
     def _sueldo_en_palabras(self, value) -> str:
         """Convierte un monto a palabras (CLP). Falla silenciosa si num2words falta."""
         if value in (None, ""):
             return ""
         try:
+            num = int(float(value))
+        except (TypeError, ValueError):
+            return ""
+        if num <= 0:
+            return ""
+        try:
             from num2words import num2words  # type: ignore
-            return num2words(int(value), lang="es") + " pesos"
+            return num2words(num, lang="es") + " pesos"
         except Exception:
             return ""
+
+    def _calcular_sueldo_liquido_num(self):
+        """
+        Retorna el sueldo líquido estimado como float o None.
+        Si tipo_sueldo='liquido': el sueldo almacenado ya es el líquido.
+        Si tipo_sueldo='base': aplica descuentos previsionales activos.
+        """
+        sueldo = self._c.sueldo
+        if not sueldo:
+            return None
+        sueldo_f = float(sueldo)
+        if self._c.tipo_sueldo == "liquido":
+            return sueldo_f
+        descuento = 0.0
+        if self._c.descuento_prevision_activo:
+            descuento += sueldo_f * 0.10
+        if self._c.descuento_salud_activo:
+            descuento += sueldo_f * 0.07
+        return max(0.0, sueldo_f - descuento)
+
+    def _calcular_sueldo_liquido(self) -> str:
+        num = self._calcular_sueldo_liquido_num()
+        return self._format_decimal(num) if num is not None else ""
+
+    def _build_vigencia_descripcion(self) -> str:
+        """Texto legal de vigencia según tipo de contrato."""
+        tipo = self._c.tipo_contrato
+        inicio = self._format_date(self._c.fecha_inicio)
+        if tipo == "indefinido":
+            return f"Contrato de duración indefinida, con inicio el {inicio}."
+        if tipo == "plazo_fijo":
+            termino = self._format_date(self._c.fecha_termino)
+            meses = self._c.cantidad_meses
+            if meses:
+                return f"Contrato a plazo fijo de {meses} mes(es), del {inicio} al {termino}."
+            return f"Contrato a plazo fijo del {inicio} al {termino}."
+        if tipo == "reemplazo":
+            nombre = ""
+            reemplazado = self._c.trabajador_reemplazado
+            if reemplazado and reemplazado.usuario:
+                nombre = reemplazado.usuario.get_nombre_completo()
+            causal = self._c.get_causal_reemplazo_display() or ""
+            return (
+                f"Contrato de reemplazo de {nombre} por {causal}, "
+                f"con inicio el {inicio}."
+            )
+        return f"Vigente desde el {inicio}."
+
+    def _build_jornada_descripcion(self) -> str:
+        """Texto descriptivo de la jornada laboral."""
+        jornada = self._c.jornada
+        if jornada == "turnos":
+            snapshot = getattr(self._c, "grupo_turno_snapshot", None)
+            if snapshot:
+                return f"Jornada por turnos rotativos — Grupo: {snapshot.get('nombre', '')}."
+            if self._c.grupo_turno_id:
+                return f"Jornada por turnos rotativos — Grupo: {self._c.grupo_turno.nombre}."
+            return "Jornada por turnos rotativos."
+        horas = self._c.horas_semanales
+        hora_inicio = self._c.hora_inicio.strftime("%H:%M") if self._c.hora_inicio else ""
+        hora_fin = self._c.hora_fin.strftime("%H:%M") if self._c.hora_fin else ""
+        dias = ", ".join(self._c.dias_semana) if self._c.dias_semana else ""
+        partes = []
+        if jornada == "completa":
+            partes.append("Jornada laboral completa")
+        elif jornada == "parcial":
+            partes.append("Jornada laboral parcial")
+        if horas:
+            partes.append(f"de {horas} horas semanales")
+        if dias:
+            partes.append(f"los días {dias}")
+        if hora_inicio and hora_fin:
+            partes.append(f"de {hora_inicio} a {hora_fin} horas")
+        colacion = self._c.tiempo_colacion
+        if colacion:
+            partes.append(f"con {colacion} minutos de colación")
+        return (", ".join(partes) + ".") if partes else ""
+
+    def _build_gratificacion_descripcion(self) -> str:
+        """Texto legal de la gratificación."""
+        tipo = self._c.tipo_gratificacion
+        if tipo == "art_47":
+            return "Gratificación anual según Art. 47 del Código del Trabajo."
+        if tipo == "art_50_mensual":
+            return "Gratificación mensual garantizada según Art. 50 del Código del Trabajo."
+        return "Sin gratificación legal acordada."
+
+    def _build_salud_descripcion(self) -> str:
+        """Texto descriptivo del sistema de salud."""
+        if not self._ue:
+            return ""
+        sistema = self._ue.sistema_salud or ""
+        if sistema == "fonasa":
+            return "FONASA"
+        if sistema == "isapre":
+            nombre = self._ue.nombre_isapre or "Isapre"
+            return f"Isapre {nombre}"
+        otro = getattr(self._ue, "sistema_salud_otro", None) or getattr(self._c, "sistema_salud_otro", None) or ""
+        if otro:
+            return f"Sistema de salud: {otro}"
+        return self._ue.get_sistema_salud_display() if sistema else ""
 
     # ----- Resolucion de rutas -----
     def resolver_ruta_extendida(self, ruta, default=None):
@@ -271,7 +388,10 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 "nombre": self._user.get_nombre_completo() if self._user else "",
                 "nombre_completo": self._user.get_nombre_completo() if self._user else "",
                 "first_name": self._user.first_name or "",
+                "second_name": self._user.second_name or "" if hasattr(self._user, "second_name") else "",
                 "last_name": self._user.last_name or "",
+                "second_last_name": self._user.second_last_name or "" if hasattr(self._user, "second_last_name") else "",
+                "nombre_apellido": f"{self._user.first_name} {self._user.last_name}",
                 "rut": getattr(self._user, "rut", "") or "",
                 "email": self._user.email or "",
                 "direccion": getattr(self._user, "direccion", "") or "",
@@ -279,8 +399,14 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 "celular": getattr(self._user, "celular", "") or "",
                 "fecha_nacimiento": self._format_date(getattr(self._user, "fecha_nacimiento", None)),
                 "nacionalidad": getattr(self._user, "nacionalidad", "") or "",
-                "estado_civil": getattr(self._user, "estado_civil", "") or "",
-                "genero": getattr(self._user, "genero", "") or "",
+                # genero: label legible en lugar del código crudo ('0','1','2')
+                "genero": self._user.get_genero_display() if getattr(self._user, "genero", None) else "",
+                # nivel de estudios y título
+                "nivel_estudios": self._user.get_nivel_estudios_display() if getattr(self._user, "nivel_estudios", None) else "",
+                "titulo_especialidad": getattr(self._user, "titulo_especialidad", "") or "",
+                # estado_civil y profesion_u_oficio viven en el contrato (Art. 10 CT)
+                "estado_civil": self._c.get_estado_civil_display() if self._c.estado_civil else "",
+                "profesion_u_oficio": self._c.profesion_u_oficio or "",
             }
             if resto and resto[0] in mapping:
                 return mapping[resto[0]]
@@ -332,6 +458,44 @@ class AdaptadorContratoTrabajador(IContratoBase):
             if campo == "motivo_termino":
                 return self._c.get_motivo_termino_display() or ""
 
+            # Causal de reemplazo con label legible
+            if campo in ("causal_reemplazo", "causal_reemplazo_label"):
+                return self._c.get_causal_reemplazo_display() or ""
+
+            # Trabajador reemplazado
+            if campo == "nombre_reemplazado":
+                reemplazado = self._c.trabajador_reemplazado
+                if reemplazado and reemplazado.usuario:
+                    return reemplazado.usuario.get_nombre_completo()
+                return default or ""
+            if campo == "rut_reemplazado":
+                reemplazado = self._c.trabajador_reemplazado
+                if reemplazado and reemplazado.usuario:
+                    return getattr(reemplazado.usuario, "rut", "") or ""
+                return default or ""
+
+            # Hora de jornada fija
+            if campo == "hora_inicio":
+                return self._c.hora_inicio.strftime("%H:%M") if self._c.hora_inicio else ""
+            if campo == "hora_fin":
+                return self._c.hora_fin.strftime("%H:%M") if self._c.hora_fin else ""
+
+            # Textos construidos
+            if campo == "vigencia_descripcion":
+                return self._build_vigencia_descripcion()
+            if campo == "jornada_descripcion":
+                return self._build_jornada_descripcion()
+            if campo == "dias_semana_texto":
+                return self._build_dias_semana_texto()
+
+            # Campos en el contrato (Art. 10 CT)
+            if campo == "estado_civil":
+                return self._c.get_estado_civil_display() if self._c.estado_civil else ""
+            if campo == "profesion_u_oficio":
+                return self._c.profesion_u_oficio or ""
+            if campo == "cantidad_meses":
+                return str(self._c.cantidad_meses) if self._c.cantidad_meses else ""
+
             # Compatibilidad con etiquetas globales B2B reusadas (colision de
             # claves). En B2B el origen es ``contrato.get_moneda_cobro_display``
             # y aqui el campo equivalente es ``moneda``.
@@ -348,17 +512,40 @@ class AdaptadorContratoTrabajador(IContratoBase):
         # ----- remuneracion.{campo} -----
         if prefijo == "remuneracion":
             campo = resto[0] if resto else None
+            _liquido_num = self._calcular_sueldo_liquido_num()
             mapping = {
-                "sueldo_base": self._format_decimal(self._c.sueldo_base),
-                "sueldo_liquido": self._format_decimal(self._c.sueldo_liquido),
-                "sueldo_liquido_palabras": self._sueldo_en_palabras(self._c.sueldo_liquido),
-                "sueldo_base_palabras": self._sueldo_en_palabras(self._c.sueldo_base),
-                "moneda": self._c.moneda or "",
-                "tipo_gratificacion": self._c.get_tipo_gratificacion_display() or "",
-                # Compatibilidad con plantillas antiguas que esperan un booleano.
-                "gratificacion_legal": "Si" if self._c.tipo_gratificacion != "no_aplica" else "No",
-                "bono_movilizacion": self._format_decimal(self._c.bono_movilizacion),
-                "bono_colacion": self._format_decimal(self._c.bono_colacion),
+                # Sueldo
+                "sueldo":                  self._format_decimal(self._c.sueldo),
+                "sueldo_palabras":         self._sueldo_en_palabras(self._c.sueldo),
+                "tipo_sueldo":             self._c.get_tipo_sueldo_display() or "",
+                "tipo_sueldo_label":       "sueldo base" if self._c.tipo_sueldo == "base" else "sueldo líquido",
+                # Aliases backward-compat
+                "sueldo_base":             self._format_decimal(self._c.sueldo),
+                "sueldo_base_palabras":    self._sueldo_en_palabras(self._c.sueldo),
+                # Sueldo líquido calculado
+                "sueldo_liquido":          self._format_decimal(_liquido_num) if _liquido_num is not None else "",
+                "sueldo_liquido_palabras": self._sueldo_en_palabras(_liquido_num) if _liquido_num is not None else "",
+                # Moneda y gratificación
+                "moneda":                  self._c.moneda or "",
+                "tipo_gratificacion":      self._c.get_tipo_gratificacion_display() or "",
+                "gratificacion_legal":     "Sí" if self._c.tipo_gratificacion != "no_aplica" else "No",
+                "gratificacion_descripcion": self._build_gratificacion_descripcion(),
+                # Bonos — devuelven vacío si el bono no está activo
+                "bono_movilizacion": (
+                    self._format_decimal(self._c.bono_movilizacion)
+                    if getattr(self._c, "bono_movilizacion_activo", False)
+                    else ""
+                ),
+                "bono_colacion": (
+                    self._format_decimal(self._c.bono_colacion)
+                    if getattr(self._c, "bono_colacion_activo", False)
+                    else ""
+                ),
+                "tiene_bono_movilizacion": "Sí" if getattr(self._c, "bono_movilizacion_activo", False) else "No",
+                "tiene_bono_colacion":     "Sí" if getattr(self._c, "bono_colacion_activo", False) else "No",
+                # Descuentos previsionales
+                "descuento_prevision": "Sí" if self._c.descuento_prevision_activo else "No",
+                "descuento_salud":     "Sí" if self._c.descuento_salud_activo else "No",
             }
             if campo in mapping:
                 return mapping[campo]
@@ -374,6 +561,7 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 "afp_nombre": self._ue.afp.nombre if self._ue.afp else "",
                 "sistema_salud": self._ue.get_sistema_salud_display() or "" if self._ue.sistema_salud else "",
                 "salud_codigo": self._ue.sistema_salud or "",
+                "salud_descripcion": self._build_salud_descripcion(),
                 "salud_isapre": self._ue.nombre_isapre or "",
                 "nombre_isapre": self._ue.nombre_isapre or "",
                 "banco": self._ue.banco or "",
@@ -392,6 +580,18 @@ class AdaptadorContratoTrabajador(IContratoBase):
             mapping = {
                 "lugar_firma": self._c.lugar_celebracion_contrato or "",
                 "fecha_firma": self._format_date(self._c.fecha_firma),
+            }
+            if campo in mapping:
+                return mapping[campo]
+            return default or ""
+
+        # ----- empleador.{campo} (vínculo laboral del UsuarioEmpresa) -----
+        if prefijo == "empleador":
+            if not self._ue:
+                return default or ""
+            campo = resto[0] if resto else None
+            mapping = {
+                "fecha_ingreso": self._format_date(self._ue.fecha_ingreso),
             }
             if campo in mapping:
                 return mapping[campo]
@@ -425,6 +625,7 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 return default or ""
 
             elif campo == "tabla_slots":
+                import json as _json
                 slots = None
                 if snapshot:
                     slots = snapshot.get("slots", [])
@@ -440,17 +641,54 @@ class AdaptadorContratoTrabajador(IContratoBase):
                     ]
                 if not slots:
                     return getattr(contrato, "horario_detalle", None) or (default or "")
-                filas = "".join(
-                    f"<tr><td>{s['orden'] + 1}</td><td>{escape(s['nombre'])}</td>"
-                    f"<td>{escape(str(s['hora_inicio']))}–{escape(str(s['hora_fin']))}</td></tr>"
-                    for s in slots
-                )
-                return (
-                    f"<table><thead><tr><th>#</th><th>Turno</th><th>Horario</th></tr></thead>"
-                    f"<tbody>{filas}</tbody></table>"
-                )
+                # Marcador especial: el generador PDF (funciones_v2.py) lo convierte
+                # en una Table ReportLab con estilos, evitando HTML crudo sin estilos.
+                return f"__TABLA_TURNOS_JSON__{_json.dumps(slots)}__END_TABLA__"
 
             return default or ""
 
+        # ----- finiquito.{campo} -----
+        if prefijo == "finiquito":
+            finiquito = getattr(self._c, "finiquito", None)
+            if not finiquito:
+                return default or ""
+            campo = resto[0] if resto else None
+            mapping = {
+                "total_neto":       self._format_decimal(finiquito.total_neto),
+                "total_bruto":      self._format_decimal(finiquito.total_bruto),
+                "total_descuentos": self._format_decimal(finiquito.total_descuentos),
+                "estado":           finiquito.get_estado_display(),
+                "fecha_firma":      self._format_date(finiquito.fecha_firma),
+                "motivo_termino":   self._c.get_motivo_termino_display() or "",
+                "fecha_termino":    self._format_date(self._c.fecha_termino_real or self._c.fecha_termino),
+            }
+            return mapping.get(campo, default or "")
+
         # No es una ruta del dominio laboral.
         return NOT_HANDLED
+
+
+class AdaptadorFiniquito(AdaptadorContratoTrabajador):
+    """
+    Adaptador para generar el PDF de un ``FiniquitoContrato``.
+
+    Subclase de ``AdaptadorContratoTrabajador`` que sobreescribe:
+    - ``plantilla``: usa la plantilla tipo 'finiquito' en vez del contrato.
+    - ``nombre``: título del documento PDF.
+
+    Garantiza que las secciones generadas se vinculen a la plantilla de
+    finiquito, aislándolas de las secciones del contrato base.
+    """
+
+    def __init__(self, contrato_trabajador, finiquito_plantilla, finiquito):
+        super().__init__(contrato_trabajador)
+        self._finiquito_plantilla = finiquito_plantilla
+        self._finiquito_obj = finiquito
+
+    @property
+    def plantilla(self):
+        return self._finiquito_plantilla
+
+    @property
+    def nombre(self) -> str:
+        return "FINIQUITO DE CONTRATO DE TRABAJO"

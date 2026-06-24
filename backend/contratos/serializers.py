@@ -1945,6 +1945,7 @@ class SeccionPlantillaV2Serializer(serializers.ModelSerializer):
     """Serializer de SeccionPlantilla con campo Slate incluido."""
     tipo_label = serializers.CharField(source="get_tipo_display", read_only=True)
     slot_documental_label = serializers.SerializerMethodField()
+    condicion_aparicion_label = serializers.SerializerMethodField()
 
     class Meta:
         model = SeccionPlantilla
@@ -1953,12 +1954,18 @@ class SeccionPlantillaV2Serializer(serializers.ModelSerializer):
             "contenido_template", "contenido_template_estructurado",
             "orden", "slot_documental", "slot_documental_label",
             "es_editable_en_contrato", "es_obligatoria", "mostrar_numero",
+            "condicion_aparicion", "condicion_aparicion_label",
         ]
         read_only_fields = ["id", "plantilla", "fecha_creacion", "fecha_modificacion"]
 
     def get_slot_documental_label(self, obj):
         if obj.slot_documental:
             return obj.get_slot_documental_display()
+        return None
+
+    def get_condicion_aparicion_label(self, obj):
+        if obj.condicion_aparicion:
+            return obj.get_condicion_aparicion_display()
         return None
 
     def validate(self, attrs):
@@ -1994,6 +2001,7 @@ class PlantillaContratoV2Serializer(serializers.ModelSerializer):
         source="ordenes_bloques_transversales", many=True, read_only=True
     )
     tipo_contrato_label = serializers.CharField(source="get_tipo_contrato_display", read_only=True)
+    subtipo_trabajador_label = serializers.SerializerMethodField()
     empresa_cliente_nombre = serializers.SerializerMethodField()
 
     class Meta:
@@ -2001,6 +2009,7 @@ class PlantillaContratoV2Serializer(serializers.ModelSerializer):
         fields = [
             "id", "titulo", "descripcion", "version", "activa",
             "tipo_contrato", "tipo_contrato_label",
+            "subtipo_trabajador", "subtipo_trabajador_label",
             "empresa_prestadora", "empresa_cliente", "empresa_cliente_nombre",
             "es_default", "requiere_nda",
             "orden_bloque_alcance", "orden_bloque_operacion", "orden_bloque_condiciones",
@@ -2012,6 +2021,9 @@ class PlantillaContratoV2Serializer(serializers.ModelSerializer):
             "empresa_prestadora", "es_default",
         ]
 
+    def get_subtipo_trabajador_label(self, obj):
+        return obj.get_subtipo_trabajador_display() if obj.subtipo_trabajador else None
+
     def get_empresa_cliente_nombre(self, obj):
         if obj.empresa_cliente_id:
             return obj.empresa_cliente.nombre
@@ -2021,6 +2033,7 @@ class PlantillaContratoV2Serializer(serializers.ModelSerializer):
 class PlantillaContratoV2ListSerializer(serializers.ModelSerializer):
     """Serializer ligero para listado (sin secciones anidadas)."""
     tipo_contrato_label = serializers.CharField(source="get_tipo_contrato_display", read_only=True)
+    subtipo_trabajador_label = serializers.SerializerMethodField()
     empresa_cliente_nombre = serializers.SerializerMethodField()
     total_secciones = serializers.SerializerMethodField()
 
@@ -2029,12 +2042,16 @@ class PlantillaContratoV2ListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "titulo", "descripcion", "version", "activa",
             "tipo_contrato", "tipo_contrato_label",
+            "subtipo_trabajador", "subtipo_trabajador_label",
             "empresa_cliente", "empresa_cliente_nombre",
             "es_default", "requiere_nda",
             "total_secciones",
             "fecha_creacion", "fecha_modificacion",
         ]
         read_only_fields = ["fecha_creacion", "fecha_modificacion"]
+
+    def get_subtipo_trabajador_label(self, obj):
+        return obj.get_subtipo_trabajador_display() if obj.subtipo_trabajador else None
 
     def get_empresa_cliente_nombre(self, obj):
         if obj.empresa_cliente_id:

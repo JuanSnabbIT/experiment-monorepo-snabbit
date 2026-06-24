@@ -21,6 +21,8 @@ El motor v1 NO se modifica.
 from __future__ import annotations
 
 import html
+import json as _json
+import re as _re
 from io import BytesIO
 from typing import Optional
 
@@ -46,6 +48,77 @@ from contratos.funciones import (
     _safe_paragraph_text,
     generar_contrato_desde_plantilla,
 )
+
+# Patrón que detecta el marcador de tabla de turnos inyectado por el adaptador
+_PATRON_TABLA_TURNOS = _re.compile(
+    r"__TABLA_TURNOS_JSON__(.*?)__END_TABLA__",
+    _re.DOTALL,
+)
+
+
+def _construir_tabla_turnos_rl(slots_json: str, estilo_celda, estilo_label) -> "Table | None":
+    """
+    Convierte JSON de slots en una Table ReportLab con estilos.
+    Columnas: #, Turno, Hora inicio, Hora fin.
+    """
+    try:
+        slots = _json.loads(slots_json)
+    except (ValueError, TypeError):
+        return None
+    if not slots:
+        return None
+
+    data = [[
+        Paragraph("<b>#</b>", estilo_label),
+        Paragraph("<b>Turno</b>", estilo_label),
+        Paragraph("<b>Hora inicio</b>", estilo_label),
+        Paragraph("<b>Hora fin</b>", estilo_label),
+    ]]
+    for i, slot in enumerate(slots, 1):
+        data.append([
+            Paragraph(str(i), estilo_celda),
+            Paragraph(html.escape(str(slot.get("nombre", ""))), estilo_celda),
+            Paragraph(html.escape(str(slot.get("hora_inicio", ""))), estilo_celda),
+            Paragraph(html.escape(str(slot.get("hora_fin", ""))), estilo_celda),
+        ])
+
+    tabla = Table(data, colWidths=[0.4 * inch, 3.1 * inch, 1.5 * inch, 1.5 * inch])
+    tabla.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8f0fe")),
+        ("TEXTCOLOR",  (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("FONTNAME",   (0, 0), (-1, 0), "Times-Bold"),
+        ("GRID",       (0, 0), (-1, -1), 0.5, colors.HexColor("#c0c0c0")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fa")]),
+        ("ALIGN",      (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+        ("FONTSIZE",   (0, 0), (-1, -1), 9),
+    ]))
+    return tabla
+
+
+def _flowables_con_tabla_turnos(texto: str, estilo_parrafo, estilo_bullet, estilo_celda, estilo_label) -> list:
+    """
+    Procesa texto que puede contener marcadores __TABLA_TURNOS_JSON__...__END_TABLA__.
+    Para cada marcador genera una Table ReportLab nativa; el texto restante
+    se procesa con _html_to_flowables.
+    Retorna lista mixta de flowables.
+    """
+    partes = _PATRON_TABLA_TURNOS.split(texto)
+    resultado = []
+    # split con un grupo de captura devuelve: [texto, json, texto, json, texto, ...]
+    for i, parte in enumerate(partes):
+        if i % 2 == 0:
+            if parte.strip():
+                resultado.extend(_html_to_flowables(parte, estilo_parrafo, estilo_bullet))
+        else:
+            tabla = _construir_tabla_turnos_rl(parte, estilo_celda, estilo_label)
+            if tabla:
+                resultado.append(tabla)
+    return resultado
 
 
 def _es_b2b(adaptador: IContratoBase) -> bool:
@@ -116,11 +189,12 @@ def _generar_pdf_trabajador(
         firmante = nombre_trabajador
 
     # ----- Secciones -----
-    secciones = list(
-        adaptador.secciones_generadas_qs()
-        .select_related("seccion_plantilla")
-        .order_by("orden")
-    )
+    # Filtrar por plantilla activa para evitar contaminación entre plantillas
+    # distintas aplicadas al mismo contrato (ej: contrato vs. finiquito).
+    secciones_qs = adaptador.secciones_generadas_qs().select_related("seccion_plantilla")
+    if adaptador.plantilla:
+        secciones_qs = secciones_qs.filter(seccion_plantilla__plantilla=adaptador.plantilla)
+    secciones = list(secciones_qs.order_by("orden"))
     secciones_contenido = []
     secciones_firmas = []
     for s in secciones:
@@ -283,6 +357,21 @@ def _generar_pdf_trabajador(
             Paragraph(html.escape(tipo_contrato_label or ""), estilo_tabla_celda),
         ],
     ]
+
+    # Agregar fila de horario cuando hay hora_inicio/hora_fin y la jornada no es turnos
+    hora_inicio_ct = getattr(contrato, "hora_inicio", None)
+    hora_fin_ct    = getattr(contrato, "hora_fin", None)
+    if hora_inicio_ct and hora_fin_ct and getattr(contrato, "jornada", "") != "turnos":
+        data_vigencia.append([
+            Paragraph("<b>Hora inicio</b>", estilo_tabla_label),
+            Paragraph("<b>Hora fin</b>", estilo_tabla_label),
+            Paragraph("<b>Jornada</b>", estilo_tabla_label),
+        ])
+        data_vigencia.append([
+            Paragraph(hora_inicio_ct.strftime("%H:%M"), estilo_tabla_celda),
+            Paragraph(hora_fin_ct.strftime("%H:%M"), estilo_tabla_celda),
+            Paragraph(html.escape(contrato.get_jornada_display() or ""), estilo_tabla_celda),
+        ])
     tabla_vigencia = Table(data_vigencia, colWidths=[2.33 * inch, 2.33 * inch, 2.34 * inch])
     tabla_vigencia.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f4f8")),
@@ -317,8 +406,9 @@ def _generar_pdf_trabajador(
                 estilo_titulo,
             ))
             if (seccion.contenido_renderizado or "").strip():
-                elementos.extend(_html_to_flowables(
-                    seccion.contenido_renderizado, estilo_parrafo, estilo_bullet
+                elementos.extend(_flowables_con_tabla_turnos(
+                    seccion.contenido_renderizado, estilo_parrafo, estilo_bullet,
+                    estilo_tabla_celda, estilo_tabla_label,
                 ))
             elementos.append(Spacer(1, 10))
         else:
@@ -327,8 +417,9 @@ def _generar_pdf_trabajador(
                     f"<b>{_safe_paragraph_text(seccion.titulo)}</b>",
                     estilo_subtitulo,
                 ))
-            elementos.extend(_html_to_flowables(
+            elementos.extend(_flowables_con_tabla_turnos(
                 seccion.contenido_renderizado or "", estilo_parrafo, estilo_bullet,
+                estilo_tabla_celda, estilo_tabla_label,
             ))
             elementos.append(Spacer(1, 6))
 

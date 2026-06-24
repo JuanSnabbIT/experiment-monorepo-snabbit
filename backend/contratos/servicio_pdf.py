@@ -48,8 +48,10 @@ def _resolver_plantilla_trabajador(contrato, empresa):
     """
     Resolucion en cascada para ContratoTrabajador:
       1. FK explicita ya asignada al contrato.
-      2. Plantilla default de la empresa empleadora (tipo='trabajador', es_default=True).
-      3. Plantilla global (empresa__isnull=True, tipo='trabajador', es_default=True).
+      2. Plantilla con subtipo coincidente para la empresa empleadora.
+      3. Plantilla universal (subtipo nulo) para la empresa empleadora.
+      4. Plantilla global con subtipo coincidente.
+      5. Plantilla global universal.
 
     Retorna la plantilla encontrada o None.
     """
@@ -59,10 +61,35 @@ def _resolver_plantilla_trabajador(contrato, empresa):
     if plantilla:
         return plantilla
 
+    subtipo = getattr(contrato, "tipo_contrato", None)
+
+    if empresa and subtipo:
+        plantilla = PlantillaContrato.objects.filter(
+            empresa_prestadora=empresa,
+            tipo_contrato="trabajador",
+            subtipo_trabajador=subtipo,
+            es_default=True,
+            activa=True,
+        ).first()
+        if plantilla:
+            return plantilla
+
     if empresa:
         plantilla = PlantillaContrato.objects.filter(
             empresa_prestadora=empresa,
             tipo_contrato="trabajador",
+            subtipo_trabajador__isnull=True,
+            es_default=True,
+            activa=True,
+        ).first()
+        if plantilla:
+            return plantilla
+
+    if subtipo:
+        plantilla = PlantillaContrato.objects.filter(
+            empresa_prestadora__isnull=True,
+            tipo_contrato="trabajador",
+            subtipo_trabajador=subtipo,
             es_default=True,
             activa=True,
         ).first()
@@ -72,6 +99,7 @@ def _resolver_plantilla_trabajador(contrato, empresa):
     return PlantillaContrato.objects.filter(
         empresa_prestadora__isnull=True,
         tipo_contrato="trabajador",
+        subtipo_trabajador__isnull=True,
         es_default=True,
         activa=True,
     ).first()
@@ -122,6 +150,26 @@ def _generar_pdf_trabajador(
     if not getattr(contrato, "plantilla_contrato_id", None):
         contrato.plantilla_contrato = plantilla
         contrato.save(update_fields=["plantilla_contrato", "fecha_modificacion"])
+
+    # Congelar snapshot del grupo de turnos en el primer PDF generado
+    # (no solo al activar), para que el borrador use datos inmutables.
+    if contrato.grupo_turno_id and not contrato.grupo_turno_snapshot:
+        grupo = contrato.grupo_turno
+        contrato.grupo_turno_snapshot = {
+            "id": grupo.id,
+            "nombre": grupo.nombre,
+            "ciclo": grupo.ciclo,
+            "slots": [
+                {
+                    "orden": s.orden,
+                    "nombre": s.turno.nombre,
+                    "hora_inicio": str(s.turno.hora_inicio),
+                    "hora_fin": str(s.turno.hora_fin),
+                }
+                for s in grupo.slots.select_related("turno").order_by("orden")
+            ],
+        }
+        contrato.save(update_fields=["grupo_turno_snapshot", "fecha_modificacion"])
 
     adaptador = AdaptadorContratoTrabajador(contrato)
 
@@ -198,3 +246,79 @@ def generar_pdf(
     raise TypeError(
         f"Tipo de contrato no registrado en servicio_pdf: {type(modelo).__name__}"
     )
+
+
+# ---------------------------------------------------------------------------
+# PDF de Finiquito
+# ---------------------------------------------------------------------------
+
+def _resolver_plantilla_finiquito(empresa):
+    """
+    Resolución en cascada para plantilla de finiquito:
+      1. Plantilla default de la empresa empleadora (tipo='finiquito', es_default=True).
+      2. Plantilla global (empresa__isnull=True, tipo='finiquito', es_default=True).
+    """
+    from contratos.models import PlantillaContrato
+
+    if empresa:
+        plantilla = PlantillaContrato.objects.filter(
+            empresa_prestadora=empresa,
+            tipo_contrato="finiquito",
+            es_default=True,
+            activa=True,
+        ).first()
+        if plantilla:
+            return plantilla
+
+    return PlantillaContrato.objects.filter(
+        empresa_prestadora__isnull=True,
+        tipo_contrato="finiquito",
+        es_default=True,
+        activa=True,
+    ).first()
+
+
+def generar_pdf_finiquito(finiquito, *, persistir: bool = False) -> bytes:
+    """
+    Genera el PDF del finiquito usando el motor V2 con plantilla tipo 'finiquito'.
+
+    Usa ``AdaptadorContratoTrabajador`` extendido con etiquetas finiquito.
+    Las secciones se persisten en ``SeccionContratoGenerada`` vinculadas al
+    contrato, aisladas de las secciones del contrato base por el filtro de
+    plantilla en ``_generar_pdf_trabajador``.
+
+    Args:
+        finiquito: Instancia de ``FiniquitoContrato``.
+        persistir: Si True, guarda el PDF en ``finiquito.archivo_pdf``.
+
+    Returns:
+        bytes del PDF generado.
+
+    Raises:
+        PlantillaNoDisponibleError: Si no hay plantilla de finiquito configurada.
+    """
+    from django.core.files.base import ContentFile
+
+    from contratos.adaptadores import AdaptadorFiniquito
+    from contratos.funciones_v2 import generar_contrato_pdf_v2
+    from contratos.motor_plantillas_v2 import generar_secciones_v2
+
+    contrato = finiquito.contrato
+    empresa = _empresa_desde_contrato_trabajador(contrato)
+    plantilla = _resolver_plantilla_finiquito(empresa)
+
+    if not plantilla:
+        raise PlantillaNoDisponibleError(
+            "No hay plantilla de finiquito disponible. "
+            "Configura una plantilla tipo 'finiquito' en el panel de administración."
+        )
+
+    adaptador = AdaptadorFiniquito(contrato, plantilla, finiquito)
+    generar_secciones_v2(adaptador)
+    pdf_bytes = generar_contrato_pdf_v2(adaptador)
+
+    if persistir:
+        nombre_archivo = f"finiquito_{contrato.id}.pdf"
+        finiquito.archivo_pdf.save(nombre_archivo, ContentFile(pdf_bytes), save=True)
+
+    return pdf_bytes

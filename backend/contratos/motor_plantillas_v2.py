@@ -95,6 +95,43 @@ def renderizar_seccion_v2(contenido_template: str, adaptador: IContratoBase, eti
     return PATRON_ETIQUETA.sub(_reemplazo, contenido_template or "")
 
 
+_CONDICIONES_TRABAJADOR = {
+    "siempre":              lambda c: True,
+    "solo_plazo_fijo":      lambda c: c.tipo_contrato == "plazo_fijo",
+    "solo_indefinido":      lambda c: c.tipo_contrato == "indefinido",
+    "solo_reemplazo":       lambda c: c.tipo_contrato == "reemplazo",
+    "si_bono_movilizacion": lambda c: bool(getattr(c, "bono_movilizacion_activo", False)),
+    "si_bono_colacion":     lambda c: bool(getattr(c, "bono_colacion_activo", False)),
+    "si_grupo_turno":       lambda c: bool(c.grupo_turno_id or c.grupo_turno_snapshot),
+    "si_gratificacion":     lambda c: c.tipo_gratificacion != "no_aplica",
+    "si_jornada_parcial":   lambda c: c.jornada == "parcial",
+    "si_banco":             lambda c: bool(c.usuario_empresa and c.usuario_empresa.banco),
+    "si_isapre":            lambda c: bool(
+        c.usuario_empresa and c.usuario_empresa.sistema_salud == "isapre"
+    ),
+}
+
+
+def _evaluar_condicion_aparicion(condicion, adaptador: IContratoBase) -> bool:
+    """
+    Retorna True si la sección debe incluirse.
+    - None o 'siempre' → True (siempre incluir).
+    - Condición desconocida → True (fail-safe: no omitir por error).
+    - Solo evalúa condiciones para ContratoTrabajador; B2B siempre True.
+    """
+    if not condicion or condicion == "siempre":
+        return True
+    if _es_adaptador_b2b(adaptador):
+        return True
+    fn = _CONDICIONES_TRABAJADOR.get(condicion)
+    if fn is None:
+        return True
+    try:
+        return bool(fn(adaptador.instancia))
+    except Exception:
+        return True
+
+
 def generar_secciones_v2(adaptador: IContratoBase) -> list:
     """
     Genera o actualiza ``SeccionContratoGenerada`` para cada
@@ -127,6 +164,15 @@ def generar_secciones_v2(adaptador: IContratoBase) -> list:
     resultado: list[SeccionContratoGenerada] = []
 
     for seccion in secciones:
+        # Evaluar condición de aparición antes de renderizar
+        condicion = getattr(seccion, "condicion_aparicion", None)
+        if not _evaluar_condicion_aparicion(condicion, adaptador):
+            # Si existía una SeccionContratoGenerada anterior, eliminarla
+            existente_a_eliminar = existentes_por_plantilla.get(seccion.id)
+            if existente_a_eliminar:
+                existente_a_eliminar.delete()
+            continue
+
         existente = existentes_por_plantilla.get(seccion.id)
 
         if existente and existente.fue_editado_manualmente:
