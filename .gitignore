@@ -41,6 +41,12 @@ celerybeat.pid
 .github/
 .codex/
 
+# Carpetas de configuración/documentación de agentes IA (no versionar)
+.claude/
+.cline/
+dev/docs/claude/
+dev/docs/copilot/
+
 # Ignorar carpetas de migraciones de Django (excepto archivos versionados)
 **/migrations/
 **/migrations/**
