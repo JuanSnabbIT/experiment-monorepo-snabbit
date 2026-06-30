@@ -1,5 +1,4 @@
 import Input from '@/components/form/Input';
-import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -27,14 +26,6 @@ import dayjs from 'dayjs';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const OPCIONES_ESTADO: TSelectOption[] = [
-    { value: 'borrador', label: 'Borrador' },
-    { value: 'pendiente_aprobacion', label: 'Pendiente aprobación' },
-    { value: 'vigente', label: 'Vigente' },
-    { value: 'terminado', label: 'Terminado' },
-    { value: 'anulado', label: 'Anulado' },
-    { value: 'descartado', label: 'Descartado' },
-];
 
 type TFiltroKpi = 'vigentes' | 'en_proceso' | 'finalizados';
 
@@ -50,7 +41,6 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     const [sorting, setSorting] = useState<SortingState>([{ id: 'id', desc: true }]);
     const [inputBuscar, setInputBuscar] = useState('');
     const [globalFilter, setGlobalFilter] = useState('');
-    const [filtroEstado, setFiltroEstado] = useState<TSelectOption | null>(null);
     const [filtroKpi, setFiltroKpi] = useState<TFiltroKpi | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [wizardOpen, setWizardOpen] = useState(false);
@@ -94,16 +84,11 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
             );
         }
 
-        if (filtroEstado) {
-            lista = lista.filter((c) => c.estado === filtroEstado.value);
-        }
-
         return lista;
-    }, [contratos, filtroKpi, filtroEstado]);
+    }, [contratos, filtroKpi]);
 
     const handleKpiClick = (kpi: TFiltroKpi) => {
         setFiltroKpi((prev) => (prev === kpi ? null : kpi));
-        setFiltroEstado(null);
     };
 
     const columns = useMemo(
@@ -212,9 +197,8 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     return (
         <div className='flex flex-col gap-4'>
             {/* ── Métricas ── */}
-            {contratos.length > 0 && (
-                <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-                    <button type='button' className='text-left' onClick={() => { setFiltroKpi(null); setFiltroEstado(null); }}>
+            <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+                    <button type='button' className='text-left' onClick={() => setFiltroKpi(null)}>
                         <Card className={`transition-all duration-200 ${!filtroKpi ? 'ring-2 ring-blue-500' : ''}`}>
                             <CardBody className='flex items-center gap-3 py-3'>
                                 <Icon icon='HeroDocumentText' size='text-2xl' className='text-blue-500' />
@@ -258,8 +242,7 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                             </CardBody>
                         </Card>
                     </button>
-                </div>
-            )}
+            </div>
 
             {/* ── Tabla ── */}
             <Card>
@@ -279,16 +262,6 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                             name='buscarContratoLaboralCliente'
                             className='max-w-[180px]'
                         />
-                        <div className='min-w-[180px]'>
-                            <SelectReact
-                                name='filtroEstadoLaboral'
-                                options={OPCIONES_ESTADO}
-                                value={filtroEstado}
-                                onChange={(value) => setFiltroEstado(value as TSelectOption | null)}
-                                isClearable
-                                placeholder='Estado...'
-                            />
-                        </div>
                         <Tooltip text='Crear un nuevo contrato laboral para este cliente'>
                             <Button
                                 variant='solid'
@@ -350,7 +323,7 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                             ) : table.getRowModel().rows.length === 0 ? (
                                 <Tr>
                                     <Td colSpan={columns.length} className='text-center text-zinc-400'>
-                                        {filtroEstado || filtroKpi || globalFilter
+                                        {filtroKpi || globalFilter
                                             ? 'No hay contratos que coincidan con los filtros aplicados.'
                                             : 'No hay contratos laborales asociados a este cliente.'}
                                     </Td>

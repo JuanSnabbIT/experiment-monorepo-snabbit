@@ -1,4 +1,3 @@
-import Checkbox from '@/components/form/Checkbox';
 import Input from '@/components/form/Input';
 import SelectReact from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
@@ -24,17 +23,14 @@ import {
 } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { COLOR_ESTADO } from '@/constants/contrato.constant';
 
-const BADGE_COLOR_ESTADO: Record<string, 'emerald' | 'red' | 'amber' | 'violet' | 'zinc'> = {
-    '1': 'emerald',
-    '2': 'red',
-    borrador: 'amber',
-    pendiente_aprobacion: 'amber',
-    vigente: 'emerald',
-    vencido: 'red',
-    terminado: 'violet',
-    anulado: 'red',
-    descartado: 'zinc',
+// Estados exclusivos de usuario/trabajador, no cubiertos por COLOR_ESTADO
+const COLOR_ESTADO_TRABAJADOR: Record<string, 'emerald' | 'red' | 'amber' | 'zinc'> = {
+    '1': 'emerald',      // usuario activo (UsuarioEmpresa)
+    '2': 'red',          // usuario inactivo
+    en_proceso: 'amber', // estado_rrhh intermedio
+    inactivo: 'red',     // estado_rrhh sin contrato vigente
 };
 
 const columnHelper = createColumnHelper<ITrabajadorCliente>();
@@ -52,8 +48,9 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
     const [sorting, setSorting] = useState<SortingState>([]);
     const [inputBuscar, setInputBuscar] = useState('');
     const [globalFilter, setGlobalFilter] = useState('');
-    const [mostrarInactivos, setMostrarInactivos] = useState(false);
-    const [filtroKpi, setFiltroKpi] = useState<'total' | 'activos' | 'inactivos' | 'pendientes' | null>(null);
+    const [filtroKpi, setFiltroKpi] = useState<'total' | 'activos' | 'inactivos' | 'pendientes' | 'en_proceso' | null>(null);
+
+    const esRrhhCliente = detalleCliente?.tipo_relacion === 'rrhh-cliente';
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const { data: trabajadores = [], isLoading, isError } = useGetTrabajadoresClienteQuery(
@@ -95,9 +92,14 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
         // Filtro por KPI — aplica antes que los demás filtros
         if (filtroKpi && filtroKpi !== 'total') {
             lista = lista.filter((t) => {
-                if (filtroKpi === 'activos') return t.tipo === 'confirmado' && t.estado === '1';
-                if (filtroKpi === 'inactivos') return t.tipo === 'confirmado' && t.estado === '2';
-                if (filtroKpi === 'pendientes') return t.tipo === 'pendiente';
+                if (esRrhhCliente) {
+                    if (filtroKpi === 'activos')    return t.tipo === 'confirmado' && t.estado_rrhh === 'activo';
+                    if (filtroKpi === 'en_proceso') return t.tipo === 'confirmado' && t.estado_rrhh === 'en_proceso';
+                    if (filtroKpi === 'inactivos')  return t.tipo === 'confirmado' && t.estado_rrhh === 'inactivo';
+                } else {
+                    if (filtroKpi === 'activos')   return t.estado === '1';
+                    if (filtroKpi === 'inactivos') return t.estado === '2';
+                }
                 return true;
             });
         }
@@ -111,23 +113,31 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
             );
         }
 
-        // Filtro de inactivos — solo si no hay un filtro KPI activo que ya filtre por estado
-        if (!filtroKpi && !mostrarInactivos) {
-            lista = lista.filter(
-                (t) => !(t.tipo === 'confirmado' && t.estado === '2'),
-            );
+        // RRHH: ocultar inactivos por defecto salvo que el KPI inactivos esté activo
+        if (esRrhhCliente && filtroKpi !== 'inactivos') {
+            lista = lista.filter((t) => !(t.tipo === 'confirmado' && t.estado_rrhh === 'inactivo'));
         }
 
         return lista;
-    }, [trabajadores, sucursalSelected, mostrarInactivos, filtroKpi]);
+    }, [trabajadores, sucursalSelected, filtroKpi, esRrhhCliente]);
 
     const metricas = useMemo(() => {
-        const total = trabajadores.length;
-        const activos = trabajadores.filter((t) => t.tipo === 'confirmado' && t.estado === '1').length;
-        const inactivos = trabajadores.filter((t) => t.tipo === 'confirmado' && t.estado === '2').length;
-        const pendientes = trabajadores.filter((t) => t.tipo === 'pendiente').length;
-        return { total, activos, inactivos, pendientes };
-    }, [trabajadores]);
+        if (esRrhhCliente) {
+            return {
+                activos:    trabajadores.filter((t) => t.tipo === 'confirmado' && t.estado_rrhh === 'activo').length,
+                en_proceso: trabajadores.filter((t) => t.tipo === 'confirmado' && t.estado_rrhh === 'en_proceso').length,
+                inactivos:  trabajadores.filter((t) => t.tipo === 'confirmado' && t.estado_rrhh === 'inactivo').length,
+                total: 0, pendientes: 0,
+            };
+        }
+        return {
+            total:      trabajadores.length,
+            activos:    trabajadores.filter((t) => t.estado === '1').length,
+            inactivos:  trabajadores.filter((t) => t.estado === '2').length,
+            pendientes: 0,
+            en_proceso: 0,
+        };
+    }, [trabajadores, esRrhhCliente]);
 
     const columns = [
         columnHelper.accessor('nombre', {
@@ -153,14 +163,17 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
             header: 'Cargo',
         }),
         columnHelper.accessor('estado_label', {
-            cell: (info) => (
-                <Badge
-                    variant='solid'
-                    color={BADGE_COLOR_ESTADO[info.row.original.estado] ?? 'zinc'}
-                    className='capitalize'>
-                    {info.getValue()}
-                </Badge>
-            ),
+            cell: (info) => {
+                const row = info.row.original;
+                const esRrhh = detalleCliente?.tipo_relacion === 'rrhh-cliente';
+                const colorKey = esRrhh && row.estado_rrhh ? row.estado_rrhh : row.estado;
+                const label    = esRrhh && row.estado_rrhh_label ? row.estado_rrhh_label : info.getValue();
+                return (
+                    <Badge variant='solid' color={COLOR_ESTADO[colorKey] ?? COLOR_ESTADO_TRABAJADOR[colorKey] ?? 'zinc'} className='capitalize'>
+                        {label}
+                    </Badge>
+                );
+            },
             header: 'Estado',
         }),
         columnHelper.display({
@@ -206,52 +219,79 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
         <div className='flex flex-col gap-4'>
             {/* ── Métricas ── */}
             {trabajadores.length > 0 && (
-                <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-                    <button type='button' className='text-left' onClick={() => setFiltroKpi(null)}>
-                        <Card className={`transition-all duration-200 ${!filtroKpi ? 'ring-2 ring-blue-500' : ''}`}>
-                            <CardBody className='flex items-center gap-3 py-3'>
-                                <Icon icon='HeroUserGroup' size='text-2xl' className='text-blue-500' />
-                                <div>
-                                    <p className='text-xs text-zinc-500'>Total</p>
-                                    <p className='text-xl font-bold'>{metricas.total}</p>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </button>
-                    <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'activos' ? null : 'activos')}>
-                        <Card className={`transition-all duration-200 ${filtroKpi === 'activos' ? 'ring-2 ring-emerald-500' : ''}`}>
-                            <CardBody className='flex items-center gap-3 py-3'>
-                                <Icon icon='HeroCheckCircle' size='text-2xl' className='text-emerald-500' />
-                                <div>
-                                    <p className='text-xs text-zinc-500'>Activos</p>
-                                    <p className='text-xl font-bold'>{metricas.activos}</p>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </button>
-                    <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'inactivos' ? null : 'inactivos')}>
-                        <Card className={`transition-all duration-200 ${filtroKpi === 'inactivos' ? 'ring-2 ring-red-500' : ''}`}>
-                            <CardBody className='flex items-center gap-3 py-3'>
-                                <Icon icon='HeroXCircle' size='text-2xl' className='text-red-500' />
-                                <div>
-                                    <p className='text-xs text-zinc-500'>Inactivos</p>
-                                    <p className='text-xl font-bold'>{metricas.inactivos}</p>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </button>
-                    <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'pendientes' ? null : 'pendientes')}>
-                        <Card className={`transition-all duration-200 ${filtroKpi === 'pendientes' ? 'ring-2 ring-amber-500' : ''}`}>
-                            <CardBody className='flex items-center gap-3 py-3'>
-                                <Icon icon='HeroClock' size='text-2xl' className='text-amber-500' />
-                                <div>
-                                    <p className='text-xs text-zinc-500'>Pendientes</p>
-                                    <p className='text-xl font-bold'>{metricas.pendientes}</p>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </button>
-                </div>
+                esRrhhCliente ? (
+                    <div className='grid grid-cols-3 gap-3'>
+                        <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'activos' ? null : 'activos')}>
+                            <Card className={`transition-all duration-200 ${filtroKpi === 'activos' ? 'ring-2 ring-emerald-500' : ''}`}>
+                                <CardBody className='flex items-center gap-3 py-3'>
+                                    <Icon icon='HeroCheckCircle' size='text-2xl' className='text-emerald-500' />
+                                    <div>
+                                        <p className='text-xs text-zinc-500'>Activos</p>
+                                        <p className='text-xl font-bold'>{metricas.activos}</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </button>
+                        <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'en_proceso' ? null : 'en_proceso')}>
+                            <Card className={`transition-all duration-200 ${filtroKpi === 'en_proceso' ? 'ring-2 ring-amber-500' : ''}`}>
+                                <CardBody className='flex items-center gap-3 py-3'>
+                                    <Icon icon='HeroClock' size='text-2xl' className='text-amber-500' />
+                                    <div>
+                                        <p className='text-xs text-zinc-500'>En proceso</p>
+                                        <p className='text-xl font-bold'>{metricas.en_proceso}</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </button>
+                        <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'inactivos' ? null : 'inactivos')}>
+                            <Card className={`transition-all duration-200 ${filtroKpi === 'inactivos' ? 'ring-2 ring-red-500' : ''}`}>
+                                <CardBody className='flex items-center gap-3 py-3'>
+                                    <Icon icon='HeroXCircle' size='text-2xl' className='text-red-500' />
+                                    <div>
+                                        <p className='text-xs text-zinc-500'>Inactivos</p>
+                                        <p className='text-xl font-bold'>{metricas.inactivos}</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </button>
+                    </div>
+                ) : (
+                    <div className='grid grid-cols-3 gap-3'>
+                        <button type='button' className='text-left' onClick={() => setFiltroKpi(null)}>
+                            <Card className={`transition-all duration-200 ${!filtroKpi ? 'ring-2 ring-blue-500' : ''}`}>
+                                <CardBody className='flex items-center gap-3 py-3'>
+                                    <Icon icon='HeroUserGroup' size='text-2xl' className='text-blue-500' />
+                                    <div>
+                                        <p className='text-xs text-zinc-500'>Total</p>
+                                        <p className='text-xl font-bold'>{metricas.total}</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </button>
+                        <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'activos' ? null : 'activos')}>
+                            <Card className={`transition-all duration-200 ${filtroKpi === 'activos' ? 'ring-2 ring-emerald-500' : ''}`}>
+                                <CardBody className='flex items-center gap-3 py-3'>
+                                    <Icon icon='HeroCheckCircle' size='text-2xl' className='text-emerald-500' />
+                                    <div>
+                                        <p className='text-xs text-zinc-500'>Activos</p>
+                                        <p className='text-xl font-bold'>{metricas.activos}</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </button>
+                        <button type='button' className='text-left' onClick={() => setFiltroKpi(filtroKpi === 'inactivos' ? null : 'inactivos')}>
+                            <Card className={`transition-all duration-200 ${filtroKpi === 'inactivos' ? 'ring-2 ring-red-500' : ''}`}>
+                                <CardBody className='flex items-center gap-3 py-3'>
+                                    <Icon icon='HeroXCircle' size='text-2xl' className='text-red-500' />
+                                    <div>
+                                        <p className='text-xs text-zinc-500'>Inactivos</p>
+                                        <p className='text-xl font-bold'>{metricas.inactivos}</p>
+                                    </div>
+                                </CardBody>
+                            </Card>
+                        </button>
+                    </div>
+                )
             )}
 
             {/* ── Tabla unificada ── */}
@@ -281,16 +321,6 @@ function TablaUsuariosDelCliente({ detalleCliente }: TablaUsuariosDelClienteProp
                                     setSucursalSelected(e as { value: string; label: string })
                                 }
                             />
-                        </div>
-                        <div className='flex items-center gap-2'>
-                            <Checkbox
-                                id='mostrarInactivos'
-                                checked={mostrarInactivos}
-                                onChange={() => setMostrarInactivos(!mostrarInactivos)}
-                            />
-                            <label htmlFor='mostrarInactivos' className='cursor-pointer text-sm'>
-                                Mostrar inactivos
-                            </label>
                         </div>
                     </div>
                 </CardHeader>

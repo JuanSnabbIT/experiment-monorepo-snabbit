@@ -18,6 +18,7 @@ export interface EmpresaState {
     selectEmpresas: IEmpresa[];
     detalleEmpresa: IEmpresa | undefined;
     listaMisClientes: IRelacionEmpresa[];
+    listaMisClientesRrhh: IRelacionEmpresa[];
     listaMisProspectos: IRelacionEmpresa[];
     detalleCliente: IRelacionEmpresa | undefined;
     listaUsuariosCliente: IUsuarioEmpresa[];
@@ -40,6 +41,7 @@ const initialState: EmpresaState = {
     selectEmpresas: [],
     detalleEmpresa: undefined,
     listaMisClientes: [],
+    listaMisClientesRrhh: [],
     listaMisProspectos: [],
     detalleCliente: undefined,
     listaUsuariosCliente: [],
@@ -174,6 +176,22 @@ export const listaMisClientesThunk = createAsyncThunk<
     try {
         const response = await ApiService.fetchData<IRelacionEmpresa[]>({
             url: `/api/empresas/${id_empresa}/mis-clientes`,
+            method: 'get',
+        });
+        return response.data;
+    } catch (error: any) {
+        return rejectWithValue(error.response.data);
+    }
+});
+
+export const listaMisClientesRrhhThunk = createAsyncThunk<
+    IRelacionEmpresa[],
+    { id_empresa: number | string | undefined | null },
+    { rejectValue: string }
+>('empresa/listaMisClientesRrhhThunk', async ({ id_empresa }, { rejectWithValue }) => {
+    try {
+        const response = await ApiService.fetchData<IRelacionEmpresa[]>({
+            url: `/api/empresas/${id_empresa}/mis-clientes?tipo=rrhh-cliente`,
             method: 'get',
         });
         return response.data;
@@ -404,6 +422,17 @@ const empresaSlice = createSlice({
                 state.listaMisClientes = action.payload;
             })
             .addCase(listaMisClientesThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
+            .addCase(listaMisClientesRrhhThunk.pending, (state) => {
+                state.loading = true;
+            })
+            .addCase(listaMisClientesRrhhThunk.fulfilled, (state, action) => {
+                state.loading = false;
+                state.listaMisClientesRrhh = action.payload;
+            })
+            .addCase(listaMisClientesRrhhThunk.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             })

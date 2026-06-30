@@ -64,7 +64,7 @@ class RelacionEmpresa(ModeloBase):
     class Meta:
         verbose_name = "Relación entre Empresas"
         verbose_name_plural = "Relaciones entre Empresas"
-        unique_together = ("prestador_servicios", "cliente")
+        unique_together = ("prestador_servicios", "cliente", "tipo_relacion")
 
     def __str__(self):
         return f"{self.prestador_servicios} -> {self.cliente} ({self.tipo_relacion})"

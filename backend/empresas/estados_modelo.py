@@ -5,8 +5,9 @@ ESTADO_USUARIO_EMPRESA = (
 )
 
 TIPOS_RELACION_EMPRESA = [
-    ('prestador-cliente', 'Cliente'),
+    ('prestador-cliente', 'Cliente comercial'),
     ('prospecto', 'Prospecto'),
+    ('rrhh-cliente', 'Cliente RRHH'),
 ]
 
 SISTEMA_SALUD = (

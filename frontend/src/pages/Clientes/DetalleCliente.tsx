@@ -157,18 +157,20 @@ const DetalleCliente = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'>
-                                        <div>
-                                            <Badge>PPM</Badge>
-                                            <div className='ml-4'>{detalleCliente.info_cliente.ppm}%</div>
-                                        </div>
-                                        <div>
-                                            <Badge>Recargo</Badge>
-                                            <div className='ml-4'>
-                                                {detalleCliente.info_cliente.recargo}%
+                                    {!esRRHHRestringido && (
+                                        <div className='grid grid-cols-2 gap-4 rounded-xl border border-blue-500 p-4'>
+                                            <div>
+                                                <Badge>PPM</Badge>
+                                                <div className='ml-4'>{detalleCliente.info_cliente.ppm}%</div>
+                                            </div>
+                                            <div>
+                                                <Badge>Recargo</Badge>
+                                                <div className='ml-4'>
+                                                    {detalleCliente.info_cliente.recargo}%
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </CardBody>
                             </Card>
 
@@ -198,14 +200,16 @@ const DetalleCliente = () => {
                                         <Button {...tabProps('contratosLaborales')} onClick={() => setActiveTab('contratosLaborales')}>
                                             {CLIENT_TABS.contratosLaborales}
                                         </Button>
-                                        <div className='ml-auto'>
-                                            <Button
-                                                {...tabProps('configuracion')}
-                                                icon='HeroCog8Tooth'
-                                                onClick={() => setActiveTab('configuracion')}>
-                                                Configuración RRHH
-                                            </Button>
-                                        </div>
+                                        {detalleCliente.tipo_relacion === 'rrhh-cliente' && (
+                                            <div className='ml-auto'>
+                                                <Button
+                                                    {...tabProps('configuracion')}
+                                                    icon='HeroCog8Tooth'
+                                                    onClick={() => setActiveTab('configuracion')}>
+                                                    Configuración RRHH
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </CardBody>
                             </Card>
@@ -225,7 +229,7 @@ const DetalleCliente = () => {
                             {activeTab === 'contratosLaborales' && (
                                 <TablaContratosLaboralesCliente detalleCliente={detalleCliente} />
                             )}
-                            {activeTab === 'configuracion' && (
+                            {activeTab === 'configuracion' && detalleCliente.tipo_relacion === 'rrhh-cliente' && (
                                 <ConfiguracionRRHH
                                     embedded
                                     empresaIdFijo={detalleCliente.info_cliente.id}

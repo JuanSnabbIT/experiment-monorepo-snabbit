@@ -79,7 +79,7 @@ def _empresas_clientes_ids(empresa):
     return list(
         RelacionEmpresa.objects.filter(
             prestador_servicios=empresa,
-            tipo_relacion="prestador-cliente",
+            tipo_relacion__in=["prestador-cliente", "rrhh-cliente"],
         ).values_list("cliente_id", flat=True)
     )
 
@@ -363,7 +363,7 @@ class TurnoLaboralViewSet(viewsets.ModelViewSet):
                 es_cliente = RelacionEmpresa.objects.filter(
                     prestador_servicios=prestadora,
                     cliente=empresa_destino,
-                    tipo_relacion="prestador-cliente",
+                    tipo_relacion__in=["prestador-cliente", "rrhh-cliente"],
                 ).exists()
                 empresa = empresa_destino if (es_cliente or empresa_destino == prestadora) else prestadora
             except Empresa.DoesNotExist:

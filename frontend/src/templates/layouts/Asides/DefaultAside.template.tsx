@@ -2,7 +2,7 @@ import AuthorityCheckNav from '@/components/layouts/AuthorityCheckNav/AuthorityC
 import { Pages } from '@/config/pages.config';
 import CrearClienteEnMenu from '@/pages/Clientes/modals/CrearClienteEnMenu';
 import { listaBodegasThunk, useAppDispatch, useAppSelector } from '@/store';
-import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
+import { listaMisClientesRrhhThunk, listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
 import { useEffect } from 'react';
 import Aside, { AsideBody } from '../../../components/layouts/Aside/Aside';
 import Nav, {
@@ -17,19 +17,31 @@ import AsideHeadPart from './_parts/AsideHead.part';
 const DefaultAsideTemplate = () => {
     const dispatch = useAppDispatch();
     const { listaGrupos, isAuthenticated } = useAppSelector((state) => state.auth);
-    const { listaMisClientes } = useAppSelector((state) => state.empresa);
+    const { listaMisClientes, listaMisClientesRrhh } = useAppSelector((state) => state.empresa);
     const { listaBodegas } = useAppSelector((state) => state.bodega);
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
 
+    const grupos = listaGrupos?.grupos ?? [];
+    const esRolRrhhPuro =
+        grupos.includes('rrhh') &&
+        !grupos.includes('staff') &&
+        !grupos.includes('superadmin');
+    const listaClientesActiva = esRolRrhhPuro ? listaMisClientesRrhh : listaMisClientes;
+
 
     useEffect(() => {
-        if (personalizacionUsuario && personalizacionUsuario.sucursal_principal) {
+        const puedeVerBodegas =
+            grupos.includes('staff') ||
+            grupos.includes('superadmin') ||
+            grupos.includes('tecnico');
+        if (personalizacionUsuario && personalizacionUsuario.sucursal_principal && puedeVerBodegas) {
             dispatch(listaBodegasThunk());
         }
         if (personalizacionUsuario && personalizacionUsuario.empresa) {
             dispatch(listaMisClientesThunk({ id_empresa: personalizacionUsuario.empresa }));
+            dispatch(listaMisClientesRrhhThunk({ id_empresa: personalizacionUsuario.empresa }));
         }
-    }, [dispatch, personalizacionUsuario?.sucursal_principal]);
+    }, [dispatch, personalizacionUsuario?.sucursal_principal, listaGrupos]);
 
     // NO renderizar el menú si el usuario no está autenticado
     if (!isAuthenticated) {
@@ -75,9 +87,9 @@ const DefaultAsideTemplate = () => {
                                     text={Pages.empresa.subPages.detalleCliente.text}
                                     icon={Pages.empresa.subPages.detalleCliente.icon}
                                     to={Pages.empresa.subPages.detalleCliente.to}>
-                                    <CrearClienteEnMenu />
-                                    {listaMisClientes.length > 0 ? (
-                                        listaMisClientes.map((cli, index) => (
+                                    <CrearClienteEnMenu modoRrhh={esRolRrhhPuro} />
+                                    {listaClientesActiva.length > 0 ? (
+                                        listaClientesActiva.map((cli, index) => (
                                             <NavItem
                                                 text={cli.info_cliente.nombre}
                                                 to={`/empresa/detalle-cliente/${cli.id}`}
@@ -95,7 +107,7 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico']} userAuthority={listaGrupos?.grupos}>
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico', 'rrhh']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Gestión Operativa</NavTitle>
                     </AuthorityCheckNav>
@@ -266,6 +278,17 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
+                    {/* Calendario Operacional */}
+                    <AuthorityCheckNav
+                        authority={Pages.listaDiasCalendario.authority}
+                        userAuthority={listaGrupos?.grupos}>
+                        <NavItem
+                            text={Pages.listaDiasCalendario.text}
+                            to={Pages.listaDiasCalendario.to}
+                            icon={Pages.listaDiasCalendario.icon}
+                            id={Pages.listaDiasCalendario.id}></NavItem>
+                    </AuthorityCheckNav>
+
                     <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Ventas & Compras</NavTitle>
@@ -432,7 +455,7 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    <AuthorityCheckNav authority={['staff', 'superadmin']} userAuthority={listaGrupos?.grupos}>
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'rrhh']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Recursos Humanos</NavTitle>
                     </AuthorityCheckNav>
@@ -507,21 +530,12 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.vacaciones.subPages.dashboardVacaciones.icon}
                                     id={Pages.vacaciones.subPages.dashboardVacaciones.id}></NavItem>
                             </AuthorityCheckNav>
-                            <AuthorityCheckNav
-                                authority={Pages.listaDiasCalendario.authority}
-                                userAuthority={listaGrupos?.grupos}>
-                                <NavItem
-                                    text={Pages.listaDiasCalendario.text}
-                                    to={Pages.listaDiasCalendario.to}
-                                    icon={Pages.listaDiasCalendario.icon}
-                                    id={Pages.listaDiasCalendario.id}></NavItem>
-                            </AuthorityCheckNav>
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    {/* Plantillas de contrato — visibles para RRHH y admins */}
+                    {/* Plantillas de contrato — atajo solo para RRHH (los admins la ven dentro de "Registros") */}
                     <AuthorityCheckNav
-                        authority={Pages.registros.subPages.listaPlantillasContratoV2.authority}
+                        authority={['rrhh']}
                         userAuthority={listaGrupos?.grupos}>
                         <NavItem
                             text='Plantillas de Contrato'

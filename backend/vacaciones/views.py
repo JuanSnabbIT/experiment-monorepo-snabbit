@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from core.models import PersonalizacionUsuario
 from django.db.models import Count, Sum
@@ -12,22 +13,30 @@ class SolicitudVacacionesViewSet(viewsets.ModelViewSet):
     serializer_class = SolicitudVacacionesSerializer
     
     def get_queryset(self):
-        user = self.request.user
-        try:
-            personalizacion = PersonalizacionUsuario.objects.get(usuario=user)
-            empresa = personalizacion.sucursal_principal.empresa
-        except (PersonalizacionUsuario.DoesNotExist, AttributeError):
+        empresa_ids = self._get_empresas_autorizadas()
+        if not empresa_ids:
             return SolicitudVacaciones.objects.none()
-        from empresas.models import RelacionEmpresa
-        client_ids = RelacionEmpresa.objects.filter(
-            prestador_servicios=empresa
-        ).values_list('cliente_id', flat=True)
-        empresa_ids = list(client_ids) + [empresa.id]
         return SolicitudVacaciones.objects.filter(
             usuario_empresa__sucursal__empresa_id__in=empresa_ids
         )
 
+    def _get_empresas_autorizadas(self):
+        try:
+            personalizacion = PersonalizacionUsuario.objects.get(usuario=self.request.user)
+            empresa = personalizacion.sucursal_principal.empresa
+        except (PersonalizacionUsuario.DoesNotExist, AttributeError):
+            return []
+        from empresas.models import RelacionEmpresa
+        client_ids = RelacionEmpresa.objects.filter(
+            prestador_servicios=empresa
+        ).values_list('cliente_id', flat=True)
+        return list(client_ids) + [empresa.id]
+
     def perform_create(self, serializer):
+        usuario_empresa = serializer.validated_data['usuario_empresa']
+        empresa_ue_id = usuario_empresa.sucursal.empresa_id
+        if empresa_ue_id not in self._get_empresas_autorizadas():
+            raise PermissionDenied('No tienes permiso para crear solicitudes para este empleado.')
         solicitud = serializer.save()
         # Hook FCM N12: solicitud de vacaciones creada (silencioso)
         try:

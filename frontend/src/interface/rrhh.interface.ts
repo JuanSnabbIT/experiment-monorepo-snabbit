@@ -12,6 +12,8 @@ export interface ITrabajadorCliente {
     sucursal_id: number | null;
     estado: string;
     estado_label: string;
+    estado_rrhh: 'activo' | 'en_proceso' | 'inactivo' | null;
+    estado_rrhh_label: string | null;
 }
 
 export type TTipoContrato =
