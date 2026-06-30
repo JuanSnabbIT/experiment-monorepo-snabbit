@@ -7,17 +7,16 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { listaMisSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
+import { useFirmarSolicitudVacacionesMutation } from '@/store/slices/vacaciones/vacacionesApi';
 import { useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function FirmarSolicitudVacaciones({ solicitud_id }: { solicitud_id: number }) {
-    const dispatch = useAppDispatch();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const sigCanvas = useRef<SignatureCanvas | null>(null);
+    const [firmarSolicitud] = useFirmarSolicitudVacacionesMutation();
 
     const clear = () => {
         if (sigCanvas.current) {
@@ -31,9 +30,8 @@ function FirmarSolicitudVacaciones({ solicitud_id }: { solicitud_id: number }) {
                 <Button
                     variant='solid'
                     icon='HeroPencil'
-                    onClick={() => {
-                        setIsOpen(true);
-                    }}></Button>
+                    onClick={() => setIsOpen(true)}
+                />
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
                 <ModalHeader>Firmar Solicitud</ModalHeader>
@@ -67,21 +65,12 @@ function FirmarSolicitudVacaciones({ solicitud_id }: { solicitud_id: number }) {
                             variant='solid'
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/solicitudes-vacaciones/${solicitud_id}/`,
-                                        method: 'patch',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        data: JSON.stringify({
-                                            firma_usuario:
-                                                sigCanvas.current?.toDataURL('image/png'),
-                                        }),
-                                    });
-                                    if (response.data) {
-                                        toast.success('Solicitud Firmada', { autoClose: 1000 });
-                                        dispatch(listaMisSolicitudesVacacionesThunk());
-                                    }
-                                } catch (error: any) {
-                                    toast.error(error.response.data);
+                                    const firma = sigCanvas.current?.toDataURL('image/png') ?? '';
+                                    await firmarSolicitud({ id: solicitud_id, firma_usuario: firma }).unwrap();
+                                    toast.success('Solicitud Firmada', { autoClose: 1000 });
+                                    setIsOpen(false);
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error));
                                 }
                             }}>
                             Guardar

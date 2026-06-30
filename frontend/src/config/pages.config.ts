@@ -811,7 +811,7 @@ export const Pages = {
     listaDiasCalendario: {
         id: 'listaDiasCalendario',
         to: '/lista-dias-calendario',
-        text: 'Dias Calendario',
+        text: 'Calendario',
         icon: 'HeroCalendar',
         authority: ['staff', 'superadmin', 'rrhh'],
     },

@@ -6,9 +6,6 @@ export interface CalendarioState {
     loading: boolean;
     error: string | undefined;
     detalleDiaCalendario: IDiaCalendario | undefined;
-    listaSolicitudesVacaciones: ISolicitudVacaciones[];
-    detalleSolicitudVacaciones: ISolicitudVacaciones | undefined;
-    listaMisSolicitudesVacaciones: ISolicitudVacaciones[];
     listaDiasCalendario: IDiaCalendario[];
     listaSolicitudesVacacionesUsuario: ISolicitudVacaciones[];
 }
@@ -17,9 +14,6 @@ const initialState: CalendarioState = {
     loading: false,
     error: undefined,
     detalleDiaCalendario: undefined,
-    listaSolicitudesVacaciones: [],
-    detalleSolicitudVacaciones: undefined,
-    listaMisSolicitudesVacaciones: [],
     listaDiasCalendario: [],
     listaSolicitudesVacacionesUsuario: [],
 };
@@ -57,54 +51,6 @@ export const detalleDiaCalendarioThunk = createAsyncThunk<
     }
 });
 
-export const listaSolicitudesVacacionesThunk = createAsyncThunk<
-    ISolicitudVacaciones[],
-    undefined,
-    { rejectValue: string }
->('calendario/listaSolicitudesVacacionesThunk', async (_, { rejectWithValue }) => {
-    try {
-        const response = await ApiService.fetchData<ISolicitudVacaciones[]>({
-            url: '/api/solicitudes-vacaciones/',
-            method: 'get',
-        });
-        return response.data;
-    } catch (error: any) {
-        return rejectWithValue(error.response.data);
-    }
-});
-
-export const detalleSolicitudVacacionesThunk = createAsyncThunk<
-    ISolicitudVacaciones,
-    { id_solicitud: number | string | undefined },
-    { rejectValue: string }
->('calendario/detalleSolicitudVacacionesThunk', async ({ id_solicitud }, { rejectWithValue }) => {
-    try {
-        const response = await ApiService.fetchData<ISolicitudVacaciones>({
-            url: `/api/solicitudes-vacaciones/${id_solicitud}/`,
-            method: 'get',
-        });
-        return response.data;
-    } catch (error: any) {
-        return rejectWithValue(error.response.data);
-    }
-});
-
-export const listaMisSolicitudesVacacionesThunk = createAsyncThunk<
-    ISolicitudVacaciones[],
-    undefined,
-    { rejectValue: string }
->('calendario/listaMisSolicitudesVacacionesThunk', async (_, { rejectWithValue }) => {
-    try {
-        const response = await ApiService.fetchData<ISolicitudVacaciones[]>({
-            url: `/api/solicitudes-vacaciones/mis-solicitudes/`,
-            method: 'get',
-        });
-        return response.data;
-    } catch (error: any) {
-        return rejectWithValue(error.response.data);
-    }
-});
-
 export const listaDiasCalendarioThunk = createAsyncThunk<
     IDiaCalendario[],
     undefined,
@@ -135,39 +81,6 @@ const calendarioSlice = createSlice({
                 state.detalleDiaCalendario = action.payload;
             })
             .addCase(detalleDiaCalendarioThunk.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload;
-            })
-            .addCase(listaSolicitudesVacacionesThunk.pending, (state) => {
-                state.loading = true;
-            })
-            .addCase(listaSolicitudesVacacionesThunk.fulfilled, (state, action) => {
-                state.loading = false;
-                state.listaSolicitudesVacaciones = action.payload;
-            })
-            .addCase(listaSolicitudesVacacionesThunk.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload;
-            })
-            .addCase(detalleSolicitudVacacionesThunk.pending, (state) => {
-                state.loading = true;
-            })
-            .addCase(detalleSolicitudVacacionesThunk.fulfilled, (state, action) => {
-                state.loading = false;
-                state.detalleSolicitudVacaciones = action.payload;
-            })
-            .addCase(detalleSolicitudVacacionesThunk.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload;
-            })
-            .addCase(listaMisSolicitudesVacacionesThunk.pending, (state) => {
-                state.loading = true;
-            })
-            .addCase(listaMisSolicitudesVacacionesThunk.fulfilled, (state, action) => {
-                state.loading = false;
-                state.listaMisSolicitudesVacaciones = action.payload;
-            })
-            .addCase(listaMisSolicitudesVacacionesThunk.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             })

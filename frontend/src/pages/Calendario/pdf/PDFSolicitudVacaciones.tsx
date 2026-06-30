@@ -2,21 +2,16 @@ import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft } from '@/components/layouts/Subheader/Subheader';
 import Card, { CardBody } from '@/components/ui/Card';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { detalleSolicitudVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
+import { useGetDetalleSolicitudVacacionesQuery } from '@/store/slices/vacaciones/vacacionesApi';
 import { Document, Image, Page, PDFViewer, StyleSheet, Text, View } from '@react-pdf/renderer';
 import dayjs from 'dayjs';
-import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 
 function PDFSolicitudVacaciones() {
-    const dispatch = useAppDispatch();
     const { id } = useParams();
-    const { detalleSolicitudVacaciones } = useAppSelector((state) => state.calendario);
-
-    useEffect(() => {
-        dispatch(detalleSolicitudVacacionesThunk({ id_solicitud: id }));
-    }, [dispatch, id]);
+    const { data: detalleSolicitudVacaciones } = useGetDetalleSolicitudVacacionesQuery(id ?? '', {
+        skip: !id,
+    });
 
     return (
         <PageWrapper isProtectedRoute={true} title='Solicitud de vacaciones' name='Solicitud de vacaciones'>
@@ -137,58 +132,15 @@ function PDFSolicitudVacaciones() {
 export default PDFSolicitudVacaciones;
 
 const styles = StyleSheet.create({
-    image: {
-        width: 70,
-        height: 70,
-        marginVertical: 10,
-        alignSelf: 'center',
-    },
-    page: {
-        padding: 30,
-    },
-    section: {
-        margin: 5,
-        padding: 6,
-        border: '1px solid #dee2e6',
-        borderRadius: 5,
-    },
-    header: {
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 0,
-    },
-    headerText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
-    logo: {
-        width: 70,
-        height: 70,
-        marginVertical: 0,
-        alignSelf: 'center',
-    },
-    subHeader: {
-        fontSize: 12,
-        marginBottom: 10,
-        fontWeight: 'bold',
-        borderBottom: '1px solid #dee2e6',
-        paddingBottom: 5,
-    },
-    text: {
-        fontSize: 12,
-        marginBottom: 5,
-        lineHeight: 1.5,
-    },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    fullWidth: {
-        width: '100%',
-    },
-    halfWidth: {
-        width: '48%',
-    },
+    image: { width: 70, height: 70, marginVertical: 10, alignSelf: 'center' },
+    page: { padding: 30 },
+    section: { margin: 5, padding: 6, border: '1px solid #dee2e6', borderRadius: 5 },
+    header: { flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0 },
+    headerText: { fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
+    logo: { width: 70, height: 70, marginVertical: 0, alignSelf: 'center' },
+    subHeader: { fontSize: 12, marginBottom: 10, fontWeight: 'bold', borderBottom: '1px solid #dee2e6', paddingBottom: 5 },
+    text: { fontSize: 12, marginBottom: 5, lineHeight: 1.5 },
+    row: { flexDirection: 'row', justifyContent: 'space-between' },
+    fullWidth: { width: '100%' },
+    halfWidth: { width: '48%' },
 });

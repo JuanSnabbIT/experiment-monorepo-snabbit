@@ -2,6 +2,7 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
@@ -9,8 +10,8 @@ import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import { ISolicitudVacaciones } from '@/interface/calendario.interface';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { listaSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
+import { useGetSolicitudesVacacionesQuery } from '@/store/slices/vacaciones/vacacionesApi';
+import { COLOR_ESTADO_VACACIONES } from '@/constants/vacaciones.constant';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -23,7 +24,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AprobarSolicitudVacaciones from './modals/AprobarSolicitudVacaciones';
 import EliminarSolicitudVacaciones from './modals/EliminarSolicitudVacaciones';
@@ -31,17 +32,11 @@ import EliminarSolicitudVacaciones from './modals/EliminarSolicitudVacaciones';
 const columnHelper = createColumnHelper<ISolicitudVacaciones>();
 
 function ListaSolicitudesVacaciones() {
-    const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { listaSolicitudesVacaciones } = useAppSelector((state) => state.calendario);
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { data: listaSolicitudesVacaciones = [], isLoading } = useGetSolicitudesVacacionesQuery();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [empresaFiltro, setEmpresaFiltro] = useState<TSelectOption | null>(null);
-
-    useEffect(() => {
-        dispatch(listaSolicitudesVacacionesThunk());
-    }, [personalizacionUsuario]);
 
     const empresaOpciones = useMemo<TSelectOption[]>(() => {
         const nombres = [...new Set(listaSolicitudesVacaciones.map((s) => s.nombre_empresa).filter(Boolean))];
@@ -64,7 +59,13 @@ function ListaSolicitudesVacaciones() {
             header: 'Fecha de la Solicitud',
         }),
         columnHelper.accessor('estado_label', {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <Badge
+                    variant='solid'
+                    color={COLOR_ESTADO_VACACIONES[info.row.original.estado] ?? 'zinc'}>
+                    {info.getValue()}
+                </Badge>
+            ),
             header: 'Estado',
         }),
         columnHelper.display({
@@ -191,7 +192,13 @@ function ListaSolicitudesVacaciones() {
                                             ))}
                                         </THead>
                                         <TBody>
-                                            {table.getRowModel().rows.map((row) => (
+                                            {isLoading ? (
+                                                <Tr>
+                                                    <Td colSpan={columns.length} className='text-center text-zinc-400'>
+                                                        Cargando solicitudes...
+                                                    </Td>
+                                                </Tr>
+                                            ) : table.getRowModel().rows.map((row) => (
                                                 <Tr key={row.id}>
                                                     {row.getVisibleCells().map((cell) => (
                                                         <Td key={cell.id}>

@@ -1,3 +1,4 @@
+import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
@@ -10,14 +11,18 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import themeConfig from '@/config/theme.config';
 import { IUsuarioEmpresa } from '@/interface/empresas.interface';
-import ApiService from '@/services/ApiService';
 import {
     listaDiasCalendarioThunk,
     listaSolicitudesVacacionesUsuarioThunk,
     useAppDispatch,
     useAppSelector,
 } from '@/store';
-import { listaUsuariosEmpresaThunk } from '@/store/slices/empresa/empresaSlice';
+import {
+    useGetDetalleUsuarioClienteQuery,
+    useGetMisClientesQuery,
+    useGetUsuariosTodaLaEmpresaQuery,
+} from '@/store/slices/empresa/empresaApi';
+import { useCrearSolicitudVacacionesMutation } from '@/store/slices/vacaciones/vacacionesApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -43,14 +48,21 @@ const columHelper = createColumnHelper<IUsuarioEmpresa>();
 
 function PedirVacaciones() {
     const dispatch = useAppDispatch();
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
-    const { listaUsuariosEmpresa } = useAppSelector((state) => state.empresa);
+    const { personalizacionUsuario, userMe } = useAppSelector((state) => state.auth);
+    const [crearSolicitud] = useCrearSolicitudVacacionesMutation();
     const { listaDiasCalendario, listaSolicitudesVacacionesUsuario } = useAppSelector(
         (state) => state.calendario,
+    );
+
+    const empresaPropia = personalizacionUsuario?.empresa ?? undefined;
+
+    const [empresaSeleccionadaId, setEmpresaSeleccionadaId] = useState<number | undefined>(
+        empresaPropia,
     );
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<IUsuarioEmpresa>();
+    const [usuarioSeleccionadoId, setUsuarioSeleccionadoId] = useState<number | undefined>();
     const [state, setState] = useState<Range[]>([
         {
             startDate: dayjs().toDate(),
@@ -60,6 +72,34 @@ function PedirVacaciones() {
             key: 'selection',
         },
     ]);
+
+    const { data: misClientes = [] } = useGetMisClientesQuery(empresaPropia, {
+        skip: !empresaPropia,
+    });
+
+    const { data: usuariosEmpresaActual = [] } = useGetUsuariosTodaLaEmpresaQuery(
+        empresaSeleccionadaId ?? 0,
+        { skip: !empresaSeleccionadaId },
+    );
+
+    const { data: detalleUsuario } = useGetDetalleUsuarioClienteQuery(
+        usuarioSeleccionadoId ?? 0,
+        { skip: !usuarioSeleccionadoId },
+    );
+
+    const opcionesEmpresa: TSelectOption[] = [
+        { value: String(empresaPropia ?? ''), label: 'Mi Empresa' },
+        ...misClientes.map((rel) => ({
+            value: String(rel.cliente),
+            label: rel.info_cliente.nombre,
+        })),
+    ].filter((opt) => opt.value !== '');
+
+    useEffect(() => {
+        if (empresaPropia && !empresaSeleccionadaId) {
+            setEmpresaSeleccionadaId(empresaPropia);
+        }
+    }, [empresaPropia]);
 
     useEffect(() => {
         if (state.length > 0) {
@@ -75,7 +115,6 @@ function PedirVacaciones() {
     useEffect(() => {
         if (personalizacionUsuario) {
             dispatch(listaDiasCalendarioThunk());
-            dispatch(listaUsuariosEmpresaThunk());
         }
     }, [personalizacionUsuario]);
 
@@ -88,32 +127,31 @@ function PedirVacaciones() {
     }, [usuarioSeleccionado]);
 
     useEffect(() => {
-        let ranges: Range[] = [
-            {
+        setState((prev) => {
+            const selectionRange = prev.find((r) => r.key === 'selection') ?? {
                 startDate: dayjs().toDate(),
                 endDate: dayjs().toDate(),
                 color: colors.blue[themeConfig.themeColorShade],
                 disabled: false,
                 key: 'selection',
-            },
-        ];
-        if (
-            listaSolicitudesVacacionesUsuario.filter((sol) => sol.estado === '2').length > 0 &&
-            usuarioSeleccionado
-        ) {
-            ranges.push(
-                ...listaSolicitudesVacacionesUsuario
-                    .filter((sol) => sol.estado === '2')
-                    .map((sol, index) => ({
-                        startDate: dayjs(sol.fecha_inicio).toDate(),
-                        endDate: dayjs(sol.fecha_fin).toDate(),
-                        color: colors.emerald[themeConfig.themeColorShade],
-                        disabled: true,
-                        key: `tomada_${index}`,
-                    })),
-            );
-        }
-        if (listaDiasCalendario.filter((dias) => dias.es_feriado).length > 0) {
+            };
+
+            const ranges: Range[] = [selectionRange];
+
+            if (usuarioSeleccionado) {
+                ranges.push(
+                    ...listaSolicitudesVacacionesUsuario
+                        .filter((sol) => sol.estado === '2')
+                        .map((sol, index) => ({
+                            startDate: dayjs(sol.fecha_inicio).toDate(),
+                            endDate: dayjs(sol.fecha_fin).toDate(),
+                            color: colors.emerald[themeConfig.themeColorShade],
+                            disabled: true,
+                            key: `tomada_${index}`,
+                        })),
+                );
+            }
+
             ranges.push(
                 ...listaDiasCalendario
                     .filter((dias) => dias.es_feriado)
@@ -121,18 +159,18 @@ function PedirVacaciones() {
                         startDate: dayjs(dias.fecha).toDate(),
                         endDate: dayjs(dias.fecha).toDate(),
                         color: colors.red[themeConfig.themeColorShade],
-                        // color: "#ff3e14",
                         disabled: true,
                         key: `feriado_${index}`,
                     })),
             );
-        }
-        setState(ranges);
+
+            return ranges;
+        });
     }, [listaDiasCalendario, listaSolicitudesVacacionesUsuario, usuarioSeleccionado]);
 
     const validationSchema = Yup.object()
         .shape({
-            usuario_empresa: Yup.number().required('Requerido').min(1),
+            usuario_empresa: Yup.number().required('Selecciona un empleado').min(1, 'Selecciona un empleado'),
             fecha_inicio: Yup.string().required('Requerido'),
             fecha_fin: Yup.string().required('Requerido'),
             comentario: Yup.string().nullable(),
@@ -140,21 +178,17 @@ function PedirVacaciones() {
         .test('dias-disponibles', 'No tienes suficientes días disponibles', function (values) {
             const { usuario_empresa, fecha_inicio, fecha_fin } = values;
 
-            if (usuario_empresa > 0 && fecha_inicio && fecha_fin) {
-                const startDate = new Date(fecha_inicio);
-                const endDate = new Date(fecha_fin);
+            if (usuario_empresa > 0 && fecha_inicio && fecha_fin && detalleUsuario) {
                 const diasHabiles = calcularDiasHabilesConCalendario(
-                    startDate,
-                    endDate,
+                    new Date(fecha_inicio),
+                    new Date(fecha_fin),
                     listaDiasCalendario,
                 );
-
-                const usuario = listaUsuariosEmpresa.find((user) => user.id === usuario_empresa);
-
-                if (usuario && usuario.papeleta.dias_disponibles < diasHabiles) {
+                const disponibles = detalleUsuario.papeleta.dias_disponibles;
+                if (disponibles < diasHabiles) {
                     return this.createError({
                         path: 'fecha_fin',
-                        message: `Los días seleccionados (${diasHabiles}) exceden los días disponibles (${usuario.papeleta.dias_disponibles}).`,
+                        message: `Los días seleccionados (${diasHabiles}) exceden los días disponibles (${disponibles}).`,
                     });
                 }
             }
@@ -173,31 +207,33 @@ function PedirVacaciones() {
         validationSchema,
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/solicitudes-vacaciones/`,
-                    method: 'post',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                        ...values,
-                        fecha_inicio: dayjs(values.fecha_inicio).format('YYYY-MM-DD'),
-                        fecha_fin: dayjs(values.fecha_fin).format('YYYY-MM-DD'),
-                        creado_por: personalizacionUsuario?.usuario,
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Solicitud Creada', { autoClose: 1000 });
-                    formik.resetForm();
-                    setUsuarioSeleccionado(undefined);
-                    setState([
-                        {
-                            startDate: new Date(),
-                            endDate: new Date(),
-                            key: 'selection',
-                        },
-                    ]);
-                }
-            } catch (error: any) {
-                toast.error(error.response.data);
+                await crearSolicitud({
+                    usuario_empresa: values.usuario_empresa,
+                    fecha_inicio: dayjs(values.fecha_inicio).format('YYYY-MM-DD'),
+                    fecha_fin: dayjs(values.fecha_fin).format('YYYY-MM-DD'),
+                    es_extraordinaria: false,
+                    comentario: values.comentario,
+                    creado_por: userMe?.pk,
+                }).unwrap();
+                toast.success('Solicitud Creada', { autoClose: 1000 });
+                formik.resetForm();
+                setUsuarioSeleccionado(undefined);
+                setUsuarioSeleccionadoId(undefined);
+                setState([
+                    {
+                        startDate: new Date(),
+                        endDate: new Date(),
+                        color: '#389d36',
+                        disabled: false,
+                        key: 'selection',
+                    },
+                ]);
+            } catch (err: any) {
+                const msg =
+                    err?.data?.non_field_errors?.[0] ??
+                    err?.data?.detail ??
+                    'Error al crear la solicitud';
+                toast.error(msg);
             }
         },
     });
@@ -207,10 +243,18 @@ function PedirVacaciones() {
             cell: (info) => info.getValue(),
             header: 'Nombre',
         }),
+        columHelper.accessor('papeleta.dias_disponibles', {
+            cell: (info) => {
+                const dias = info.getValue();
+                const color = dias <= 0 ? 'text-red-500' : dias <= 5 ? 'text-amber-500' : 'text-emerald-600';
+                return <span className={`font-semibold ${color}`}>{dias} días</span>;
+            },
+            header: 'Días disp.',
+        }),
     ];
 
     const table = useReactTable({
-        data: listaUsuariosEmpresa,
+        data: usuariosEmpresaActual,
         columns: columns,
         state: {
             sorting: sorting,
@@ -234,7 +278,15 @@ function PedirVacaciones() {
                 <SubheaderLeft>{null}</SubheaderLeft>
                 <SubheaderRight>
                     <Button
-                        onClick={() => {
+                        onClick={async () => {
+                            const errors = await formik.validateForm();
+                            const msgs = Object.values(errors).filter(
+                                (v): v is string => typeof v === 'string',
+                            );
+                            if (msgs.length > 0) {
+                                msgs.forEach((msg) => toast.error(msg));
+                                return;
+                            }
                             formik.handleSubmit();
                         }}
                         variant='solid'>
@@ -250,35 +302,43 @@ function PedirVacaciones() {
                                 <div className='w-full'>
                                     <Badge>Dias Acumulados</Badge>
                                     <div id='dias_acumulados' className='ml-4'>
-                                        {usuarioSeleccionado
-                                            ? `${usuarioSeleccionado.papeleta.dias_acumulados} dias`
-                                            : 'Sin Usuario'}
+                                        {detalleUsuario
+                                            ? `${detalleUsuario.papeleta.dias_acumulados} dias`
+                                            : <span className='text-sm italic text-zinc-400'>Selecciona un empleado</span>}
                                     </div>
                                 </div>
                                 <div className='w-full'>
                                     <Badge>Dias Disponibles</Badge>
                                     <div id='dias_disponibles' className='ml-4'>
-                                        {usuarioSeleccionado
-                                            ? `${usuarioSeleccionado.papeleta.dias_disponibles} dias`
-                                            : 'Sin Usuario'}
+                                        {detalleUsuario
+                                            ? `${detalleUsuario.papeleta.dias_disponibles} dias`
+                                            : <span className='text-sm italic text-zinc-400'>Selecciona un empleado</span>}
                                     </div>
                                 </div>
                                 <div className='w-full'>
                                     <Badge>Dias Tomados</Badge>
                                     <div id='dias_tomados' className='ml-4'>
-                                        {usuarioSeleccionado
-                                            ? `${usuarioSeleccionado.papeleta.dias_tomados} dias`
-                                            : 'Sin Usuario'}
+                                        {detalleUsuario
+                                            ? `${detalleUsuario.papeleta.dias_tomados} dias`
+                                            : <span className='text-sm italic text-zinc-400'>Selecciona un empleado</span>}
                                     </div>
                                 </div>
                                 <div className='w-full'>
                                     <Badge>Dias Habiles Seleccionados</Badge>
                                     <div className='ml-4'>
-                                        {calcularDiasHabilesConCalendario(
-                                            new Date(formik.values.fecha_inicio),
-                                            new Date(formik.values.fecha_fin),
-                                            listaDiasCalendario,
-                                        )}
+                                        {formik.values.fecha_inicio && formik.values.fecha_fin && detalleUsuario ? (() => {
+                                            const habiles = calcularDiasHabilesConCalendario(
+                                                new Date(formik.values.fecha_inicio),
+                                                new Date(formik.values.fecha_fin),
+                                                listaDiasCalendario,
+                                            );
+                                            const excede = habiles > detalleUsuario.papeleta.dias_disponibles;
+                                            return (
+                                                <span className={excede ? 'font-bold text-red-500' : ''}>
+                                                    {habiles} {excede ? '⚠ Excede disponibles' : ''}
+                                                </span>
+                                            );
+                                        })() : <span className='text-sm italic text-zinc-400'>Selecciona empleado y fechas</span>}
                                     </div>
                                 </div>
                             </CardBody>
@@ -288,7 +348,38 @@ function PedirVacaciones() {
                         <Card className='h-full'>
                             <CardHeader>
                                 <CardHeaderChild>
-                                    <Badge className='text-lg'>Usuarios</Badge>
+                                    <Badge color='blue' className='mr-2'>1</Badge>
+                                    <Badge className='text-lg'>Empresa</Badge>
+                                </CardHeaderChild>
+                            </CardHeader>
+                            <CardBody>
+                                <SelectReact
+                                    name='empresa'
+                                    options={opcionesEmpresa}
+                                    value={
+                                        opcionesEmpresa.find(
+                                            (o) => o.value === String(empresaSeleccionadaId ?? ''),
+                                        ) ?? null
+                                    }
+                                    onChange={(opt) => {
+                                        const id = Number((opt as TSelectOption)?.value);
+                                        setEmpresaSeleccionadaId(id || undefined);
+                                        formik.setFieldValue('usuario_empresa', 0);
+                                        setUsuarioSeleccionado(undefined);
+                                        setUsuarioSeleccionadoId(undefined);
+                                    }}
+                                    placeholder='Seleccionar empresa...'
+                                />
+                            </CardBody>
+                        </Card>
+                    </div>
+                    <div className='order-2 col-span-12 lg:col-span-6' />
+                    <div className='order-3 col-span-12 lg:col-span-6'>
+                        <Card className='h-full'>
+                            <CardHeader>
+                                <CardHeaderChild>
+                                    <Badge color='blue' className='mr-2'>2</Badge>
+                                    <Badge className='text-lg'>Empleado</Badge>
                                 </CardHeaderChild>
                                 <CardHeaderChild>
                                     <AnimacionDeInputModoMovil
@@ -298,8 +389,8 @@ function PedirVacaciones() {
                                     />
                                 </CardHeaderChild>
                             </CardHeader>
-                            <CardBody className='z-0 max-h-[50vh]'>
-                                <div className='overflow-auto'>
+                            <CardBody className='z-0 max-h-[50vh] overflow-y-auto'>
+                                <div>
                                     <Table className='table-fixed'>
                                         <THead>
                                             {table.getHeaderGroups().map((headerGroup) => (
@@ -359,17 +450,16 @@ function PedirVacaciones() {
                                                             formik.values.usuario_empresa ===
                                                             row.original.id
                                                         ) {
-                                                            formik.setFieldValue(
-                                                                'usuario_empresa',
-                                                                0,
-                                                            );
+                                                            formik.setFieldValue('usuario_empresa', 0);
                                                             setUsuarioSeleccionado(undefined);
+                                                            setUsuarioSeleccionadoId(undefined);
                                                         } else {
                                                             formik.setFieldValue(
                                                                 'usuario_empresa',
                                                                 row.original.id,
                                                             );
                                                             setUsuarioSeleccionado(row.original);
+                                                            setUsuarioSeleccionadoId(row.original.id);
                                                         }
                                                     }}>
                                                     {row.getVisibleCells().map((cell) => (
@@ -391,10 +481,13 @@ function PedirVacaciones() {
                             </CardBody>
                         </Card>
                     </div>
-                    <div className='order-2 col-span-12 lg:col-span-6'>
+                    <div className='order-4 col-span-12 lg:col-span-6'>
                         <Card className='h-full'>
                             <CardHeader>
-                                <Badge className='text-lg'>Fechas</Badge>
+                                <CardHeaderChild>
+                                    <Badge color='blue' className='mr-2'>3</Badge>
+                                    <Badge className='text-lg'>Fechas</Badge>
+                                </CardHeaderChild>
                             </CardHeader>
                             <CardBody className='flex flex-col'>
                                 <div className='flex justify-center'>
@@ -418,24 +511,19 @@ function PedirVacaciones() {
                                                 ),
                                             );
                                         }}
-                                        // onChange={(item) => {setState([item.selection])}}
-                                        // color={colors.blue[themeConfig.themeColorShade]}
-                                        // rangeColors={[colors.blue[themeConfig.themeColorShade]]}
-                                        // rangeColors={["#389d36", "#ff3e14", "#e8e640"]}
                                     />
-                                </div>
-                                <div>
-                                    <Badge className='text-lg' color='red'>
-                                        {formik.errors.fecha_fin}
-                                    </Badge>
                                 </div>
                             </CardBody>
                         </Card>
                     </div>
-                    <div className='order-3 col-span-12'>
+                    <div className='order-5 col-span-12'>
                         <Card>
                             <CardHeader>
-                                <Badge className='text-lg'>Comentario</Badge>
+                                <CardHeaderChild>
+                                    <Badge color='blue' className='mr-2'>4</Badge>
+                                    <Badge className='text-lg'>Comentario</Badge>
+                                    <span className='ml-2 text-xs text-zinc-400'>(opcional)</span>
+                                </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
                                 <Textarea

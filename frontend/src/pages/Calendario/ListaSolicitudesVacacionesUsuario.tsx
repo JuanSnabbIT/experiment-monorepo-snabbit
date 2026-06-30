@@ -2,14 +2,15 @@ import Icon from '@/components/icon/Icon';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
 import { ISolicitudVacaciones } from '@/interface/calendario.interface';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { listaMisSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
+import { useGetMisSolicitudesVacacionesQuery } from '@/store/slices/vacaciones/vacacionesApi';
+import { COLOR_ESTADO_VACACIONES } from '@/constants/vacaciones.constant';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import {
     createColumnHelper,
@@ -22,22 +23,17 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FirmarSolicitudVacaciones from './modals/FirmarSolicitudVacaciones';
 
 const columnHelper = createColumnHelper<ISolicitudVacaciones>();
 
 function ListaSolicitudesVacacionesUsuario() {
-    const dispatch = useAppDispatch();
-    const { listaMisSolicitudesVacaciones } = useAppSelector((state) => state.calendario);
+    const { data: listaMisSolicitudesVacaciones = [] } = useGetMisSolicitudesVacacionesQuery();
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState<string>('');
     const navigate = useNavigate();
-
-    useEffect(() => {
-        dispatch(listaMisSolicitudesVacacionesThunk());
-    }, []);
 
     const columns = [
         columnHelper.accessor('papeleta.nombre_empleado', {
@@ -49,7 +45,13 @@ function ListaSolicitudesVacacionesUsuario() {
             header: 'Fecha de la Solicitud',
         }),
         columnHelper.accessor('estado_label', {
-            cell: (info) => info.getValue(),
+            cell: (info) => (
+                <Badge
+                    variant='solid'
+                    color={COLOR_ESTADO_VACACIONES[info.row.original.estado] ?? 'zinc'}>
+                    {info.getValue()}
+                </Badge>
+            ),
             header: 'Estado',
         }),
         columnHelper.display({

@@ -10,13 +10,16 @@ import Modal, {
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import ApiService from '@/services/ApiService';
-import { listaDiasCalendarioThunk, useAppDispatch, useAppSelector } from '@/store';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { calendarioApi } from '@/store/slices/calendario/calendarioApi';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
+import { Dispatch, SetStateAction } from 'react';
+
 interface ICrearDiasCalendarioProps {
     isOpen: boolean;
-    setIsOpen: (v: boolean) => void;
+    setIsOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 const YEAR_ACTUAL = new Date().getFullYear();
@@ -67,7 +70,7 @@ function CrearDiasCalendario({ isOpen, setIsOpen }: ICrearDiasCalendarioProps) {
                 data: JSON.stringify({ anio: anioSelected.value }),
             });
             toast.success(`Feriados de ${anioSelected.label} creados`, { autoClose: 1500 });
-            dispatch(listaDiasCalendarioThunk());
+            dispatch(calendarioApi.util.invalidateTags(['DiasCalendarioList']));
             setIsOpen(false);
         } catch (error: any) {
             toast.error(error?.response?.data?.detail ?? 'Error al generar feriados');

@@ -7,83 +7,57 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch, useAppSelector } from '@/store';
-import { listaSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
-import { useFormik } from 'formik';
-import { useRef, useState } from 'react';
-import { toast } from 'react-toastify';
-import SignatureCanvas from 'react-signature-canvas';
 import Badge from '@/components/ui/Badge';
+import { useAppSelector } from '@/store';
+import { useActualizarSolicitudVacacionesMutation } from '@/store/slices/vacaciones/vacacionesApi';
+import { useFormik } from 'formik';
+import { useState } from 'react';
+import { toast } from 'react-toastify';
+import * as Yup from 'yup';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function AprobarSolicitudVacaciones({ id_solicitud }: { id_solicitud: number }) {
-    const dispatch = useAppDispatch();
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const { userMe } = useAppSelector((state) => state.auth);
-    // const sigCanvas = useRef<SignatureCanvas | null>(null)
-
-    // const clear = () => {
-    //     if (sigCanvas.current) {
-    //         sigCanvas.current.clear();
-    //     }
-    // };
+    const [actualizarSolicitud] = useActualizarSolicitudVacacionesMutation();
 
     const formik = useFormik({
         enableReinitialize: true,
         initialValues: {
             aprobado_rechazado_por: userMe?.pk,
-            estado: '2',
+            estado: '',
         },
+        validationSchema: Yup.object({
+            estado: Yup.string()
+                .oneOf(['2', '3'], 'Selecciona una opción')
+                .required('Selecciona una opción'),
+        }),
         onSubmit: async (values) => {
             try {
-                // const form = new FormData()
-                // if (values.aprobado_rechazado_por) {
-                //     form.append("aprobado_rechazado_por", values.aprobado_rechazado_por.toString())
-                // }
-                // if (values.estado === "2" && sigCanvas.current) {
-                //     form.append("estado", "2")
-                //     const byteString = atob(sigCanvas.current.toDataURL('image/png').split(',')[1]);
-                //     const arrayBuffer = new ArrayBuffer(byteString.length);
-                //     const intArray = new Uint8Array(arrayBuffer);
-                //     for (let i = 0; i < byteString.length; i++) {
-                //         intArray[i] = byteString.charCodeAt(i);
-                //     }
-                //     const blob = new Blob([intArray], { type: 'image/png' });
-                //     const file = new File([blob], 'firma.png', { type: 'image/png' });
-                //     form.append("firma_aprobado_por", file)
-                // }
-                const response = await ApiService.fetchData({
-                    url: `/api/solicitudes-vacaciones/${id_solicitud}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify(values),
-                });
-                if (response.data) {
-                    toast.success(
-                        values.estado === '2' ? 'Solicitud Aprobada' : 'Solicitud Rechazada',
-                        { autoClose: 1000 },
-                    );
-                    dispatch(listaSolicitudesVacacionesThunk());
-                }
-            } catch (error: any) {
-                toast.error(error.response.data);
+                await actualizarSolicitud({ id: id_solicitud, data: values }).unwrap();
+                toast.success(
+                    values.estado === '2' ? 'Solicitud Aprobada' : 'Solicitud Rechazada',
+                    { autoClose: 1000 },
+                );
+                setIsOpen(false);
+                formik.resetForm();
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error));
             }
         },
     });
 
     return (
         <>
-            <Tooltip text='Aprobar'>
+            <Tooltip text='Aprobar / Rechazar'>
                 <Button
                     variant='solid'
-                    onClick={() => {
-                        setIsOpen(true);
-                    }}
-                    icon='HeroMinusCircle'
+                    onClick={() => setIsOpen(true)}
+                    icon='HeroCheckCircle'
                 />
             </Tooltip>
             <Modal isOpen={isOpen} setIsOpen={setIsOpen}>
-                <ModalHeader>¿Estas Seguro(a) de Aprobar o Rechazar la Solicitud?</ModalHeader>
+                <ModalHeader>Resolver solicitud de vacaciones</ModalHeader>
                 <ModalBody>
                     <div className='flex flex-col gap-4'>
                         <p>Esta acción no se puede deshacer.</p>
@@ -109,22 +83,6 @@ function AprobarSolicitudVacaciones({ id_solicitud }: { id_solicitud: number }) 
                             />
                         </RadioGroup>
                     </div>
-                    {/* {formik.values.estado === "2" && (
-                        <>
-                            <Badge className="text-lg">Firma</Badge>
-                            <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
-                                <SignatureCanvas
-                                    ref={(ref) => {sigCanvas.current = ref}}
-                                    penColor="black"
-                                    canvasProps={{
-                                        height: 200,
-                                        className: 'signature-canvas',
-                                    }}
-                                />
-                                <Button className="mt-2" variant="solid" onClick={clear}>Limpiar</Button>
-                            </div>
-                        </>
-                    )} */}
                 </ModalBody>
                 <ModalFooter>
                     <ModalFooterChild></ModalFooterChild>
@@ -139,9 +97,8 @@ function AprobarSolicitudVacaciones({ id_solicitud }: { id_solicitud: number }) 
                         </Button>
                         <Button
                             variant='solid'
-                            onClick={async () => {
-                                formik.handleSubmit();
-                            }}>
+                            isDisable={!formik.values.estado}
+                            onClick={async () => formik.handleSubmit()}>
                             Guardar
                         </Button>
                     </ModalFooterChild>

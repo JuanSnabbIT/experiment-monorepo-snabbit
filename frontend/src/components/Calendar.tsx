@@ -4,6 +4,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
+import multiMonthPlugin from '@fullcalendar/multimonth';
 import FullCalendar from '@fullcalendar/react';
 import {
     CalendarOptions,
@@ -86,7 +87,7 @@ const Calendar = forwardRef<FullCalendar, ICalendarProps>((props, ref) => {
                 locales={_.merge([trLocale, arLocale], locales)}
                 ref={ref}
                 plugins={_.merge(
-                    [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
+                    [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin],
                     plugins,
                 )}
                 initialView={viewMode}

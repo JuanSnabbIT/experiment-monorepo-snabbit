@@ -146,6 +146,8 @@ const RtkQueryService = createApi({
         'EtiquetaPlantillaV2',
         'SolicitudVacaciones',
         'SolicitudVacacionesList',
+        'DiasCalendario',
+        'DiasCalendarioList',
     ] as const,
     endpoints: () => ({}),
 });

@@ -6,24 +6,21 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
-import ApiService from '@/services/ApiService';
-import { useAppDispatch } from '@/store';
-import { listaSolicitudesVacacionesThunk } from '@/store/slices/calendario/calendarioSlice';
+import { useEliminarSolicitudVacacionesMutation } from '@/store/slices/vacaciones/vacacionesApi';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
+import { getErrorMessage } from '@/utils/errorHandlers';
 
 function EliminarSolicitudVacaciones({ id_solicitud }: { id_solicitud: number }) {
     const [isOpen, setIsOpen] = useState<boolean>(false);
-    const dispatch = useAppDispatch();
+    const [eliminarSolicitud] = useEliminarSolicitudVacacionesMutation();
 
     return (
         <>
             <Tooltip text='Eliminar'>
                 <Button
                     variant='solid'
-                    onClick={() => {
-                        setIsOpen(true);
-                    }}
+                    onClick={() => setIsOpen(true)}
                     icon='HeroMinusCircle'
                     color='red'
                 />
@@ -48,16 +45,11 @@ function EliminarSolicitudVacaciones({ id_solicitud }: { id_solicitud: number })
                             variant='solid'
                             onClick={async () => {
                                 try {
-                                    const response = await ApiService.fetchData({
-                                        url: `/api/solicitudes-vacaciones/${id_solicitud}/`,
-                                        method: 'delete',
-                                    });
-                                    if (response.status === 204) {
-                                        toast.success('Solicitud Eliminada', { autoClose: 1000 });
-                                        dispatch(listaSolicitudesVacacionesThunk());
-                                    }
-                                } catch (error: any) {
-                                    toast.error(error.response.data);
+                                    await eliminarSolicitud({ id: id_solicitud }).unwrap();
+                                    toast.success('Solicitud Eliminada', { autoClose: 1000 });
+                                    setIsOpen(false);
+                                } catch (error: unknown) {
+                                    toast.error(getErrorMessage(error));
                                 }
                             }}>
                             Eliminar

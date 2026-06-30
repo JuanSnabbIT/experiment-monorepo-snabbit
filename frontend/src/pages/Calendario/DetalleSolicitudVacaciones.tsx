@@ -5,13 +5,15 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { listaDiasCalendarioThunk } from '@/store/slices/calendario/calendarioSlice';
 import {
-    detalleSolicitudVacacionesThunk,
-    listaDiasCalendarioThunk,
-} from '@/store/slices/calendario/calendarioSlice';
+    useGetDetalleSolicitudVacacionesQuery,
+    useActualizarSolicitudVacacionesMutation,
+} from '@/store/slices/vacaciones/vacacionesApi';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getErrorMessage } from '@/utils/errorHandlers';
 import calcularDiasHabilesConCalendario from './utils/calcularDiasHabilesConCalendario';
 import Radio, { RadioGroup } from '@/components/form/Radio';
 import { DateRange, Range } from 'react-date-range';
@@ -19,7 +21,6 @@ import es from 'date-fns/locale/es';
 import dayjs from 'dayjs';
 import { parseISO, startOfDay } from 'date-fns';
 import { toast } from 'react-toastify';
-import ApiService from '@/services/ApiService';
 import Textarea from '@/components/form/Textarea';
 import * as Yup from 'yup';
 import colors from 'tailwindcss/colors';
@@ -28,10 +29,15 @@ import themeConfig from '@/config/theme.config';
 function DetalleSolicitudVacaciones() {
     const dispatch = useAppDispatch();
     const { id } = useParams();
+    const navigate = useNavigate();
     const { personalizacionUsuario } = useAppSelector((state) => state.auth);
-    const { detalleSolicitudVacaciones, listaDiasCalendario } = useAppSelector(
-        (state) => state.calendario,
-    );
+    const { listaDiasCalendario } = useAppSelector((state) => state.calendario);
+
+    const { data: detalleSolicitudVacaciones } = useGetDetalleSolicitudVacacionesQuery(id ?? '', {
+        skip: !id,
+    });
+    const [actualizarSolicitud] = useActualizarSolicitudVacacionesMutation();
+
     const [editando, setEditando] = useState<boolean>(false);
     const [state, setState] = useState<Range[]>([
         {
@@ -46,12 +52,6 @@ function DetalleSolicitudVacaciones() {
             dispatch(listaDiasCalendarioThunk());
         }
     }, [personalizacionUsuario]);
-
-    useEffect(() => {
-        if (id) {
-            dispatch(detalleSolicitudVacacionesThunk({ id_solicitud: id }));
-        }
-    }, [id]);
 
     useEffect(() => {
         if (detalleSolicitudVacaciones && !editando) {
@@ -80,7 +80,6 @@ function DetalleSolicitudVacaciones() {
     }, [state]);
 
     const validationSchema = Yup.object().shape({
-        // usuario_empresa: Yup.number().required('Requerido'),
         fecha_inicio: Yup.string().required('Requerido'),
         fecha_fin: Yup.string().required('Requerido'),
         comentario: Yup.string().nullable(),
@@ -99,23 +98,18 @@ function DetalleSolicitudVacaciones() {
         validationSchema,
         onSubmit: async (values) => {
             try {
-                const response = await ApiService.fetchData({
-                    url: `/api/solicitudes-vacaciones/${detalleSolicitudVacaciones?.id}/`,
-                    method: 'patch',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
+                await actualizarSolicitud({
+                    id: detalleSolicitudVacaciones?.id ?? '',
+                    data: {
                         ...values,
                         fecha_inicio: dayjs(values.fecha_inicio).format('YYYY-MM-DD'),
                         fecha_fin: dayjs(values.fecha_fin).format('YYYY-MM-DD'),
-                    }),
-                });
-                if (response.data) {
-                    toast.success('Solicitud Editada', { autoClose: 1000 });
-                    dispatch(detalleSolicitudVacacionesThunk({ id_solicitud: id }));
-                    setEditando(false);
-                }
-            } catch (error: any) {
-                toast.error(error.response.data);
+                    },
+                }).unwrap();
+                toast.success('Solicitud Editada', { autoClose: 1000 });
+                setEditando(false);
+            } catch (error: unknown) {
+                toast.error(getErrorMessage(error));
             }
         },
     });
@@ -124,6 +118,9 @@ function DetalleSolicitudVacaciones() {
         <PageWrapper isProtectedRoute={true} title='Detalle solicitud' name='Detalle solicitud'>
             <Subheader>
                 <SubheaderLeft>
+                    <Button icon='HeroChevronLeft' onClick={() => navigate(-1)}>
+                        Volver
+                    </Button>
                     <Badge className='text-lg'>
                         Solicitud de {detalleSolicitudVacaciones?.papeleta.nombre_empleado}
                     </Badge>
@@ -134,26 +131,20 @@ function DetalleSolicitudVacaciones() {
                             <>
                                 <Button
                                     variant='solid'
-                                    onClick={() => {
-                                        formik.handleSubmit();
-                                    }}>
+                                    onClick={() => formik.handleSubmit()}>
                                     Guardar
                                 </Button>
                                 <Button
                                     variant='solid'
                                     color='red'
-                                    onClick={() => {
-                                        setEditando(false);
-                                    }}>
+                                    onClick={() => setEditando(false)}>
                                     Cancelar
                                 </Button>
                             </>
                         ) : (
                             <Button
                                 variant='solid'
-                                onClick={() => {
-                                    setEditando(true);
-                                }}>
+                                onClick={() => setEditando(true)}>
                                 Editar
                             </Button>
                         )}
@@ -234,12 +225,9 @@ function DetalleSolicitudVacaciones() {
                                                                 ? 'true'
                                                                 : 'false'
                                                         }
-                                                        onChange={() => {
-                                                            formik.setFieldValue(
-                                                                'es_extraordinaria',
-                                                                true,
-                                                            );
-                                                        }}
+                                                        onChange={() =>
+                                                            formik.setFieldValue('es_extraordinaria', true)
+                                                        }
                                                     />
                                                     <Radio
                                                         label='No'
@@ -250,29 +238,19 @@ function DetalleSolicitudVacaciones() {
                                                                 ? 'true'
                                                                 : 'false'
                                                         }
-                                                        onChange={() => {
-                                                            formik.setFieldValue(
-                                                                'es_extraordinaria',
-                                                                false,
-                                                            );
-                                                        }}
+                                                        onChange={() =>
+                                                            formik.setFieldValue('es_extraordinaria', false)
+                                                        }
                                                     />
                                                 </RadioGroup>
                                             ) : (
                                                 <div className='ml-4'>
-                                                    {detalleSolicitudVacaciones?.es_extraordinaria
-                                                        ? 'Si'
-                                                        : 'No'}
+                                                    {detalleSolicitudVacaciones?.es_extraordinaria ? 'Si' : 'No'}
                                                 </div>
                                             )}
                                         </div>
                                         <div className='w-full'>
                                             <Badge>Fecha de Inicio</Badge>
-                                            {/* {editando ? (
-                                                <div>Antes: {dayjs(detalleSolicitudVacaciones?.fecha_inicio).locale('es').format('DD-MM-YYYY')} Despues: {dayjs(formik.values.fecha_inicio).locale('es').format('DD-MM-YYYY')}</div>
-                                            ) : (
-                                                <div className="ml-4">{detalleSolicitudVacaciones ? dayjs(detalleSolicitudVacaciones.fecha_inicio).locale('es').format('DD-MM-YYYY') : ""}</div>
-                                            )} */}
                                             <div className='ml-4'>
                                                 {detalleSolicitudVacaciones
                                                     ? dayjs(detalleSolicitudVacaciones.fecha_inicio)
@@ -316,9 +294,7 @@ function DetalleSolicitudVacaciones() {
                                                             : 'Rechazado Por'}
                                                     </Badge>
                                                     <div className='ml-4'>
-                                                        {
-                                                            detalleSolicitudVacaciones.nombre_aprobado_rechazado_por
-                                                        }
+                                                        {detalleSolicitudVacaciones.nombre_aprobado_rechazado_por}
                                                     </div>
                                                 </div>
                                             )}
@@ -331,11 +307,16 @@ function DetalleSolicitudVacaciones() {
                         <Card className='w-full'>
                             <CardHeader>
                                 <Badge className='text-xl'>Fechas de Inicio y Fin</Badge>
+                                {!editando && (
+                                    <Badge color='zinc'>Solo lectura</Badge>
+                                )}
                             </CardHeader>
                             <CardBody className='flex w-full justify-center'>
                                 <div
                                     className={
-                                        editando ? 'pointer-events-auto' : 'pointer-events-none'
+                                        editando
+                                            ? 'pointer-events-auto'
+                                            : 'pointer-events-none cursor-not-allowed opacity-60'
                                     }>
                                     <DateRange
                                         editableDateInputs
@@ -350,9 +331,6 @@ function DetalleSolicitudVacaciones() {
                                         locale={es}
                                         maxDate={dayjs().add(1, 'year').toDate()}
                                     />
-                                    {/* <div className="flex justify-center">
-                                        <Badge className="text-lg text-center" color="red">{formik.errors.fecha_fin}</Badge>
-                                    </div> */}
                                 </div>
                             </CardBody>
                         </Card>
