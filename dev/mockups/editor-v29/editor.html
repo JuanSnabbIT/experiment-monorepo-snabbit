@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor Plantillas V2.9 — Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+
+    /* ─── Papel / documento ─── */
+    #documento-area {
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1a1a1a;
+      outline: none;
+    }
+    #documento-area [data-block="h1"] {
+      font-size: 14pt; font-weight: 700; text-align: center;
+      margin: 12px 0 8px; display: block;
+    }
+    #documento-area [data-block="h2"] {
+      font-size: 12pt; font-weight: 700; text-transform: uppercase;
+      margin: 14px 0 6px; display: block;
+    }
+    #documento-area [data-block="h3"] {
+      font-size: 11pt; font-weight: 700;
+      margin: 10px 0 4px; display: block;
+    }
+    #documento-area [data-block="p"] {
+      text-align: justify; text-indent: 20px;
+      margin: 3px 0; display: block; min-height: 1.4em;
+    }
+    #documento-area [data-block="p"][data-align="center"]  { text-align: center; text-indent: 0; }
+    #documento-area [data-block="p"][data-align="left"]    { text-align: left;   text-indent: 0; }
+    #documento-area [data-block="p"][data-align="right"]   { text-align: right;  text-indent: 0; }
+
+    /* ─── Etiqueta chip ─── */
+    .etiqueta-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 1px 8px; border-radius: 9999px;
+      border: 1px solid #3b82f6; background: rgba(59,130,246,0.09);
+      color: #1d4ed8; font-size: 9.5pt; font-weight: 600;
+      font-family: -apple-system, sans-serif;
+      cursor: default; user-select: none; white-space: nowrap;
+      vertical-align: middle;
+    }
+    .etiqueta-chip .del {
+      opacity: 0.45; cursor: pointer; font-size: 11px; line-height: 1;
+      padding: 0 1px; border-radius: 2px;
+    }
+    .etiqueta-chip .del:hover { opacity: 1; color: #ef4444; }
+
+    /* ─── Bloque condicional ─── */
+    .bloque-cond {
+      border: 1.5px dashed #f59e0b; border-radius: 6px;
+      margin: 10px 0; background: rgba(245,158,11,0.025);
+    }
+    .bloque-cond-header {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; background: rgba(245,158,11,0.07);
+      border-bottom: 1px dashed #f59e0b; border-radius: 5px 5px 0 0;
+      font-family: -apple-system, sans-serif;
+    }
+    .bloque-cond-badge {
+      font-size: 8.5px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .06em; color: #92400e;
+      background: rgba(245,158,11,0.18); padding: 2px 8px; border-radius: 9999px;
+    }
+    .bloque-cond-desc { font-size: 10px; color: #b45309; }
+    .bloque-cond-del {
+      margin-left: auto; font-size: 10.5px; color: #9ca3af; cursor: pointer;
+      padding: 2px 6px; border-radius: 4px; font-family: -apple-system, sans-serif;
+    }
+    .bloque-cond-del:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .bloque-cond-body { padding: 8px 14px; }
+
+    /* ─── Salto de página ─── */
+    .salto-pagina {
+      border-top: 1.5px dashed #d4d4d8; margin: 18px 0; text-align: center;
+      user-select: none; cursor: default; position: relative;
+    }
+    .salto-pagina .del-salto {
+      display: none; position: absolute; right: 0; top: -8px;
+      font-size: 10px; color: #ef4444; padding: 0px 6px; border-radius: 4px;
+      border: 1px solid #fee2e2; background: white; cursor: pointer; line-height: 16px;
+    }
+    .salto-pagina:hover .del-salto { display: inline-block; }
+    .salto-pagina:hover { border-color: #fca5a5; }
+    .salto-pagina span {
+      font-size: 9.5px; color: #a1a1aa; background: #fff;
+      padding: 0 10px; position: relative; top: -9px;
+      font-family: -apple-system, sans-serif;
+    }
+
+    /* ─── Toolbar buttons ─── */
+    .tb-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: 28px; width: 28px; border-radius: 5px;
+      font-size: 13px; color: #3f3f46; cursor: pointer;
+      transition: background .1s;
+    }
+    .tb-btn:hover { background: #f4f4f5; }
+    .tb-btn.on { background: rgba(59,130,246,0.12); color: #2563eb; }
+    .tb-sep { width: 1px; height: 20px; background: #e4e4e7; margin: 0 4px; flex-shrink:0; }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+
+    /* ─── Outline ─── */
+    .outline-item {
+      padding: 3px 8px; border-radius: 4px; cursor: pointer;
+      font-size: 11.5px; color: #52525b; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; display: block;
+    }
+    .outline-item:hover { background: #f4f4f5; }
+    .outline-item.lv1 { font-weight: 700; font-size: 11px; }
+    .outline-item.lv2 { padding-left: 16px; font-size: 11px; }
+    .outline-item.lv3 { padding-left: 26px; color: #71717a; font-size: 10.5px; }
+    .outline-item.cond { padding-left: 16px; color: #b45309; font-style: italic; font-size: 10.5px; }
+
+    /* ─── Preview mode ─── */
+    .preview-mode .bloque-cond { border-color: transparent !important; background: transparent !important; }
+    .preview-mode .bloque-cond-header { display: none !important; }
+    .preview-mode .bloque-cond.oculto { display: none !important; }
+    .preview-mode #toolbar { pointer-events: none; opacity: 0.35; }
+    .preview-mode #panel-etiquetas { pointer-events: none; opacity: 0.35; }
+
+    /* ─── Firma grid ─── */
+    .firma-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+      margin-top: 52px; font-family: -apple-system, sans-serif; font-size: 10pt;
+    }
+    .firma-col { text-align: center; }
+    .firma-col .linea {
+      border-top: 1px solid #1a1a1a; padding-top: 6px; margin-bottom: 4px; font-weight: 700;
+    }
+
+    /* selection highlight */
+    ::selection { background: rgba(59,130,246,0.18); }
+
+    /* ─── Insertar dropdown ─── */
+    .insertar-menu {
+      position: absolute; left: 0; top: calc(100% + 4px); min-width: 200px;
+      background: white; border: 1px solid #e4e4e7; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 4px; z-index: 50;
+    }
+    .ins-item {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 6px 8px; border-radius: 7px; font-size: 12px; color: #3f3f46;
+      cursor: pointer; text-align: left; background: none; border: none;
+      white-space: nowrap;
+    }
+    .ins-item:hover { background: #f4f4f5; }
+    .ins-sep { height: 1px; background: #f4f4f5; margin: 3px 0; }
+
+    /* ─── Tabla picker submenu ─── */
+    .tabla-submenu {
+      position: absolute; left: calc(100% + 6px); top: -4px;
+      background: white; border: 1px solid #e4e4e7; border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 8px; z-index: 51;
+    }
+    .tabla-grid { display: grid; grid-template-columns: repeat(8, 18px); gap: 2px; }
+    .tabla-cell {
+      width: 18px; height: 18px; border: 1px solid #e4e4e7; border-radius: 2px;
+      cursor: pointer; background: white; transition: background 0.05s;
+    }
+    .tabla-cell.active { background: #dbeafe; border-color: #93c5fd; }
+    .tabla-size-label { text-align: center; font-size: 10px; color: #71717a; margin-top: 5px; }
+
+    /* ─── Bloque de firma ─── */
+    .bloque-firma {
+      border: 1.5px dashed #93c5fd; border-radius: 8px; margin: 12px 0;
+    }
+    .bloque-firma-header {
+      display: flex; align-items: center; gap: 6px;
+      background: #eff6ff; border-radius: 6px 6px 0 0; padding: 4px 8px;
+    }
+    .bloque-firma-badge {
+      background: #2563eb; color: white; border-radius: 4px;
+      padding: 1px 6px; font-size: 9.5px; font-weight: 700; flex-shrink: 0;
+    }
+    .bloque-firma-desc { font-size: 10.5px; color: #2563eb; flex: 1; }
+    .bloque-firma-del {
+      margin-left: auto; font-size: 10px; color: #ef4444; flex-shrink: 0;
+      padding: 1px 6px; border-radius: 4px; border: 1px solid #fee2e2;
+      background: white; cursor: pointer;
+    }
+    .bloque-firma-del:hover { background: #fee2e2; }
+    .bloque-firma-body { padding: 12px 16px; }
+    .preview-mode .bloque-firma { border-color: transparent !important; background: transparent !important; }
+    .preview-mode .bloque-firma-header { display: none !important; }
+
+    /* ─── Tabla editable ─── */
+    .doc-tabla { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    .doc-tabla td {
+      border: 1px solid #d4d4d8; padding: 5px 8px; font-size: 10pt;
+      min-width: 40px; vertical-align: top;
+    }
+
+    /* ─── Hojas de página ─── */
+    .page-wrap {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07), 0 6px 20px rgba(0,0,0,.07);
+      position: relative;
+    }
+    /* Número de página en la esquina inferior derecha */
+    .page-wrap::after {
+      content: attr(data-pnum);
+      position: absolute; bottom: 8px; right: 14px;
+      font-size: 9px; color: #c4c4c7; font-weight: 600; pointer-events: none;
+    }
+    .doc-page {
+      padding: 56px 64px;
+      outline: none;
+    }
+
+    /* ─── Encabezado / Pie ─── */
+    .hf-zona {
+      padding: 12px 64px; background: transparent; position: relative;
+    }
+    .hf-zona-label {
+      position: absolute; top: 6px; right: 10px;
+      font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: #a1a1aa; user-select: none;
+    }
+    #header-zona { border-bottom: 1px dashed #e4e4e7; }
+    #footer-zona { border-top: 1px dashed #e4e4e7; }
+
+    /* Logo drop zone */
+    .logo-drop {
+      width: 88px; height: 52px; border: 2px dashed #d4d4d8; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; overflow: hidden; transition: border-color .15s, background .15s;
+    }
+    .logo-drop:hover { border-color: #3b82f6; background: #eff6ff; }
+    .logo-drop.has-logo { border-style: solid; border-color: #d4d4d8; padding: 0; }
+    .logo-drop img { width: 100%; height: 100%; object-fit: contain; }
+    .logo-label { font-size: 9.5px; color: #a1a1aa; margin-top: 3px; text-align: center; line-height: 1.2; }
+
+    /* Contenteditable placeholder */
+    .hf-editable { outline: none; min-height: 20px; font-size: 9pt; color: #3f3f46; flex: 1; }
+    .hf-editable:empty::before {
+      content: attr(data-ph); color: #c4c4c7; font-style: italic; pointer-events: none;
+    }
+    .hf-editable:focus { background: rgba(59,130,246,.04); border-radius: 4px; }
+
+    /* Numeración */
+    .pag-num-badge {
+      background: #e4e4e7; border-radius: 4px; padding: 1px 7px;
+      font-size: 9px; color: #71717a; font-weight: 600; white-space: nowrap;
+    }
+
+    /* Toolbar toggles H/F */
+    .tb-hf {
+      display: flex; align-items: center; gap: 1px;
+      height: 28px; border: 1px solid #e4e4e7; border-radius: 6px; overflow: hidden;
+      background: white;
+    }
+    .tb-hf-btn {
+      padding: 0 7px; height: 100%; font-size: 10.5px; font-weight: 600;
+      color: #71717a; cursor: pointer; border: none; background: none;
+      transition: background .1s, color .1s;
+    }
+    .tb-hf-btn:hover { background: #f4f4f5; color: #3f3f46; }
+    .tb-hf-btn.on { background: #eff6ff; color: #2563eb; }
+    .tb-hf-btn + .tb-hf-btn { border-left: 1px solid #e4e4e7; }
+  </style>
+</head>
+<body class="flex flex-col bg-zinc-100" style="height:100vh;overflow:hidden">
+
+<!-- ════════════════════════════════ HEADER ════════════════════════════════ -->
+<header class="flex shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-5 py-2.5 shadow-sm z-10">
+  <button class="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-400 hover:bg-zinc-50">
+    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  </button>
+  <div class="h-5 w-px bg-zinc-200"></div>
+
+  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+  </div>
+
+  <div class="flex flex-1 min-w-0 flex-col">
+    <span class="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 leading-none">Editor v2.9 — Mockup</span>
+    <span class="text-sm font-semibold text-zinc-900 truncate leading-tight">Contrato de Trabajo — Plantilla Base</span>
+  </div>
+
+  <div class="flex items-center gap-1.5 shrink-0">
+    <span class="rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-500">v3</span>
+    <span class="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white">Activa</span>
+    <span id="badge-unsaved" class="hidden rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-semibold text-white">Sin guardar</span>
+  </div>
+
+  <div class="flex items-center gap-2 shrink-0 ml-2">
+    <!-- Preview controls (visible en modo preview) -->
+    <div id="preview-controls" class="hidden items-center gap-3 mr-1">
+      <span class="text-xs text-zinc-500 font-medium">Simular:</span>
+      <select id="sim-tipo" class="rounded-lg border border-zinc-200 px-2 py-1 text-xs" onchange="evaluarCondiciones()">
+        <option value="indefinido">Indefinido</option>
+        <option value="plazo_fijo">Plazo fijo</option>
+        <option value="reemplazo">Reemplazo</option>
+      </select>
+      <label class="flex items-center gap-1.5 text-xs text-zinc-600 cursor-pointer">
+        <input type="checkbox" id="sim-isapre" class="rounded" onchange="evaluarCondiciones()"> Isapre
+      </label>
+      <label class="flex items-center gap-1.5 text-xs text-zinc-600 cursor-pointer">
+        <input type="checkbox" id="sim-bono-col" class="rounded" onchange="evaluarCondiciones()"> Bono colación
+      </label>
+      <label class="flex items-center gap-1.5 text-xs text-zinc-600 cursor-pointer">
+        <input type="checkbox" id="sim-bono-mov" class="rounded" onchange="evaluarCondiciones()"> Bono movilización
+      </label>
+    </div>
+
+    <button id="btn-preview" onclick="togglePreview()"
+      class="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors">
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+      Vista previa
+    </button>
+
+    <button id="btn-guardar" onclick="guardar()"
+      class="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      Guardar
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════ BODY ════════════════════════════════ -->
+<div class="flex min-h-0 flex-1 overflow-hidden">
+
+  <!-- ── Panel izquierdo: Esquema ── -->
+  <aside class="flex h-full w-52 shrink-0 flex-col border-r border-zinc-200 bg-white overflow-hidden">
+    <div class="flex items-center justify-between border-b border-zinc-100 px-3 py-2 shrink-0">
+      <span class="text-[10.5px] font-semibold uppercase tracking-wide text-zinc-400">Esquema</span>
+    </div>
+    <div id="outline" class="flex-1 overflow-y-auto py-1.5 px-1.5 space-y-0.5"></div>
+  </aside>
+
+  <!-- ── Centro: Editor ── -->
+  <main class="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+    <!-- Toolbar -->
+    <div id="toolbar" class="flex shrink-0 items-center gap-0.5 border-b border-zinc-200 bg-white px-3 py-1.5 flex-wrap">
+
+      <!-- Tamaño de página -->
+      <select id="sel-pagina" onchange="aplicarTamanoPagina(this.value)"
+        class="h-7 rounded-md border border-zinc-200 px-2 text-xs text-zinc-700 mr-1 cursor-pointer" style="min-width:100px">
+        <option value="a4">A4</option>
+        <option value="carta">Carta</option>
+        <option value="oficio">Oficio</option>
+      </select>
+
+      <div class="tb-sep"></div>
+
+      <!-- Fuente -->
+      <select id="sel-font" onchange="aplicarFuente(this.value)"
+        class="h-7 rounded-md border border-zinc-200 px-2 text-xs text-zinc-700 mr-1 cursor-pointer" style="min-width:108px">
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Calibri, sans-serif">Calibri</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="Garamond, serif">Garamond</option>
+        <option value="'Courier New', monospace">Courier New</option>
+      </select>
+
+      <div class="tb-sep"></div>
+
+      <!-- Tipo de bloque -->
+      <select id="sel-bloque" onchange="aplicarBloque(this.value)"
+        class="h-7 rounded-md border border-zinc-200 px-2 text-xs font-medium text-zinc-700 mr-1 cursor-pointer">
+        <option value="p">Párrafo</option>
+        <option value="h1">Título 1</option>
+        <option value="h2">Título 2</option>
+        <option value="h3">Título 3</option>
+      </select>
+
+      <!-- Tamaño -->
+      <select id="sel-size" onchange="aplicarSize(this.value)"
+        class="h-7 rounded-md border border-zinc-200 px-2 text-xs text-zinc-700 mr-1 cursor-pointer">
+        <option value="">Tamaño</option>
+        <option value="8pt">8pt</option>
+        <option value="9pt">9pt</option>
+        <option value="10pt">10pt</option>
+        <option value="11pt">11pt</option>
+        <option value="12pt">12pt</option>
+        <option value="14pt">14pt</option>
+        <option value="16pt">16pt</option>
+        <option value="18pt">18pt</option>
+        <option value="22pt">22pt</option>
+      </select>
+
+      <div class="tb-sep"></div>
+
+      <!-- Marks -->
+      <button class="tb-btn" id="tb-bold"      onclick="toggleMark('bold')"          title="Negrita Ctrl+B"><b>N</b></button>
+      <button class="tb-btn" id="tb-italic"    onclick="toggleMark('italic')"        title="Cursiva Ctrl+I"><em>C</em></button>
+      <button class="tb-btn" id="tb-underline" onclick="toggleMark('underline')"     title="Subrayado Ctrl+U"><u style="text-underline-offset:2px">S</u></button>
+      <button class="tb-btn" id="tb-strike"    onclick="toggleMark('strikeThrough')" title="Tachado" style="text-decoration:line-through">T</button>
+
+      <div class="tb-sep"></div>
+
+      <!-- Color -->
+      <label class="tb-btn" title="Color de texto" style="cursor:pointer">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+        <input type="color" id="color-pick" value="#1a1a1a" onchange="doc.execCommand('foreColor',false,this.value)" class="absolute opacity-0 w-0 h-0">
+      </label>
+
+      <div class="tb-sep"></div>
+
+      <!-- Alineación -->
+      <button class="tb-btn" id="tb-al"  onclick="alinear('Left')"    title="Izquierda">
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M2 4h12v1H2zm0 3h8v1H2zm0 3h12v1H2zm0 3h8v1H2z"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-ac"  onclick="alinear('Center')"  title="Centrado">
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M2 4h12v1H2zm2 3h8v1H4zm-2 3h12v1H2zm2 3h8v1H4z"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-ar"  onclick="alinear('Right')"   title="Derecha">
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M2 4h12v1H2zm4 3h8v1H6zm-4 3h12v1H2zm4 3h8v1H6z"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-aj"  onclick="alinear('Full')"    title="Justificado">
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16"><path d="M2 4h12v1H2zm0 3h12v1H2zm0 3h12v1H2zm0 3h10v1H2z"/></svg>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <!-- Listas -->
+      <button class="tb-btn" onclick="doc.execCommand('insertUnorderedList');actualizarOutline()" title="Lista">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <button class="tb-btn" onclick="doc.execCommand('insertOrderedList');actualizarOutline()" title="Lista numerada">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20h14M7 12h14M7 4h14M3 20v.01M3 12v.01M3 4v.01"/></svg>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <!-- Deshacer / rehacer -->
+      <button class="tb-btn text-zinc-400" onclick="doc.execCommand('undo')" title="Deshacer Ctrl+Z">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/></svg>
+      </button>
+      <button class="tb-btn text-zinc-400" onclick="doc.execCommand('redo')" title="Rehacer Ctrl+Y">
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6M21 10l-6-6"/></svg>
+      </button>
+
+      <div class="tb-sep"></div>
+
+      <!-- ── Insertar ▾ dropdown ── -->
+      <div class="relative" id="insertar-wrap">
+        <button id="btn-insertar" onclick="toggleInsertarMenu(event)"
+          class="flex items-center gap-1 h-7 rounded-md border border-zinc-200 px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 whitespace-nowrap select-none">
+          Insertar
+          <svg class="h-3 w-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+
+        <div id="insertar-menu" class="insertar-menu hidden">
+
+          <!-- Bloque condicional -->
+          <button class="ins-item" onmousedown="abrirModalCondicional(); closeInsertarMenu()">
+            <svg class="h-3.5 w-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+            Bloque condicional
+          </button>
+
+          <!-- Bloque de firma -->
+          <button class="ins-item" onmousedown="insertarFirma(); closeInsertarMenu()">
+            <svg class="h-3.5 w-3.5 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            Bloque de firma
+          </button>
+
+          <!-- Tabla (con grid picker) -->
+          <div class="relative" id="tabla-wrap" onmouseenter="showTablaGrid()" onmouseleave="hideTablaGrid()">
+            <button class="ins-item w-full">
+              <svg class="h-3.5 w-3.5 text-zinc-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18M14 3v18"/><rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2" stroke-linecap="round"/></svg>
+              Tabla
+              <svg class="h-3 w-3 ml-auto text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+            <div id="tabla-grid-panel" class="tabla-submenu hidden">
+              <div id="tabla-grid" class="tabla-grid"></div>
+              <p id="tabla-size-label" class="tabla-size-label">— × —</p>
+            </div>
+          </div>
+
+          <div class="ins-sep"></div>
+
+          <!-- Salto de página -->
+          <button class="ins-item" onmousedown="insertarSaltoPagina(); closeInsertarMenu()">
+            <svg class="h-3.5 w-3.5 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h4m8 0h4M4 18h16"/></svg>
+            Salto de página
+          </button>
+
+        </div>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2 shrink-0">
+        <!-- Encabezado / Pie toggles -->
+        <div class="tb-hf" title="Encabezado y pie de página">
+          <button id="btn-header" class="tb-hf-btn" onclick="toggleHeader()" title="Encabezado">Enc.</button>
+          <button id="btn-footer" class="tb-hf-btn" onclick="toggleFooter()" title="Pie de página">Pie</button>
+        </div>
+        <span class="text-[10px] text-zinc-400 hidden lg:block">Ctrl+B · Ctrl+I · Ctrl+U · Ctrl+S guardar</span>
+      </div>
+    </div>
+
+    <!-- Scroll area del documento -->
+    <div class="flex-1 overflow-y-auto bg-zinc-200 py-8 px-6">
+      <div class="mx-auto" id="doc-outer" style="max-width:750px">
+
+        <!-- ══ Encabezado (oculto por defecto) ══ -->
+        <div id="header-zona" class="hf-zona hidden bg-white rounded-xl shadow-md mb-1">
+          <span class="hf-zona-label">Encabezado</span>
+          <div class="flex items-center gap-5">
+            <div id="logo-drop" class="logo-drop" onclick="document.getElementById('logo-input').click()" title="Clic para cargar logo">
+              <svg id="logo-icon" class="h-5 w-5 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span class="logo-label" id="logo-label">Logo<br>empresa</span>
+              <input type="file" id="logo-input" accept="image/*" class="hidden" onchange="handleLogoSelect(event)">
+            </div>
+            <div id="header-texto" class="hf-editable" contenteditable="true"
+              data-ph="Texto del encabezado (empresa, dirección, teléfono…)"></div>
+          </div>
+        </div>
+
+        <!-- ══ Páginas ══ -->
+        <div id="pages-container" class="flex flex-col gap-4">
+
+          <!-- Página 1 (inicial) -->
+          <div class="page-wrap">
+            <div id="documento-area" class="doc-page"
+              contenteditable="true" spellcheck="false"
+              onkeydown="handleKey(event)" oninput="onInput()"
+              onmouseup="sincronizarToolbar()" onkeyup="sincronizarToolbar()">
+
+              <div data-block="h1">CONTRATO INDIVIDUAL DE TRABAJO</div>
+
+              <div data-block="p">En
+                <span class="etiqueta-chip" contenteditable="false">empresa.ciudad <button class="del" onmousedown="delChip(event)">×</button></span>,
+                a <span class="etiqueta-chip" contenteditable="false">contrato.fecha_inicio <button class="del" onmousedown="delChip(event)">×</button></span>,
+                entre <span class="etiqueta-chip" contenteditable="false">empresa.nombre <button class="del" onmousedown="delChip(event)">×</button></span>,
+                RUT <span class="etiqueta-chip" contenteditable="false">empresa.rut <button class="del" onmousedown="delChip(event)">×</button></span>,
+                representada legalmente por <span class="etiqueta-chip" contenteditable="false">empresa.representante_legal <button class="del" onmousedown="delChip(event)">×</button></span>,
+                en adelante <strong>"El Empleador"</strong>; y don/doña
+                <span class="etiqueta-chip" contenteditable="false">trabajador.nombre_completo <button class="del" onmousedown="delChip(event)">×</button></span>,
+                RUT <span class="etiqueta-chip" contenteditable="false">trabajador.rut <button class="del" onmousedown="delChip(event)">×</button></span>,
+                en adelante <strong>"El Trabajador"</strong>, se celebra el siguiente contrato de trabajo:
+              </div>
+
+              <div data-block="h2">PRIMERA: ANTECEDENTES DEL TRABAJADOR</div>
+              <div data-block="p">Nombre: <span class="etiqueta-chip" contenteditable="false">trabajador.nombre_completo <button class="del" onmousedown="delChip(event)">×</button></span> &nbsp;·&nbsp; RUT: <span class="etiqueta-chip" contenteditable="false">trabajador.rut <button class="del" onmousedown="delChip(event)">×</button></span> &nbsp;·&nbsp; Domicilio: <span class="etiqueta-chip" contenteditable="false">trabajador.direccion <button class="del" onmousedown="delChip(event)">×</button></span> &nbsp;·&nbsp; Nacionalidad: <span class="etiqueta-chip" contenteditable="false">trabajador.nacionalidad <button class="del" onmousedown="delChip(event)">×</button></span>.</div>
+
+              <div data-block="h2">SEGUNDA: CARGO Y FUNCIONES</div>
+              <div data-block="p">El Trabajador se desempeñará en el cargo de <span class="etiqueta-chip" contenteditable="false">contrato.cargo <button class="del" onmousedown="delChip(event)">×</button></span>, realizando entre otras las siguientes funciones: <span class="etiqueta-chip" contenteditable="false">contrato.funciones <button class="del" onmousedown="delChip(event)">×</button></span>.</div>
+
+              <div data-block="h2">TERCERA: VIGENCIA</div>
+              <div data-block="p">El presente contrato entrará en vigencia el día <span class="etiqueta-chip" contenteditable="false">contrato.fecha_inicio <button class="del" onmousedown="delChip(event)">×</button></span>.</div>
+
+              <div class="bloque-cond" data-cond="solo_plazo_fijo">
+                <div class="bloque-cond-header" contenteditable="false"><span class="bloque-cond-badge">solo plazo fijo</span><span class="bloque-cond-desc">Aparece solo en contratos a plazo fijo</span><button class="bloque-cond-del" onmousedown="delBloque(event)">✕ eliminar</button></div>
+                <div class="bloque-cond-body"><div data-block="p">El contrato tendrá una duración de <span class="etiqueta-chip" contenteditable="false">contrato.cantidad_meses <button class="del" onmousedown="delChip(event)">×</button></span> mes(es), con fecha de término el <span class="etiqueta-chip" contenteditable="false">contrato.fecha_termino <button class="del" onmousedown="delChip(event)">×</button></span>.</div></div>
+              </div>
+
+              <div class="bloque-cond" data-cond="solo_reemplazo">
+                <div class="bloque-cond-header" contenteditable="false"><span class="bloque-cond-badge">solo reemplazo</span><span class="bloque-cond-desc">Aparece solo en contratos de reemplazo</span><button class="bloque-cond-del" onmousedown="delBloque(event)">✕ eliminar</button></div>
+                <div class="bloque-cond-body"><div data-block="p">El presente contrato es de reemplazo de <span class="etiqueta-chip" contenteditable="false">contrato.nombre_reemplazado <button class="del" onmousedown="delChip(event)">×</button></span>, por causal <span class="etiqueta-chip" contenteditable="false">contrato.causal_reemplazo <button class="del" onmousedown="delChip(event)">×</button></span>.</div></div>
+              </div>
+
+              <div data-block="h2">CUARTA: REMUNERACIÓN</div>
+              <div data-block="p">El Empleador pagará al Trabajador una remuneración mensual bruta de $<span class="etiqueta-chip" contenteditable="false">remuneracion.sueldo_base <button class="del" onmousedown="delChip(event)">×</button></span> (<span class="etiqueta-chip" contenteditable="false">remuneracion.sueldo_base_palabras <button class="del" onmousedown="delChip(event)">×</button></span>), pagadera por períodos mensuales vencidos.</div>
+
+              <div class="bloque-cond" data-cond="si_bono_colacion">
+                <div class="bloque-cond-header" contenteditable="false"><span class="bloque-cond-badge">si bono colación</span><span class="bloque-cond-desc">Solo si el contrato incluye bono de colación</span><button class="bloque-cond-del" onmousedown="delBloque(event)">✕ eliminar</button></div>
+                <div class="bloque-cond-body"><div data-block="p">Adicionalmente, el Trabajador recibirá un bono de colación mensual de $<span class="etiqueta-chip" contenteditable="false">remuneracion.bono_colacion <button class="del" onmousedown="delChip(event)">×</button></span>.</div></div>
+              </div>
+
+              <div class="bloque-cond" data-cond="si_bono_movilizacion">
+                <div class="bloque-cond-header" contenteditable="false"><span class="bloque-cond-badge">si bono movilización</span><span class="bloque-cond-desc">Solo si el contrato incluye bono de movilización</span><button class="bloque-cond-del" onmousedown="delBloque(event)">✕ eliminar</button></div>
+                <div class="bloque-cond-body"><div data-block="p">El Trabajador recibirá un bono de movilización mensual de $<span class="etiqueta-chip" contenteditable="false">remuneracion.bono_movilizacion <button class="del" onmousedown="delChip(event)">×</button></span>.</div></div>
+              </div>
+
+              <div data-block="h2">QUINTA: JORNADA DE TRABAJO</div>
+              <div data-block="p">La jornada de trabajo será de <span class="etiqueta-chip" contenteditable="false">contrato.horas_semanales <button class="del" onmousedown="delChip(event)">×</button></span> horas semanales, distribuidas de lunes a viernes de <span class="etiqueta-chip" contenteditable="false">contrato.hora_inicio <button class="del" onmousedown="delChip(event)">×</button></span> a <span class="etiqueta-chip" contenteditable="false">contrato.hora_fin <button class="del" onmousedown="delChip(event)">×</button></span> horas, con <span class="etiqueta-chip" contenteditable="false">contrato.tiempo_colacion <button class="del" onmousedown="delChip(event)">×</button></span> minutos de colación.</div>
+
+              <div class="bloque-cond" data-cond="si_isapre">
+                <div class="bloque-cond-header" contenteditable="false"><span class="bloque-cond-badge">si isapre</span><span class="bloque-cond-desc">Solo si el trabajador tiene Isapre</span><button class="bloque-cond-del" onmousedown="delBloque(event)">✕ eliminar</button></div>
+                <div class="bloque-cond-body"><div data-block="p">El Trabajador se encuentra afiliado a la Isapre <span class="etiqueta-chip" contenteditable="false">prevision.nombre_isapre <button class="del" onmousedown="delChip(event)">×</button></span>.</div></div>
+              </div>
+
+              <div data-block="h2">SEXTA: LUGAR DE TRABAJO</div>
+              <div data-block="p">El Trabajador prestará sus servicios en <span class="etiqueta-chip" contenteditable="false">contrato.lugar_trabajo <button class="del" onmousedown="delChip(event)">×</button></span>, sin perjuicio de la facultad del empleador de modificar dicho lugar cuando las necesidades de la empresa así lo requieran.</div>
+
+              <div class="salto-pagina" contenteditable="false"><span>salto de página</span><button class="del-salto" onmousedown="delSaltoPagina(event)">✕ eliminar</button></div>
+
+              <div data-block="h2">SÉPTIMA: FIRMA</div>
+              <div data-block="p" data-align="center">Para constancia, las partes firman en <span class="etiqueta-chip" contenteditable="false">firma.lugar_firma <button class="del" onmousedown="delChip(event)">×</button></span>, el <span class="etiqueta-chip" contenteditable="false">firma.fecha_firma <button class="del" onmousedown="delChip(event)">×</button></span>.</div>
+
+              <div class="firma-grid" contenteditable="false">
+                <div class="firma-col"><div class="linea">EL EMPLEADOR</div><div style="font-size:9.5pt;color:#52525b"><span class="etiqueta-chip" contenteditable="false">empresa.representante_legal <button class="del" onmousedown="delChip(event)">×</button></span></div></div>
+                <div class="firma-col"><div class="linea">EL TRABAJADOR</div><div style="font-size:9.5pt;color:#52525b"><span class="etiqueta-chip" contenteditable="false">trabajador.nombre_completo <button class="del" onmousedown="delChip(event)">×</button></span></div></div>
+              </div>
+
+            </div><!-- /doc-page -->
+          </div><!-- /page-wrap -->
+
+        </div><!-- /pages-container -->
+
+        <!-- ══ Pie de página (oculto por defecto) ══ -->
+        <div id="footer-zona" class="hf-zona hidden bg-white rounded-xl shadow-md mt-1">
+          <span class="hf-zona-label">Pie de página</span>
+          <div class="flex items-center gap-4">
+            <div id="footer-texto" class="hf-editable" contenteditable="true"
+              data-ph="Texto del pie de página (confidencialidad, dirección…)"></div>
+            <div class="flex items-center gap-2 shrink-0">
+              <label class="flex items-center gap-1.5 text-[10.5px] text-zinc-500 cursor-pointer select-none whitespace-nowrap">
+                <input type="checkbox" id="chk-pag-num" class="rounded" onchange="togglePagNum(this)"> N.° de página
+              </label>
+              <select id="sel-pag-pos" class="h-6 rounded border border-zinc-200 px-1.5 text-[10.5px] text-zinc-600 cursor-pointer disabled:opacity-40" disabled>
+                <option value="center">Centro</option><option value="left">Izquierda</option><option value="right">Derecha</option>
+              </select>
+              <span id="pag-num-preview" class="pag-num-badge hidden">Pág. 1 de 3</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /doc-outer -->
+    </div><!-- /scroll -->
+  </main>
+
+  <!-- ── Panel derecho: Etiquetas ── -->
+  <aside id="panel-etiquetas" class="flex h-full w-60 shrink-0 flex-col border-l border-zinc-200 bg-white overflow-hidden">
+    <div class="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 shrink-0">
+      <span class="text-[10.5px] font-semibold uppercase tracking-wide text-zinc-400 shrink-0">Etiquetas</span>
+      <input id="buscar" type="text" placeholder="Buscar…"
+        class="flex-1 min-w-0 rounded-md border border-zinc-200 px-2 py-0.5 text-xs"
+        oninput="renderEtqs(this.value)">
+    </div>
+    <div id="etqs-panel" class="flex-1 overflow-y-auto p-2 space-y-3"></div>
+    <div class="border-t border-zinc-100 px-3 py-2 shrink-0">
+      <p class="text-[9.5px] text-zinc-400 text-center leading-snug">Haz clic en una etiqueta para insertarla donde está el cursor</p>
+    </div>
+  </aside>
+
+</div><!-- /body -->
+
+<!-- ════════════════ MODAL: nuevo bloque condicional ════════════════ -->
+<div id="modal-cond" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,.45)">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-[340px]">
+    <h3 class="font-semibold text-zinc-900 text-sm mb-1">Insertar bloque condicional</h3>
+    <p class="text-xs text-zinc-500 mb-4 leading-relaxed">El contenido de este bloque solo aparecerá en el PDF cuando se cumpla la condición elegida.</p>
+    <label class="block text-xs font-medium text-zinc-700 mb-1.5">Mostrar cuando…</label>
+    <select id="sel-cond" class="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm mb-5">
+      <option value="solo_plazo_fijo">Contrato a plazo fijo</option>
+      <option value="solo_indefinido">Contrato indefinido</option>
+      <option value="solo_reemplazo">Contrato de reemplazo</option>
+      <option value="si_bono_colacion">Tiene bono de colación</option>
+      <option value="si_bono_movilizacion">Tiene bono de movilización</option>
+      <option value="si_isapre">Trabajador con Isapre</option>
+      <option value="si_gratificacion">Tiene gratificación legal</option>
+      <option value="si_grupo_turno">Jornada por turnos</option>
+      <option value="si_jornada_parcial">Jornada parcial</option>
+      <option value="si_banco">Tiene cuenta bancaria</option>
+    </select>
+    <div class="flex gap-2 justify-end">
+      <button onclick="cerrarModal()" class="px-4 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 rounded-xl transition-colors">Cancelar</button>
+      <button onclick="confirmarCond()" class="px-4 py-2 text-xs font-semibold bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors">Insertar bloque</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+// DATOS
+// ════════════════════════════════════════════════════════════════════
+const ETQS = {
+  'Trabajador': [
+    ['trabajador.nombre_completo','Nombre completo'],
+    ['trabajador.rut','RUT'],
+    ['trabajador.direccion','Domicilio'],
+    ['trabajador.email','Email'],
+    ['trabajador.celular','Celular'],
+    ['trabajador.nacionalidad','Nacionalidad'],
+    ['trabajador.fecha_nacimiento','Fecha nacimiento'],
+    ['trabajador.genero','Género'],
+    ['trabajador.estado_civil','Estado civil'],
+    ['trabajador.profesion_u_oficio','Profesión u oficio'],
+  ],
+  'Empresa': [
+    ['empresa.nombre','Nombre empresa'],
+    ['empresa.rut','RUT empresa'],
+    ['empresa.direccion_principal','Dirección'],
+    ['empresa.ciudad','Ciudad'],
+    ['empresa.representante_legal','Representante legal'],
+    ['empresa.rut_representante_legal','RUT representante'],
+  ],
+  'Contrato': [
+    ['contrato.cargo','Cargo'],
+    ['contrato.funciones','Funciones'],
+    ['contrato.fecha_inicio','Fecha de inicio'],
+    ['contrato.fecha_termino','Fecha de término'],
+    ['contrato.cantidad_meses','Duración (meses)'],
+    ['contrato.tipo_contrato','Tipo de contrato'],
+    ['contrato.vigencia_descripcion','Descripción vigencia'],
+    ['contrato.jornada_descripcion','Descripción jornada'],
+    ['contrato.horas_semanales','Horas semanales'],
+    ['contrato.hora_inicio','Hora inicio'],
+    ['contrato.hora_fin','Hora fin'],
+    ['contrato.dias_semana_texto','Días de la semana'],
+    ['contrato.tiempo_colacion','Tiempo colación (min)'],
+    ['contrato.lugar_trabajo','Lugar de trabajo'],
+    ['contrato.nombre_reemplazado','Nombre reemplazado'],
+    ['contrato.causal_reemplazo','Causal reemplazo'],
+  ],
+  'Remuneración': [
+    ['remuneracion.sueldo_base','Sueldo base'],
+    ['remuneracion.sueldo_base_palabras','Sueldo en palabras'],
+    ['remuneracion.sueldo_liquido','Sueldo líquido'],
+    ['remuneracion.tipo_sueldo_label','Tipo de sueldo'],
+    ['remuneracion.moneda','Moneda'],
+    ['remuneracion.bono_colacion','Bono colación'],
+    ['remuneracion.bono_movilizacion','Bono movilización'],
+    ['remuneracion.gratificacion_descripcion','Gratificación'],
+    ['remuneracion.descuento_prevision','Descuento previsión'],
+    ['remuneracion.descuento_salud','Descuento salud'],
+  ],
+  'Previsión': [
+    ['prevision.afp_nombre','AFP'],
+    ['prevision.salud_descripcion','Sistema de salud'],
+    ['prevision.nombre_isapre','Nombre Isapre'],
+    ['prevision.banco_nombre','Banco'],
+    ['prevision.tipo_cuenta','Tipo de cuenta'],
+    ['prevision.numero_cuenta','N° cuenta'],
+  ],
+  'Firma': [
+    ['firma.lugar_firma','Lugar de firma'],
+    ['firma.fecha_firma','Fecha de firma'],
+  ],
+};
+
+const COND_LABELS = {
+  solo_plazo_fijo:'solo plazo fijo', solo_indefinido:'solo indefinido',
+  solo_reemplazo:'solo reemplazo', si_bono_colacion:'si bono colación',
+  si_bono_movilizacion:'si bono movilización', si_isapre:'si isapre',
+  si_gratificacion:'si gratificación', si_grupo_turno:'si grupo turno',
+  si_jornada_parcial:'si jornada parcial', si_banco:'si banco',
+};
+const COND_DESC = {
+  solo_plazo_fijo:'Aparece solo en contratos a plazo fijo',
+  solo_indefinido:'Aparece solo en contratos indefinidos',
+  solo_reemplazo:'Aparece solo en contratos de reemplazo',
+  si_bono_colacion:'Solo si el contrato incluye bono de colación',
+  si_bono_movilizacion:'Solo si el contrato incluye bono de movilización',
+  si_isapre:'Solo si el trabajador tiene Isapre',
+  si_gratificacion:'Solo si el contrato tiene gratificación legal',
+  si_grupo_turno:'Solo si el contrato tiene jornada por turnos',
+  si_jornada_parcial:'Solo si el contrato tiene jornada parcial',
+  si_banco:'Solo si el trabajador tiene cuenta bancaria registrada',
+};
+
+// ════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════
+// doc apunta a la página activa; se actualiza en focusin
+let doc = document.getElementById('documento-area');
+document.addEventListener('focusin', (e) => {
+  if (e.target.classList?.contains('doc-page')) doc = e.target;
+});
+
+function renderEtqs(filtro = '') {
+  const panel = document.getElementById('etqs-panel');
+  panel.innerHTML = '';
+  const fl = filtro.toLowerCase().trim();
+  for (const [cat, items] of Object.entries(ETQS)) {
+    const fil = items.filter(([c,l]) => !fl || l.toLowerCase().includes(fl) || c.toLowerCase().includes(fl));
+    if (!fil.length) continue;
+    const sec = document.createElement('div');
+    sec.innerHTML = `<p class="text-[9.5px] font-bold uppercase tracking-widest text-zinc-400 px-1 mb-1">${cat}</p>`;
+    fil.forEach(([clave, label]) => {
+      const btn = document.createElement('button');
+      btn.className = 'w-full text-left px-2 py-1.5 rounded-md hover:bg-blue-50 flex items-center justify-between group';
+      btn.innerHTML = `<span class="text-xs font-medium text-zinc-700 group-hover:text-blue-700">${label}</span><span class="text-[9px] text-zinc-400 group-hover:text-blue-400 ml-1 truncate">${clave.split('.')[1]}</span>`;
+      btn.onmousedown = (e) => { e.preventDefault(); insertarEtq(clave, label); };
+      sec.appendChild(btn);
+    });
+    panel.appendChild(sec);
+  }
+}
+
+function insertarEtq(clave, label) {
+  doc.focus();
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+
+  const chip = document.createElement('span');
+  chip.className = 'etiqueta-chip';
+  chip.contentEditable = 'false';
+  chip.dataset.clave = clave;
+  chip.innerHTML = `${label} <button class="del" onmousedown="delChip(event)">×</button>`;
+
+  range.insertNode(chip);
+  range.setStartAfter(chip);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  onInput();
+}
+
+function delChip(e) {
+  e.preventDefault(); e.stopPropagation();
+  e.target.closest('.etiqueta-chip')?.remove();
+  onInput();
+}
+
+function delBloque(e) {
+  e.preventDefault(); e.stopPropagation();
+  const b = e.target.closest('.bloque-cond');
+  if (b && confirm('¿Eliminar este bloque condicional y todo su contenido?')) {
+    b.remove(); onInput(); actualizarOutline();
+  }
+}
+
+function delSaltoPagina(e) {
+  e.preventDefault(); e.stopPropagation();
+  const marcador = e.target.closest('.salto-pagina');
+  if (!marcador) return;
+
+  const currentPage = marcador.closest('.doc-page');
+  const currentWrap = currentPage?.closest('.page-wrap');
+  const nextWrap    = currentWrap?.nextElementSibling;
+
+  // Fusionar la página siguiente de vuelta a esta página
+  if (nextWrap?.classList.contains('page-wrap')) {
+    const nextPage = nextWrap.querySelector('.doc-page');
+    // Insertar los hijos de la página siguiente después del marcador, en orden
+    let ref = marcador;
+    Array.from(nextPage.children).forEach(child => {
+      ref.after(child);
+      ref = child;
+    });
+    nextWrap.remove();
+  }
+
+  marcador.remove();
+  onInput();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// TOOLBAR
+// ════════════════════════════════════════════════════════════════════
+function toggleMark(cmd) {
+  document.execCommand(cmd); doc.focus();
+  sincronizarToolbar();
+}
+
+function alinear(dir) {
+  document.execCommand('justify' + dir); doc.focus();
+}
+
+function aplicarBloque(tipo) {
+  const TAG = { h1:'H1', h2:'H2', h3:'H3', p:'P' };
+  document.execCommand('formatBlock', false, TAG[tipo] || 'P');
+  // también setar data-block en el elemento actual
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount) {
+    let n = sel.getRangeAt(0).startContainer;
+    while (n && n.nodeType !== 1) n = n.parentNode;
+    if (n && ['H1','H2','H3','P'].includes(n.tagName)) {
+      n.setAttribute('data-block', tipo);
+    }
+  }
+  doc.focus(); actualizarOutline();
+}
+
+function aplicarSize(size) {
+  if (!size) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) { doc.focus(); return; }
+  // Wrap selection in span con font-size
+  const range = sel.getRangeAt(0);
+  try {
+    const span = document.createElement('span');
+    span.style.fontSize = size;
+    range.surroundContents(span);
+  } catch {
+    document.execCommand('fontSize', false, '7');
+    doc.querySelectorAll('font[size="7"]').forEach(f => {
+      const s = document.createElement('span');
+      s.style.fontSize = size; s.innerHTML = f.innerHTML; f.replaceWith(s);
+    });
+  }
+  document.getElementById('sel-size').value = '';
+  doc.focus();
+}
+
+function sincronizarToolbar() {
+  ['bold','italic','underline','strikeThrough'].forEach(cmd => {
+    const id = 'tb-' + { bold:'bold', italic:'italic', underline:'underline', strikeThrough:'strike' }[cmd];
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('on', document.queryCommandState(cmd));
+  });
+  // Detectar tipo de bloque actual
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount) {
+    let n = sel.getRangeAt(0).startContainer;
+    while (n && n.nodeType !== 1) n = n.parentNode;
+    while (n && n !== doc) {
+      const tag = n.tagName;
+      if (['H1','H2','H3','P','DIV'].includes(tag)) {
+        const map = { H1:'h1', H2:'h2', H3:'h3', P:'p', DIV:'p' };
+        document.getElementById('sel-bloque').value = map[tag] || 'p';
+        break;
+      }
+      n = n.parentNode;
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// INSERCIONES ESPECIALES
+// ════════════════════════════════════════════════════════════════════
+function insertarSaltoPagina() {
+  doc.focus();
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+
+  // Encontrar el bloque de nivel superior dentro de la página activa
+  let anchor = sel.getRangeAt(0).startContainer;
+  while (anchor && anchor.parentNode !== doc) anchor = anchor.parentNode;
+
+  // Insertar el marcador visual al final del bloque actual
+  const marcador = document.createElement('div');
+  marcador.className = 'salto-pagina';
+  marcador.contentEditable = 'false';
+  marcador.innerHTML = '<span>salto de página</span><button class="del-salto" onmousedown="delSaltoPagina(event)">✕ eliminar</button>';
+  if (anchor && anchor.parentNode === doc) anchor.after(marcador);
+  else doc.appendChild(marcador);
+
+  // Recoger todo lo que viene DESPUÉS del marcador en esta página
+  const aMover = [];
+  let sib = marcador.nextSibling;
+  while (sib) { aMover.push(sib); sib = sib.nextSibling; }
+
+  // Obtener o crear la página siguiente
+  const currentWrap = doc.closest('.page-wrap');
+  const nextWrap = currentWrap?.nextElementSibling;
+  let nextPage;
+  if (nextWrap?.classList.contains('page-wrap')) {
+    nextPage = nextWrap.querySelector('.doc-page');
+  } else {
+    nextPage = crearPagina();
+  }
+
+  // Mover el contenido (en orden) al inicio de la página siguiente
+  aMover.forEach(node => nextPage.insertBefore(node, nextPage.firstChild));
+
+  // Asegurar que la página siguiente tenga al menos un párrafo editable
+  if (!nextPage.querySelector('[data-block]')) {
+    const p = document.createElement('div');
+    p.setAttribute('data-block', 'p');
+    p.innerHTML = '<br>';
+    nextPage.appendChild(p);
+  }
+
+  // Mover el cursor al inicio de la siguiente página
+  const primerBloque = nextPage.firstElementChild;
+  if (primerBloque) {
+    const r = document.createRange();
+    r.setStart(primerBloque, 0); r.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r);
+  }
+  nextPage.focus();
+  doc = nextPage;
+
+  actualizarNumPaginas();
+  actualizarOutline();
+  document.getElementById('badge-unsaved').classList.remove('hidden');
+}
+
+let _insertRef = null;
+function abrirModalCondicional() {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount) {
+    let n = sel.getRangeAt(0).startContainer;
+    while (n && n.parentNode !== doc) n = n.parentNode;
+    _insertRef = (n && n.parentNode === doc) ? n : null;
+  }
+  document.getElementById('modal-cond').classList.remove('hidden');
+}
+function cerrarModal() { document.getElementById('modal-cond').classList.add('hidden'); _insertRef = null; }
+function confirmarCond() {
+  const cond = document.getElementById('sel-cond').value;
+  const label = COND_LABELS[cond] || cond;
+  const desc  = COND_DESC[cond] || '';
+
+  const bloque = document.createElement('div');
+  bloque.className = 'bloque-cond';
+  bloque.dataset.cond = cond;
+  bloque.innerHTML = `
+    <div class="bloque-cond-header" contenteditable="false">
+      <span class="bloque-cond-badge">${label}</span>
+      <span class="bloque-cond-desc">${desc}</span>
+      <button class="bloque-cond-del" onmousedown="delBloque(event)">✕ eliminar</button>
+    </div>
+    <div class="bloque-cond-body">
+      <div data-block="p">Escribe aquí el contenido condicional…</div>
+    </div>`;
+
+  if (_insertRef && _insertRef.parentNode === doc) _insertRef.after(bloque);
+  else doc.appendChild(bloque);
+
+  const p = bloque.querySelector('[data-block]');
+  if (p) {
+    const r = document.createRange(); r.selectNodeContents(p); r.collapse(false);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  cerrarModal(); onInput(); actualizarOutline();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// VISTA PREVIA
+// ════════════════════════════════════════════════════════════════════
+let isPreview = false;
+function togglePreview() {
+  isPreview = !isPreview;
+  document.body.classList.toggle('preview-mode', isPreview);
+  const btn = document.getElementById('btn-preview');
+  const ctrl = document.getElementById('preview-controls');
+
+  if (isPreview) {
+    doc.setAttribute('contenteditable','false');
+    btn.innerHTML = `<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg> Editar`;
+    btn.className = 'flex items-center gap-1.5 rounded-lg bg-blue-600 border border-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors';
+    ctrl.classList.remove('hidden'); ctrl.classList.add('flex');
+    // ocultar chips ×
+    doc.querySelectorAll('.etiqueta-chip .del').forEach(b => b.style.display = 'none');
+    evaluarCondiciones();
+  } else {
+    doc.setAttribute('contenteditable','true');
+    btn.innerHTML = `<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Vista previa`;
+    btn.className = 'flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors';
+    ctrl.classList.add('hidden'); ctrl.classList.remove('flex');
+    doc.querySelectorAll('.etiqueta-chip .del').forEach(b => b.style.display = '');
+    doc.querySelectorAll('.bloque-cond').forEach(b => b.classList.remove('oculto'));
+  }
+}
+
+function evaluarCondiciones() {
+  const tipo   = document.getElementById('sim-tipo').value;
+  const isapre = document.getElementById('sim-isapre').checked;
+  const bCol   = document.getElementById('sim-bono-col').checked;
+  const bMov   = document.getElementById('sim-bono-mov').checked;
+
+  doc.querySelectorAll('.bloque-cond').forEach(b => {
+    const c = b.dataset.cond;
+    const vis =
+      c === 'solo_plazo_fijo'     ? tipo === 'plazo_fijo' :
+      c === 'solo_indefinido'     ? tipo === 'indefinido' :
+      c === 'solo_reemplazo'      ? tipo === 'reemplazo' :
+      c === 'si_bono_colacion'    ? bCol :
+      c === 'si_bono_movilizacion'? bMov :
+      c === 'si_isapre'           ? isapre :
+      true;
+    b.classList.toggle('oculto', !vis);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// OUTLINE
+// ════════════════════════════════════════════════════════════════════
+function actualizarOutline() {
+  const ol = document.getElementById('outline');
+  ol.innerHTML = '';
+  // Iterar todos los nodos de todas las páginas
+  const allNodes = [];
+  document.querySelectorAll('.doc-page').forEach(page => {
+    page.childNodes.forEach(n => allNodes.push(n));
+  });
+  allNodes.forEach(n => {
+    if (n.nodeType !== 1) return;
+    const block = n.getAttribute('data-block') || n.tagName?.toLowerCase();
+    const cond  = n.dataset?.cond;
+    let item;
+    if (block === 'h1' || n.tagName === 'H1') {
+      item = mk('lv1', n.textContent?.trim() || '(sin título)');
+    } else if (block === 'h2' || n.tagName === 'H2') {
+      item = mk('lv2', n.textContent?.trim() || '(sin título)');
+    } else if (block === 'h3' || n.tagName === 'H3') {
+      item = mk('lv3', n.textContent?.trim() || '(sin título)');
+    } else if (cond) {
+      item = mk('cond', '⬡ ' + (COND_LABELS[cond] || cond));
+    }
+    if (item) { item.onclick = () => n.scrollIntoView({ behavior:'smooth', block:'start' }); ol.appendChild(item); }
+  });
+}
+function mk(cls, txt) {
+  const d = document.createElement('div');
+  d.className = `outline-item ${cls}`; d.textContent = txt; return d;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// EVENTOS
+// ════════════════════════════════════════════════════════════════════
+function onInput() {
+  document.getElementById('badge-unsaved').classList.remove('hidden');
+  actualizarOutline();
+  checkPageOverflow();
+}
+
+function handleKey(e) {
+  if ((e.ctrlKey||e.metaKey) && e.key === 's') { e.preventDefault(); guardar(); }
+  if ((e.ctrlKey||e.metaKey) && e.key === 'b') { e.preventDefault(); toggleMark('bold'); }
+  if ((e.ctrlKey||e.metaKey) && e.key === 'i') { e.preventDefault(); toggleMark('italic'); }
+  if ((e.ctrlKey||e.metaKey) && e.key === 'u') { e.preventDefault(); toggleMark('underline'); }
+}
+
+function guardar() {
+  document.getElementById('badge-unsaved').classList.add('hidden');
+  const btn = document.getElementById('btn-guardar');
+  btn.textContent = '✓ Guardado';
+  setTimeout(() => {
+    btn.innerHTML = `<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Guardar`;
+  }, 1800);
+}
+
+// Cerrar modal con click en backdrop
+document.getElementById('modal-cond').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-cond')) cerrarModal();
+});
+
+// ════════════════════════════════════════════════════════════════════
+// INSERTAR DROPDOWN
+// ════════════════════════════════════════════════════════════════════
+function toggleInsertarMenu(e) {
+  e?.stopPropagation();
+  document.getElementById('insertar-menu').classList.toggle('hidden');
+}
+function closeInsertarMenu() {
+  document.getElementById('insertar-menu').classList.add('hidden');
+  hideTablaGrid();
+}
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('insertar-wrap').contains(e.target)) closeInsertarMenu();
+});
+
+// ════════════════════════════════════════════════════════════════════
+// TABLA PICKER
+// ════════════════════════════════════════════════════════════════════
+let tablaGridBuilt = false;
+function buildTablaGrid() {
+  if (tablaGridBuilt) return;
+  const grid = document.getElementById('tabla-grid');
+  for (let r = 1; r <= 8; r++) {
+    for (let c = 1; c <= 8; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'tabla-cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      cell.onmouseenter = () => highlightGrid(r, c);
+      cell.onmousedown = (ev) => { ev.preventDefault(); insertarTabla(r, c); closeInsertarMenu(); };
+      grid.appendChild(cell);
+    }
+  }
+  tablaGridBuilt = true;
+}
+function highlightGrid(maxR, maxC) {
+  document.getElementById('tabla-size-label').textContent = `${maxR} × ${maxC}`;
+  document.querySelectorAll('.tabla-cell').forEach(cell => {
+    cell.classList.toggle('active', +cell.dataset.r <= maxR && +cell.dataset.c <= maxC);
+  });
+}
+function showTablaGrid() {
+  buildTablaGrid();
+  document.getElementById('tabla-grid-panel').classList.remove('hidden');
+}
+function hideTablaGrid() {
+  document.getElementById('tabla-grid-panel').classList.add('hidden');
+  document.querySelectorAll('.tabla-cell').forEach(c => c.classList.remove('active'));
+  const lbl = document.getElementById('tabla-size-label');
+  if (lbl) lbl.textContent = '— × —';
+}
+function insertarTabla(rows, cols) {
+  doc.focus();
+  const sel = window.getSelection();
+  let anchor = null;
+  if (sel && sel.rangeCount) {
+    let n = sel.getRangeAt(0).startContainer;
+    while (n && n.parentNode !== doc) n = n.parentNode;
+    anchor = (n && n.parentNode === doc) ? n : null;
+  }
+  const tabla = document.createElement('table');
+  tabla.className = 'doc-tabla';
+  for (let r = 0; r < rows; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < cols; c++) {
+      const td = document.createElement('td'); td.innerHTML = '<br>'; tr.appendChild(td);
+    }
+    tabla.appendChild(tr);
+  }
+  const sig = document.createElement('div');
+  sig.setAttribute('data-block', 'p'); sig.innerHTML = '<br>';
+  if (anchor && anchor.parentNode === doc) { anchor.after(tabla); tabla.after(sig); }
+  else { doc.appendChild(tabla); doc.appendChild(sig); }
+  const r2 = document.createRange(); r2.setStart(sig, 0); r2.collapse(true);
+  sel.removeAllRanges(); sel.addRange(r2);
+  onInput();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// INSERTAR FIRMA
+// ════════════════════════════════════════════════════════════════════
+function insertarFirma() {
+  doc.focus();
+  const sel = window.getSelection();
+  let anchor = null;
+  if (sel && sel.rangeCount) {
+    let n = sel.getRangeAt(0).startContainer;
+    while (n && n.parentNode !== doc) n = n.parentNode;
+    anchor = (n && n.parentNode === doc) ? n : null;
+  }
+  const bloque = document.createElement('div');
+  bloque.className = 'bloque-firma';
+  bloque.innerHTML = `
+    <div class="bloque-firma-header" contenteditable="false">
+      <span class="bloque-firma-badge">firma</span>
+      <span class="bloque-firma-desc">Bloque de firmas — edita títulos y etiquetas</span>
+      <button class="bloque-firma-del" onmousedown="delFirma(event)">✕ eliminar</button>
+    </div>
+    <div class="bloque-firma-body">
+      <div data-block="p" style="text-align:center;color:#52525b;font-size:9.5pt">
+        Para constancia, las partes firman en
+        <span class="etiqueta-chip" contenteditable="false">firma.lugar_firma <button class="del" onmousedown="delChip(event)">×</button></span>,
+        el <span class="etiqueta-chip" contenteditable="false">firma.fecha_firma <button class="del" onmousedown="delChip(event)">×</button></span>.
+      </div>
+      <div class="firma-grid" contenteditable="false">
+        <div class="firma-col">
+          <div class="linea">EL EMPLEADOR</div>
+          <div style="font-size:9.5pt;color:#52525b">
+            <span class="etiqueta-chip" contenteditable="false">empresa.representante_legal <button class="del" onmousedown="delChip(event)">×</button></span>
+          </div>
+        </div>
+        <div class="firma-col">
+          <div class="linea">EL TRABAJADOR</div>
+          <div style="font-size:9.5pt;color:#52525b">
+            <span class="etiqueta-chip" contenteditable="false">trabajador.nombre_completo <button class="del" onmousedown="delChip(event)">×</button></span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  const sig = document.createElement('div');
+  sig.setAttribute('data-block', 'p'); sig.innerHTML = '<br>';
+  if (anchor && anchor.parentNode === doc) { anchor.after(bloque); bloque.after(sig); }
+  else { doc.appendChild(bloque); doc.appendChild(sig); }
+  onInput();
+}
+function delFirma(e) {
+  e.preventDefault(); e.stopPropagation();
+  const b = e.target.closest('.bloque-firma');
+  if (b && confirm('¿Eliminar este bloque de firma?')) { b.remove(); onInput(); }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// PAGINACIÓN — páginas separadas (estilo Word)
+// ════════════════════════════════════════════════════════════════════
+// Dimensiones en px: ancho papel = max-w del doc-outer
+// Contenido por página = alturaPx - padding(56)*2
+const PAGE_CONFIGS = {
+  a4:    { label: 'A4 (210×297 mm)',      paperPx: 750, alturaPx: Math.round(297/210*750) },
+  carta: { label: 'Carta (216×279 mm)',   paperPx: 771, alturaPx: Math.round(279/216*771) },
+  oficio:{ label: 'Oficio (216×356 mm)', paperPx: 771, alturaPx: Math.round(356/216*771) },
+};
+let currentPageSize = 'a4';
+
+function pageContentHeight() {
+  return PAGE_CONFIGS[currentPageSize].alturaPx - 56 * 2; // descontar py-14 top+bottom
+}
+
+function aplicarTamanoPagina(size) {
+  currentPageSize = size;
+  const cfg = PAGE_CONFIGS[size];
+  const outer = document.getElementById('doc-outer');
+  if (outer) outer.style.maxWidth = cfg.paperPx + 'px';
+  // Actualizar min-height de todas las páginas
+  document.querySelectorAll('.doc-page').forEach(p => {
+    p.style.minHeight = pageContentHeight() + 'px';
+  });
+  // Actualizar fuente en todas las páginas si hay una seleccionada
+  const font = document.getElementById('sel-font')?.value;
+  if (font) document.querySelectorAll('.doc-page').forEach(p => p.style.fontFamily = font);
+  actualizarNumPaginas();
+}
+
+// Crea una nueva página vacía y la añade al contenedor
+function crearPagina() {
+  const container = document.getElementById('pages-container');
+  const idx = container.querySelectorAll('.page-wrap').length + 1;
+  const wrap = document.createElement('div');
+  wrap.className = 'page-wrap';
+  wrap.dataset.pnum = idx;
+  const page = document.createElement('div');
+  page.className = 'doc-page';
+  page.contentEditable = 'true';
+  page.spellcheck = false;
+  page.style.minHeight = pageContentHeight() + 'px';
+  page.style.fontFamily = doc?.style?.fontFamily || '';
+  const p = document.createElement('div');
+  p.setAttribute('data-block', 'p');
+  p.innerHTML = '<br>';
+  page.appendChild(p);
+  wrap.appendChild(page);
+  container.appendChild(wrap);
+  // Propagar eventos
+  page.addEventListener('keydown',  handleKey);
+  page.addEventListener('input',    onInput);
+  page.addEventListener('mouseup',  sincronizarToolbar);
+  page.addEventListener('keyup',    sincronizarToolbar);
+  page.addEventListener('focusin',  () => { doc = page; });
+  return page;
+}
+
+// Detecta desbordamiento por altura y mueve bloques a la página siguiente.
+// Los saltos de página explícitos (.salto-pagina) se gestionan en insertarSaltoPagina().
+function checkPageOverflow() {
+  const pages = Array.from(document.querySelectorAll('.doc-page'));
+  const maxH  = pageContentHeight();
+  let moved   = false;
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    if (page.offsetHeight <= maxH + 4) continue; // +4px de tolerancia
+
+    // Página desbordada: mover último bloque hijo a la siguiente
+    const last = page.lastElementChild;
+    // No mover si es el único hijo (evita página vacía infinita)
+    if (!last || page.children.length <= 1) continue;
+
+    const allPages = Array.from(document.querySelectorAll('.doc-page'));
+    const nextPage = allPages[i + 1] || crearPagina();
+    nextPage.insertBefore(last, nextPage.firstChild);
+    moved = true;
+  }
+
+  // Limpiar páginas vacías al final (excepto la primera)
+  Array.from(document.querySelectorAll('.doc-page')).reverse().forEach((p, ri, arr) => {
+    if (ri === arr.length - 1) return; // no eliminar la primera
+    const isEmpty = !p.textContent.trim() && p.children.length <= 1;
+    if (isEmpty) p.closest('.page-wrap')?.remove();
+  });
+
+  actualizarNumPaginas();
+  if (moved) checkPageOverflow();
+}
+
+function actualizarNumPaginas() {
+  document.querySelectorAll('.page-wrap').forEach((wrap, i) => {
+    wrap.dataset.pnum = i + 1;
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// FUENTE DEL DOCUMENTO
+// ════════════════════════════════════════════════════════════════════
+function aplicarFuente(font) {
+  if (!font) return;
+  document.querySelectorAll('.doc-page').forEach(p => p.style.fontFamily = font);
+  document.getElementById('header-texto').style.fontFamily = font;
+  document.getElementById('footer-texto').style.fontFamily = font;
+  doc?.focus();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ENCABEZADO Y PIE
+// ════════════════════════════════════════════════════════════════════
+function toggleHeader() {
+  const zona = document.getElementById('header-zona');
+  const btn  = document.getElementById('btn-header');
+  const vis  = zona.classList.toggle('hidden');
+  btn.classList.toggle('on', !vis);
+  if (!vis) document.getElementById('header-texto').focus();
+}
+function toggleFooter() {
+  const zona = document.getElementById('footer-zona');
+  const btn  = document.getElementById('btn-footer');
+  const vis  = zona.classList.toggle('hidden');
+  btn.classList.toggle('on', !vis);
+  if (!vis) document.getElementById('footer-texto').focus();
+}
+
+function togglePagNum(chk) {
+  document.getElementById('sel-pag-pos').disabled = !chk.checked;
+  document.getElementById('pag-num-preview').classList.toggle('hidden', !chk.checked);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// LOGO
+// ════════════════════════════════════════════════════════════════════
+function handleLogoSelect(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const drop  = document.getElementById('logo-drop');
+    const icon  = document.getElementById('logo-icon');
+    const label = document.getElementById('logo-label');
+    // Reemplazar contenido por la imagen
+    icon.remove(); label.remove();
+    const img = document.createElement('img');
+    img.src = ev.target.result;
+    img.title = 'Clic para cambiar logo';
+    drop.appendChild(img);
+    drop.classList.add('has-logo');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════
+renderEtqs();
+actualizarOutline();
+requestAnimationFrame(() => {
+  // Aplicar min-height y número de página inicial
+  document.querySelectorAll('.doc-page').forEach(p => {
+    p.style.minHeight = pageContentHeight() + 'px';
+  });
+  document.querySelectorAll('.page-wrap').forEach((w, i) => w.dataset.pnum = i + 1);
+  checkPageOverflow();
+});
+</script>
+</body>
+</html>
