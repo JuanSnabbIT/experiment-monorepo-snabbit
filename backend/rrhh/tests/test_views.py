@@ -286,6 +286,52 @@ class AnexoContratoMultitenancyTest(APITestCase):
 
 
 # ---------------------------------------------------------------------------
+# Accion activar: combinacion de cambios en un mismo anexo
+# ---------------------------------------------------------------------------
+
+class AnexoContratoActivarCombinadoTest(APITestCase):
+    """Regresion: activar() debe aplicar TODOS los campos del anexo, no solo
+    el que coincide con el tipo derivado (cambio_tipo_contrato/prorroga
+    excluian antes la aplicacion de sueldo/cargo/etc en el mismo anexo)."""
+
+    def setUp(self):
+        empresa = _crear_empresa("Empresa Anexo Combinado")
+        sucursal = _crear_sucursal(empresa)
+        self.admin = _setup_administrador(sucursal, "admin_anexo_combinado@test.com")
+        ue = _crear_usuario_empresa(sucursal, "trab_anexo_combinado")
+        self.contrato = ContratoTrabajador.objects.create(
+            usuario_empresa=ue,
+            estado="vigente",
+            tipo_contrato="plazo_fijo",
+            fecha_inicio=datetime.date.today(),
+            fecha_termino=datetime.date.today() + datetime.timedelta(days=30),
+            cargo="Desarrollador",
+            jornada="completa",
+            sueldo=1000000,
+            moneda="CLP",
+        )
+        self.anexo = AnexoContrato.objects.create(
+            contrato=self.contrato,
+            tipo="otro",
+            estado="borrador",
+            fecha_efectiva=datetime.date.today(),
+            descripcion="Conversion a indefinido + aumento de sueldo",
+            nuevo_tipo_contrato="indefinido",
+            nuevo_sueldo=1500000,
+        )
+
+    def test_activar_aplica_tipo_contrato_y_sueldo_simultaneamente(self):
+        self.client.force_authenticate(user=self.admin)
+        url = f"/api/rrhh/anexos-contrato/{self.anexo.id}/activar/"
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.contrato.refresh_from_db()
+        self.assertEqual(self.contrato.tipo_contrato, "indefinido")
+        self.assertEqual(self.contrato.sueldo, 1500000)
+
+
+# ---------------------------------------------------------------------------
 # Accion cambiar_estado
 # ---------------------------------------------------------------------------
 

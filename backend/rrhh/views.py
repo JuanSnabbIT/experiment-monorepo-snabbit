@@ -18,6 +18,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from core.permissions import IsAdminOrRRHH
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from core.models import PersonalizacionUsuario
@@ -539,7 +540,7 @@ class AnexoContratoViewSet(viewsets.ModelViewSet):
 
             update_contrato = []
 
-            if tipo_derivado == "cambio_tipo_contrato":
+            if anexo.nuevo_tipo_contrato:
                 contrato.tipo_contrato = "indefinido"
                 contrato.fecha_termino = None
                 if contrato.estado == "vencido":
@@ -547,7 +548,7 @@ class AnexoContratoViewSet(viewsets.ModelViewSet):
                     update_contrato.append("estado")
                 update_contrato += ["tipo_contrato", "fecha_termino"]
 
-            elif tipo_derivado == "prorroga":
+            elif anexo.nueva_fecha_termino:
                 contrato.fecha_termino = anexo.nueva_fecha_termino
                 update_contrato.append("fecha_termino")
                 ultimo = (
@@ -560,37 +561,39 @@ class AnexoContratoViewSet(viewsets.ModelViewSet):
                 anexo.numero_prorroga = (ultimo or 0) + 1
                 update_anexo.append("numero_prorroga")
 
-            else:
-                if anexo.nuevo_sueldo is not None:
-                    contrato.sueldo = anexo.nuevo_sueldo
-                    update_contrato.append("sueldo")
-                if anexo.nuevo_tipo_sueldo is not None:
-                    contrato.tipo_sueldo = anexo.nuevo_tipo_sueldo
-                    update_contrato.append("tipo_sueldo")
-                if anexo.nuevo_tipo_gratificacion:
-                    contrato.tipo_gratificacion = anexo.nuevo_tipo_gratificacion
-                    update_contrato.append("tipo_gratificacion")
-                if anexo.nuevo_bono_movilizacion is not None:
-                    contrato.bono_movilizacion = anexo.nuevo_bono_movilizacion
-                    update_contrato.append("bono_movilizacion")
-                if anexo.nuevo_bono_colacion is not None:
-                    contrato.bono_colacion = anexo.nuevo_bono_colacion
-                    update_contrato.append("bono_colacion")
-                if anexo.nuevo_cargo:
-                    contrato.cargo = anexo.nuevo_cargo
-                    update_contrato.append("cargo")
-                if anexo.nuevas_funciones:
-                    contrato.funciones = anexo.nuevas_funciones
-                    update_contrato.append("funciones")
-                if anexo.nueva_jornada:
-                    contrato.jornada = anexo.nueva_jornada
-                    update_contrato.append("jornada")
-                if anexo.nuevas_horas_semanales is not None:
-                    contrato.horas_semanales = anexo.nuevas_horas_semanales
-                    update_contrato.append("horas_semanales")
-                if anexo.nuevo_lugar_trabajo:
-                    contrato.lugar_trabajo = anexo.nuevo_lugar_trabajo
-                    update_contrato.append("lugar_trabajo")
+            # Los campos siguientes no son excluyentes con la conversion de tipo
+            # ni con la prorroga: un mismo anexo puede combinar, por ejemplo,
+            # cambio_tipo_contrato + modificacion_sueldo en un solo tramite.
+            if anexo.nuevo_sueldo is not None:
+                contrato.sueldo = anexo.nuevo_sueldo
+                update_contrato.append("sueldo")
+            if anexo.nuevo_tipo_sueldo is not None:
+                contrato.tipo_sueldo = anexo.nuevo_tipo_sueldo
+                update_contrato.append("tipo_sueldo")
+            if anexo.nuevo_tipo_gratificacion:
+                contrato.tipo_gratificacion = anexo.nuevo_tipo_gratificacion
+                update_contrato.append("tipo_gratificacion")
+            if anexo.nuevo_bono_movilizacion is not None:
+                contrato.bono_movilizacion = anexo.nuevo_bono_movilizacion
+                update_contrato.append("bono_movilizacion")
+            if anexo.nuevo_bono_colacion is not None:
+                contrato.bono_colacion = anexo.nuevo_bono_colacion
+                update_contrato.append("bono_colacion")
+            if anexo.nuevo_cargo:
+                contrato.cargo = anexo.nuevo_cargo
+                update_contrato.append("cargo")
+            if anexo.nuevas_funciones:
+                contrato.funciones = anexo.nuevas_funciones
+                update_contrato.append("funciones")
+            if anexo.nueva_jornada:
+                contrato.jornada = anexo.nueva_jornada
+                update_contrato.append("jornada")
+            if anexo.nuevas_horas_semanales is not None:
+                contrato.horas_semanales = anexo.nuevas_horas_semanales
+                update_contrato.append("horas_semanales")
+            if anexo.nuevo_lugar_trabajo:
+                contrato.lugar_trabajo = anexo.nuevo_lugar_trabajo
+                update_contrato.append("lugar_trabajo")
 
             anexo.save(update_fields=update_anexo)
             if update_contrato:
@@ -1553,10 +1556,15 @@ def _get_envio_aprobacion_fecha_expiracion(envio):
 
 # ─── Vistas publicas (sin autenticacion) ─────────────────────────────────────
 
+class AprobacionPublicaThrottle(AnonRateThrottle):
+    scope = 'aprobacion_publica'
+
+
 class ContratoAprobacionPublicaView(APIView):
     """GET /api/public/contrato-aprobacion/<uuid>/ — datos del contrato para el empleador."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [AprobacionPublicaThrottle]
 
     def get(self, request, uuid):
         envio = EnvioAprobacionEmpleador.objects.filter(uuid=uuid).select_related(
@@ -1597,6 +1605,7 @@ class ContratoAprobacionPDFView(APIView):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [AprobacionPublicaThrottle]
 
     def get(self, request, uuid):
         from django.http import HttpResponse
@@ -1647,6 +1656,7 @@ class ContratoAprobacionResponderView(APIView):
     """POST /api/public/contrato-aprobacion/<uuid>/responder/ — registra la decision del empleador."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [AprobacionPublicaThrottle]
 
     def post(self, request, uuid):
         envio = EnvioAprobacionEmpleador.objects.filter(uuid=uuid).select_related(
