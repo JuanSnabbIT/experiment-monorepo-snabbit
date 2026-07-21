@@ -388,6 +388,32 @@ function ContratoDocumentoRenderer({
     ocultarFirmas = false,
     wrapperClassName,
 }: IContratoDocumentoRendererProps) {
+    // Plantilla v2.9 (documento único Slate + WeasyPrint): no hay `secciones`
+    // que iterar (una plantilla v2.9 no tiene SeccionPlantilla) — el HTML
+    // completo ya viene resuelto del backend (mismo motor que genera el PDF
+    // real), firmas incluidas. Sin esta rama, un contrato v2.9 se mostraba
+    // en blanco en la vista pública (aprobación/firma/resumen), porque el
+    // resto de este componente solo sabe iterar `secciones`.
+    if (contrato.documento_v29_html) {
+        return (
+            <div className={wrapperClassName ?? 'mx-auto flex max-w-4xl flex-col gap-6'}>
+                <section className='rounded-lg border border-gray-200 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900'>
+                    <div className='mb-4 text-center'>
+                        <h1 className='text-2xl font-bold text-gray-900 dark:text-zinc-100'>
+                            {contrato.nombre || 'Contrato'}
+                        </h1>
+                        <p className='mt-1 text-sm text-gray-500 dark:text-zinc-400'>{contrato.tipo_label}</p>
+                    </div>
+                    <div
+                        className='v29-preview-html'
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: contrato.documento_v29_html }}
+                    />
+                </section>
+            </div>
+        );
+    }
+
     const empresaPrestadora = contrato.datos_empresa;
     const empresaCliente = contrato.datos_cliente;
     const monedaContrato = contrato.moneda_cobro || 'USD';

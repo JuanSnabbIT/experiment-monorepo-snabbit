@@ -2384,14 +2384,14 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
             )
         if (
             contrato.plantilla.tipo_contrato
-            and contrato.tipo_contrato
-            and contrato.plantilla.tipo_contrato != contrato.tipo_contrato
+            and contrato.tipo
+            and contrato.plantilla.tipo_contrato != contrato.tipo
         ):
             return Response(
                 {
                     "detail": (
                         f"La plantilla es de tipo '{contrato.plantilla.tipo_contrato}' pero el contrato "
-                        f"es de tipo '{contrato.tipo_contrato}'. Selecciona una plantilla compatible."
+                        f"es de tipo '{contrato.tipo}'. Selecciona una plantilla compatible."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4174,6 +4174,7 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
         from contratos.motor_v29 import (
             construir_adaptador_preview,
             generar_bloques_html_v29,
+            _envolver_en_html,
             _render_zona_html,
         )
 
@@ -4193,6 +4194,13 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
                 encabezado_html, _ = _render_zona_html(enc_cfg, adaptador, contrato, overrides)
             if pie_cfg.get("activo"):
                 pie_html, _ = _render_zona_html(pie_cfg, adaptador, contrato, overrides)
+
+            # Documento completo (con el mismo <style>/@page que vera WeasyPrint
+            # en el PDF real) — a diferencia de `bloques` suelto arriba, este es
+            # el que consume la vista previa paginada (Paged.js) en el frontend.
+            html_completo = _envolver_en_html(
+                "\n".join(bloques), config, adaptador, contrato, overrides
+            )
         except Exception as exc:
             return Response(
                 {"detail": f"No se pudo generar la vista previa: {exc}"}, status=400
@@ -4202,6 +4210,7 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
             "bloques": bloques,
             "encabezado_html": encabezado_html,
             "pie_html": pie_html,
+            "html_completo": html_completo,
         })
 
 

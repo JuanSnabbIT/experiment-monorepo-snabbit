@@ -162,6 +162,10 @@ export interface IPreviewHtmlV29Response {
     bloques: string[];
     encabezado_html: string;
     pie_html: string;
+    /** Documento completo (con <style>/@page — mismo CSS que usará WeasyPrint
+     *  para el PDF real) — lo consume VistaPreviaPaginadaV29 (Paged.js) para
+     *  la paginación real del modo "Vista previa". */
+    html_completo: string;
 }
 
 // ─── Tipos Slate ─────────────────────────────────────────────────
@@ -259,6 +263,29 @@ export interface TNodoFirma {
     void: true;
 }
 
+/** Subtipos soportados de bloque dinámico — uno por tabla de datos obligatorios B2B. */
+export type TSubtipoBloqueDinamico =
+    | 'servicios'
+    | 'cotizacion_venta'
+    | 'licencias'
+    | 'condiciones_especiales'
+    | 'resumen_comercial';
+
+/**
+ * Bloque dinámico (servicios/licencias/condiciones especiales/resumen
+ * comercial): placeholder — NUNCA almacena el contenido de la tabla, se
+ * resuelve siempre contra los datos reales del contrato en el backend
+ * (`motor_v29.py::_bloque_dinamico_html`), igual que el motor viejo resuelve
+ * `TIPOS_BLOQUE_DINAMICO`. Solo insertable/movible/eliminable, no editable
+ * como texto — ver `renderElement` en `EditorDocumentoV29.tsx`.
+ */
+export interface TNodoBloqueDinamico {
+    type: 'bloque_dinamico';
+    subtipo: TSubtipoBloqueDinamico;
+    children: [{ text: '' }];
+    void: true;
+}
+
 /** Celda de tabla: contiene bloques de contenido (normalmente 1+ párrafos) */
 export interface TNodoCeldaTabla {
     type: 'celda_tabla';
@@ -294,6 +321,7 @@ export type TSlateNode =
     | TNodoSaltoPagina
     | TNodoCondicional
     | TNodoFirma
+    | TNodoBloqueDinamico
     | TNodoTabla
     | TNodoFilaTabla
     | TNodoCeldaTabla;

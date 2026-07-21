@@ -10,6 +10,8 @@ interface IUsePreviewV29Result {
     bloques: string[] | null;
     encabezadoHtml: string;
     pieHtml: string;
+    /** Documento completo con <style>/@page — null mientras no hay preview exitoso. */
+    htmlCompleto: string | null;
     /** true mientras hay una request en curso (debounce corriendo o fetch en vuelo). */
     isFetching: boolean;
     error: string | null;
@@ -33,7 +35,12 @@ export default function usePreviewV29(
     condicionesSimuladas: Record<string, boolean>,
 ): IUsePreviewV29Result {
     const [trigger] = usePreviewHtmlV29Mutation();
-    const [resultado, setResultado] = useState<{ bloques: string[]; encabezado_html: string; pie_html: string } | null>(null);
+    const [resultado, setResultado] = useState<{
+        bloques: string[];
+        encabezado_html: string;
+        pie_html: string;
+        html_completo: string;
+    } | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isFetching, setIsFetching] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,6 +84,7 @@ export default function usePreviewV29(
         bloques: resultado?.bloques ?? null,
         encabezadoHtml: resultado?.encabezado_html ?? '',
         pieHtml: resultado?.pie_html ?? '',
+        htmlCompleto: resultado?.html_completo ?? null,
         isFetching,
         error,
     };

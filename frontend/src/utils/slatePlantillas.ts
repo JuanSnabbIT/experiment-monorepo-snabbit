@@ -11,6 +11,7 @@
 
 import type {
     IFirmante,
+    TNodoBloqueDinamico,
     TNodoBloqueTransversal,
     TNodoCeldaTabla,
     TNodoCondicional,
@@ -22,6 +23,7 @@ import type {
     TNodoSaltoPagina,
     TNodoTabla,
     TSlateNode,
+    TSubtipoBloqueDinamico,
 } from '@/interface/plantillaContratoV2.interface';
 import { Editor, Element, Node, Transforms } from 'slate';
 
@@ -33,7 +35,13 @@ export function withEtiquetas<T extends Editor>(editor: T): T {
     editor.isVoid = (element) => {
         if (Element.isElement(element)) {
             const t = (element as unknown as { type: string }).type;
-            if (t === 'etiqueta' || t === 'bloque_transversal' || t === 'salto_pagina' || t === 'firma')
+            if (
+                t === 'etiqueta' ||
+                t === 'bloque_transversal' ||
+                t === 'salto_pagina' ||
+                t === 'firma' ||
+                t === 'bloque_dinamico'
+            )
                 return true;
         }
         return isVoid(element);
@@ -166,6 +174,22 @@ export function insertarSaltoPagina(editor: Editor): void {
     };
     Transforms.insertNodes(editor, nodo as unknown as Node, { mode: 'highest' });
     // Insertar párrafo vacío después para continuar escribiendo
+    Transforms.insertNodes(editor, parrafoVacio() as unknown as Node);
+}
+
+/**
+ * Inserta un bloque dinámico (servicios/licencias/condiciones especiales/
+ * resumen comercial) — placeholder void, nunca almacena la tabla en sí (se
+ * resuelve en el backend contra el contrato real, ver `motor_v29.py`).
+ */
+export function insertarBloqueDinamico(editor: Editor, subtipo: TSubtipoBloqueDinamico): void {
+    const nodo: TNodoBloqueDinamico = {
+        type: 'bloque_dinamico',
+        subtipo,
+        void: true,
+        children: [{ text: '' }],
+    };
+    Transforms.insertNodes(editor, nodo as unknown as Node, { mode: 'highest' });
     Transforms.insertNodes(editor, parrafoVacio() as unknown as Node);
 }
 

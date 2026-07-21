@@ -18,6 +18,9 @@ export interface IPlantillaContrato {
     // Labels de display
     tipo_contrato_label?: string;
     requiere_nda?: boolean;
+    // Motor de render: 'v2' (secciones, motor viejo) o 'v29' (documento único
+    // Slate + WeasyPrint) — determina qué UI mostrar en TabDocumento.tsx.
+    version_editor?: 'v2' | 'v29';
 }
 
 export interface ISeccionPlantilla {

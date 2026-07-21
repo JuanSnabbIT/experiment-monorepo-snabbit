@@ -8,6 +8,7 @@ import type {
     IFirmante,
     IPlantillaContratoV2,
     TMarksTexto,
+    TNodoBloqueDinamico,
     TNodoBloqueTransversal,
     TNodoCeldaTabla,
     TNodoCondicional,
@@ -19,6 +20,7 @@ import type {
     TNodoTabla,
     TNodoTexto,
     TSlateNode,
+    TSubtipoBloqueDinamico,
 } from '@/interface/plantillaContratoV2.interface';
 import { useUpdatePlantillaV2Mutation } from '@/store/slices/contratos/plantillaContratoV2Api';
 import { CATEGORIA_CHIP_SOLIDO, CATEGORIA_DEFAULT } from '@/utils/categoriaEtiquetaColores';
@@ -26,6 +28,7 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 import {
     crearTabla,
     deserializarPlantillaASlate,
+    insertarBloqueDinamico,
     insertarEtiqueta,
     insertarSaltoPagina,
     obtenerContenidoEncabezadoPie,
@@ -34,6 +37,7 @@ import {
     withEtiquetas,
     withTablas,
 } from '@/utils/slatePlantillas';
+import { confirmAlert } from '@/utils/sweetAlert';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import type { BaseSelection } from 'slate';
@@ -43,6 +47,7 @@ import { Editable, ReactEditor, type RenderElementProps, type RenderLeafProps, S
 import EncabezadoPieEditor, { EncabezadoPiePreview, type TZonaEncabezadoPie } from './EncabezadoPieEditor';
 import PanelEtiquetas from './PanelEtiquetas';
 import TablaElement from './TablaElement';
+import VistaPreviaPaginadaV29 from './VistaPreviaPaginadaV29';
 import {
     calcularCortesDesdeAlturas,
     IPaginationBreak,
@@ -65,6 +70,27 @@ const CONDICIONES_LABELS: Record<string, string> = {
     si_jornada_parcial:   'Si jornada parcial',
     si_banco:             'Si pago por banco',
     si_isapre:            'Si Isapre',
+};
+
+// Bloques dinámicos B2B — placeholders que el backend resuelve contra datos
+// reales del contrato (nunca texto congelado, ver motor_v29.py). `tipos`
+// indica en qué `tipo_contrato` de plantilla tiene sentido ofrecer cada uno
+// desde el menú Insertar (resumen comercial aplica a los tres).
+const BLOQUES_DINAMICOS: { subtipo: TSubtipoBloqueDinamico; label: string; icono: string; tipos: string[] }[] = [
+    { subtipo: 'servicios', label: 'Tabla de servicios contratados', icono: '🧾', tipos: ['servicios'] },
+    // Venta NO usa items_comerciales — sus ítems vienen de las cotizaciones
+    // aceptadas vinculadas al contrato (ver _bloque_dinamico_html en motor_v29.py).
+    { subtipo: 'cotizacion_venta', label: 'Ítems cotizados y cuotas', icono: '🛒', tipos: ['venta'] },
+    { subtipo: 'licencias', label: 'Tabla de licencias', icono: '🔑', tipos: ['licencia'] },
+    { subtipo: 'condiciones_especiales', label: 'Condiciones especiales', icono: '📋', tipos: ['servicios', 'venta', 'licencia'] },
+    { subtipo: 'resumen_comercial', label: 'Resumen comercial', icono: '💰', tipos: ['servicios', 'venta', 'licencia'] },
+];
+const BLOQUE_DINAMICO_LABEL: Record<TSubtipoBloqueDinamico, string> = {
+    servicios: 'Servicios contratados',
+    cotizacion_venta: 'Ítems cotizados y cuotas',
+    licencias: 'Licencias',
+    condiciones_especiales: 'Condiciones especiales',
+    resumen_comercial: 'Resumen comercial',
 };
 
 // Layouts de firma disponibles al insertar — reemplazan el <select> plano de
@@ -153,13 +179,20 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
         const previewBlockRefs = useRef<(HTMLDivElement | null)[]>([]);
 
         // ── Vista previa v2.9 (HTML real del backend, sin persistir) ──────────
+        // `encabezadoHtml`/`pieHtml` (bloques sueltos) ya no se usan para renderizar
+        // el modo preview — VistaPreviaPaginadaV29 pagina `htmlCompleto` entero (que
+        // ya incluye encabezado/pie resueltos). Quedan disponibles en el hook para
+        // el fallback/limpieza de API descrito en la Fase 6 del plan.
         const {
             bloques: previewBloques,
-            encabezadoHtml: previewEncabezadoHtml,
-            pieHtml: previewPieHtml,
+            htmlCompleto: previewHtmlCompleto,
             isFetching: previewFetching,
             error: previewError,
         } = usePreviewV29(plantilla.id, viewMode === 'preview', value, configPagina, condicionesSimuladas);
+        // Total de páginas reportado por Paged.js (VistaPreviaPaginadaV29) — no
+        // por `cortes` (algoritmo JS propio), que en modo preview ya no gobierna
+        // el renderizado, solo queda como cálculo obsoleto sin consumidor.
+        const [paginasPreviewTotal, setPaginasPreviewTotal] = useState(0);
 
         // ── Editor Slate ─────────────────────────────────────────────────────
         const editor = useMemo(
@@ -571,6 +604,36 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
             [editor],
         );
 
+        // ── Bloques dinámicos: mover (▲/▼) y eliminar con confirmación ────────
+        // "Organizable y movible" — sin drag-and-drop genérico (no existe hoy en
+        // el editor para ningún tipo de nodo), un lugar arriba/abajo alcanza.
+        const moverBloqueDinamico = useCallback(
+            (element: TSlateNode, direccion: -1 | 1) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const path = ReactEditor.findPath(editor as ReactEditor, element as any);
+                const destino = path[0] + direccion;
+                if (destino < 0 || destino >= editor.children.length) return;
+                Transforms.moveNodes(editor, { at: path, to: [destino] });
+            },
+            [editor],
+        );
+
+        // A diferencia de `eliminarNodo` (firma/salto de página, sin confirmar):
+        // estos bloques resuelven datos obligatorios del contrato — perderlos por
+        // un click accidental es justamente el problema que se está evitando acá.
+        const eliminarBloqueDinamicoConfirmado = useCallback(
+            async (element: TSlateNode, subtipo: TSubtipoBloqueDinamico) => {
+                const confirmado = await confirmAlert({
+                    title: `¿Quitar "${BLOQUE_DINAMICO_LABEL[subtipo]}"?`,
+                    text: 'Esta tabla se completa automáticamente con los datos del contrato — si la quitás, esos datos no van a aparecer en el documento.',
+                    confirmText: 'Quitar',
+                    cancelText: 'Cancelar',
+                });
+                if (confirmado) eliminarNodo(element);
+            },
+            [eliminarNodo],
+        );
+
         // ── renderElement ─────────────────────────────────────────────────────
         // Solo se invoca en modo editor: <Editable> no se monta en modo preview
         // (ver más abajo), así que no necesita ramas alternativas por viewMode.
@@ -732,6 +795,50 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                     );
                 }
 
+                if (el.type === 'bloque_dinamico') {
+                    const bloque = el as TNodoBloqueDinamico;
+                    const meta = BLOQUES_DINAMICOS.find((b) => b.subtipo === bloque.subtipo);
+                    return (
+                        <div
+                            {...props.attributes}
+                            contentEditable={false}
+                            className='group relative my-3 rounded border border-dashed border-blue-300 bg-blue-50/40 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/20'>
+                            <div className='flex items-center justify-between gap-2'>
+                                <span className='text-[12px] font-semibold text-blue-700 dark:text-blue-400'>
+                                    {meta?.icono} {BLOQUE_DINAMICO_LABEL[bloque.subtipo]}
+                                </span>
+                                <div className='hidden items-center gap-1 group-hover:flex'>
+                                    <button
+                                        type='button'
+                                        title='Mover arriba'
+                                        className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700'
+                                        onMouseDown={(e) => { e.preventDefault(); moverBloqueDinamico(bloque, -1); }}>
+                                        ▲
+                                    </button>
+                                    <button
+                                        type='button'
+                                        title='Mover abajo'
+                                        className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700'
+                                        onMouseDown={(e) => { e.preventDefault(); moverBloqueDinamico(bloque, 1); }}>
+                                        ▼
+                                    </button>
+                                    <button
+                                        type='button'
+                                        title='Quitar bloque'
+                                        className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900'
+                                        onMouseDown={(e) => { e.preventDefault(); void eliminarBloqueDinamicoConfirmado(bloque, bloque.subtipo); }}>
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+                            <p className='mt-1 text-[11px] italic text-zinc-500 dark:text-zinc-400'>
+                                Se completa automáticamente con los datos del contrato al generar el documento.
+                            </p>
+                            {props.children}
+                        </div>
+                    );
+                }
+
                 // Offset de paginación: si este nodo top-level es un punto de corte, un
                 // paddingTop lo empuja al inicio del área de contenido de la página
                 // siguiente. Es paddingTop y no marginTop a propósito: los márgenes
@@ -783,7 +890,7 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                     </p>
                 );
             },
-            [etiquetasMap, eliminarNodo, configPagina, editor, cortes],
+            [etiquetasMap, eliminarNodo, moverBloqueDinamico, eliminarBloqueDinamicoConfirmado, configPagina, editor, cortes],
         );
 
         // Selector de pestaña del panel derecho en modo editor (Etiquetas / Índice).
@@ -1425,6 +1532,21 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                                 <span className='h-px w-3 border-t-2 border-dashed border-zinc-400' />
                                                 Salto de página
                                             </button>
+                                            {BLOQUES_DINAMICOS.filter((b) => b.tipos.includes(plantilla.tipo_contrato)).map((b) => (
+                                                <button
+                                                    key={b.subtipo}
+                                                    type='button'
+                                                    className='flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                                                    onMouseDown={(e) => {
+                                                        e.preventDefault();
+                                                        setInsertDropdownOpen(false);
+                                                        insertarBloqueDinamico(editor, b.subtipo);
+                                                        ReactEditor.focus(editor);
+                                                    }}>
+                                                    <span className='w-3 text-center'>{b.icono}</span>
+                                                    {b.label}
+                                                </button>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
@@ -1459,6 +1581,21 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                             </div>
                         )}
 
+                        {viewMode === 'preview' && (
+                            <div className='sticky top-0 z-10 flex shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900'>
+                                <span className='text-[11px] font-semibold text-zinc-500 dark:text-zinc-400'>
+                                    Vista previa paginada
+                                    {paginasPreviewTotal > 0
+                                        ? ` · ${paginasPreviewTotal} página${paginasPreviewTotal === 1 ? '' : 's'}`
+                                        : ''}
+                                </span>
+                                <span className='ml-auto inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-green-600 dark:border-green-900 dark:bg-green-900/20 dark:text-green-400'>
+                                    <span className='h-1.5 w-1.5 rounded-full bg-green-500' />
+                                    Paged.js
+                                </span>
+                            </div>
+                        )}
+
                         {/* Aviso no bloqueante: la vista previa sigue mostrando el último HTML
                             válido recibido (stale-while-revalidate) — el error solo informa que
                             el último intento de refrescarla falló. */}
@@ -1479,6 +1616,19 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                         )}
 
                         {/* Área del documento */}
+                        {viewMode === 'preview' ? (
+                            /* Vista previa paginada real: pagina el MISMO html_completo (con
+                             * @page/orphans/widows/break-inside) que WeasyPrint usará para el
+                             * PDF, vía Paged.js dentro de un iframe aislado — reemplaza el
+                             * armazón de tarjetas absolutas + `cortes` (medición JS propia) que
+                             * el modo editor sigue usando más abajo. */
+                            <div className='min-h-0 flex-1 overflow-hidden bg-zinc-200 dark:bg-zinc-700'>
+                                <VistaPreviaPaginadaV29
+                                    htmlCompleto={previewHtmlCompleto}
+                                    onPaginacion={setPaginasPreviewTotal}
+                                />
+                            </div>
+                        ) : (
                         <div className='min-h-0 flex-1 overflow-y-auto bg-zinc-200 py-8 dark:bg-zinc-700'>
                             <Slate
                                 editor={editor}
@@ -1486,21 +1636,6 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                 onChange={handleSlateChange}>
 
                                 {(() => {
-                                    // Primer ingreso a Vista previa: todavía no llegó el primer HTML
-                                    // real del backend (debounce + red en curso). No renderizar el
-                                    // armazón de páginas todavía — `cortes` en este instante puede seguir
-                                    // reflejando la última medición hecha en modo editor (fuente/tamaños
-                                    // de Slate, no del HTML resuelto), y aplicar esos offsets a bloques
-                                    // sin contenido real es lo que producía texto superpuesto y
-                                    // encabezados fuera de lugar. Loading limpio hasta tener datos reales.
-                                    if (viewMode === 'preview' && !previewBloques) {
-                                        return (
-                                            <div className='flex justify-center py-24 text-sm text-zinc-400'>
-                                                Generando vista previa…
-                                            </div>
-                                        );
-                                    }
-
                                     // Cada corte (automático u originado por un salto manual) marca
                                     // el inicio de una página nueva — su cantidad + 1 es el total de páginas.
                                     const numPages = cortes.length + 1;
@@ -1527,7 +1662,7 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                         <div
                                             ref={documentContainerRef}
                                             onClick={handleDocumentClick}
-                                            className={`relative mx-auto ${viewMode === 'preview' ? 'v29-preview-html' : ''}`}
+                                            className='relative mx-auto'
                                             style={{
                                                 width: `${pageCfg.widthPx}px`,
                                                 minHeight: `${numPages * pageCfg.heightPx + (numPages - 1) * PAGE_GAP}px`,
@@ -1600,12 +1735,7 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                                                     paddingLeft: colisionHeaderIzq ? 100 : undefined,
                                                                     paddingRight: colisionHeaderDer ? 100 : undefined,
                                                                 }}>
-                                                                {viewMode === 'preview' ? (
-                                                                    // eslint-disable-next-line react/no-danger
-                                                                    <div dangerouslySetInnerHTML={{ __html: previewEncabezadoHtml }} />
-                                                                ) : (
-                                                                    <EncabezadoPiePreview nodos={contenidoHeaderActual} />
-                                                                )}
+                                                                <EncabezadoPiePreview nodos={contenidoHeaderActual} />
                                                             </div>
                                                         </div>
                                                     );
@@ -1641,10 +1771,7 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                                                 fontFamily: configPagina.fuente,
                                                                 textAlign: alignFooterActual,
                                                             }}>
-                                                            {viewMode === 'preview' ? (
-                                                                // eslint-disable-next-line react/no-danger
-                                                                <div dangerouslySetInnerHTML={{ __html: previewPieHtml }} />
-                                                            ) : esVivo ? (
+                                                            {esVivo ? (
                                                                 <EncabezadoPieEditor
                                                                     editor={editorFooter}
                                                                     value={contenidoFooterActual}
@@ -1688,81 +1815,57 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                                         ref={encabezadoRef}
                                                         className='mb-4 border-b border-zinc-200 pb-3 text-[11px] text-zinc-500 dark:border-zinc-700'>
                                                         <div style={{ textAlign: alignHeaderActual }}>
-                                                            {viewMode === 'preview' ? (
-                                                                // eslint-disable-next-line react/no-danger
-                                                                <div dangerouslySetInnerHTML={{ __html: previewEncabezadoHtml }} />
-                                                            ) : (
-                                                                <EncabezadoPieEditor
-                                                                    editor={editorHeader}
-                                                                    value={contenidoHeaderActual}
-                                                                    onChange={onChangeContenidoHeader}
-                                                                    editando={zonaEditando === 'header'}
-                                                                    onAbrirEdicion={() => setZonaEditando('header')}
-                                                                    onCerrarEdicion={() => setZonaEditando(null)}
-                                                                    onQuitar={() => quitarZona('header')}
-                                                                    zonaLabel='encabezado'
-                                                                    logo={{ activo: configPagina.encabezado.logo_auto, lado: logoLadoActual }}
-                                                                    colisionPadding={
-                                                                        colisionHeaderIzq ? { lado: 'left', px: 100 }
-                                                                            : colisionHeaderDer ? { lado: 'right', px: 100 }
-                                                                                : undefined
-                                                                    }
-                                                                    toggleSecundario={{
-                                                                        activo: configPagina.encabezado.logo_auto,
-                                                                        label: 'Logo',
-                                                                        onToggle: () => setConfigPagina((p) => ({ ...p, encabezado: { ...p.encabezado, logo_auto: !p.encabezado.logo_auto } })),
-                                                                    }}
-                                                                    selectorLogoLado={{
-                                                                        valor: logoLadoActual,
-                                                                        onCambiar: (lado) => setConfigPagina((p) => ({ ...p, encabezado: { ...p.encabezado, logo_lado: lado } })),
-                                                                    }}
-                                                                />
-                                                            )}
+                                                            <EncabezadoPieEditor
+                                                                editor={editorHeader}
+                                                                value={contenidoHeaderActual}
+                                                                onChange={onChangeContenidoHeader}
+                                                                editando={zonaEditando === 'header'}
+                                                                onAbrirEdicion={() => setZonaEditando('header')}
+                                                                onCerrarEdicion={() => setZonaEditando(null)}
+                                                                onQuitar={() => quitarZona('header')}
+                                                                zonaLabel='encabezado'
+                                                                logo={{ activo: configPagina.encabezado.logo_auto, lado: logoLadoActual }}
+                                                                colisionPadding={
+                                                                    colisionHeaderIzq ? { lado: 'left', px: 100 }
+                                                                        : colisionHeaderDer ? { lado: 'right', px: 100 }
+                                                                            : undefined
+                                                                }
+                                                                toggleSecundario={{
+                                                                    activo: configPagina.encabezado.logo_auto,
+                                                                    label: 'Logo',
+                                                                    onToggle: () => setConfigPagina((p) => ({ ...p, encabezado: { ...p.encabezado, logo_auto: !p.encabezado.logo_auto } })),
+                                                                }}
+                                                                selectorLogoLado={{
+                                                                    valor: logoLadoActual,
+                                                                    onCambiar: (lado) => setConfigPagina((p) => ({ ...p, encabezado: { ...p.encabezado, logo_lado: lado } })),
+                                                                }}
+                                                            />
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                {viewMode === 'preview' ? (
-                                                    /* Cuerpo en modo preview: HTML real del backend, un div plano
-                                                       por nodo top-level — nunca se mezcla dangerouslySetInnerHTML
-                                                       dentro del árbol que <Editable> controla (rompería el mapeo
-                                                       DOM↔modelo de Slate), así que en este modo <Editable> ni
-                                                       siquiera se monta. */
-                                                    <div className='min-h-[120px] text-[13px] leading-relaxed text-zinc-800 dark:text-zinc-200' style={{ fontFamily: configPagina.fuente }}>
-                                                        {value.map((_, i) => (
-                                                            <div key={i} style={{ paddingTop: cortes.find((c) => c.index === i)?.offsetPx }}>
-                                                                <div
-                                                                    ref={(el) => { previewBlockRefs.current[i] = el; }}
-                                                                    // eslint-disable-next-line react/no-danger
-                                                                    dangerouslySetInnerHTML={{ __html: previewBloques?.[i] ?? '' }}
-                                                                />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    /* Editor Slate — atenuado y de solo lectura mientras se edita
-                                                       encabezado/pie (igual que Word), y un click ahí cierra esa
-                                                       edición en vez de intentar escribir en el cuerpo. */
-                                                    <Editable
-                                                        renderElement={renderElement}
-                                                        renderLeaf={renderLeaf}
-                                                        onKeyDown={handleKeyDown}
-                                                        onBlur={() => { lastSelectionRef.current = editor.selection; }}
-                                                        onClick={() => {
-                                                            setInsertDropdownOpen(false);
-                                                            if (zonaEditando) setZonaEditando(null);
-                                                        }}
-                                                        onDragOver={(e) => e.preventDefault()}
-                                                        onDrop={handleDrop}
-                                                        readOnly={zonaEditando !== null}
-                                                        placeholder='Empieza a escribir el contrato...'
-                                                        spellCheck={false}
-                                                        className={`min-h-[120px] text-[13px] leading-relaxed text-zinc-800 outline-none transition-opacity dark:text-zinc-200 ${
-                                                            zonaEditando ? 'opacity-40' : ''
-                                                        }`}
-                                                        style={{ fontFamily: configPagina.fuente }}
-                                                    />
-                                                )}
+                                                {/* Editor Slate — atenuado y de solo lectura mientras se edita
+                                                    encabezado/pie (igual que Word), y un click ahí cierra esa
+                                                    edición en vez de intentar escribir en el cuerpo. */}
+                                                <Editable
+                                                    renderElement={renderElement}
+                                                    renderLeaf={renderLeaf}
+                                                    onKeyDown={handleKeyDown}
+                                                    onBlur={() => { lastSelectionRef.current = editor.selection; }}
+                                                    onClick={() => {
+                                                        setInsertDropdownOpen(false);
+                                                        if (zonaEditando) setZonaEditando(null);
+                                                    }}
+                                                    onDragOver={(e) => e.preventDefault()}
+                                                    onDrop={handleDrop}
+                                                    readOnly={zonaEditando !== null}
+                                                    placeholder='Empieza a escribir el contrato...'
+                                                    spellCheck={false}
+                                                    className={`min-h-[120px] text-[13px] leading-relaxed text-zinc-800 outline-none transition-opacity dark:text-zinc-200 ${
+                                                        zonaEditando ? 'opacity-40' : ''
+                                                    }`}
+                                                    style={{ fontFamily: configPagina.fuente }}
+                                                />
 
                                             </div>
                                         </div>
@@ -1770,6 +1873,7 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                 })()}
                             </Slate>
                         </div>
+                        )}
                     </div>
 
                     {/* ── Panel derecho: Etiquetas / Índice / Simulador ─────── */}

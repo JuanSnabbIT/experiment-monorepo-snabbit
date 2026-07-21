@@ -8,6 +8,7 @@ import Tooltip from '@/components/ui/Tooltip';
 import { ClientIdentificationSection } from './ContratoDocumentoRenderer';
 import { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import { ISeccionContratoGenerada } from '@/interface/plantillaContrato.interface';
+import { useAppSelector } from '@/store';
 import { formatCurrency } from '@/utils/currency';
 import {
     useGenerarSeccionesContratoMutation,
@@ -351,6 +352,33 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
     });
     const [generarSecciones, { isLoading: isGenerando }] = useGenerarSeccionesContratoMutation();
     const [updateSeccion] = useUpdateSeccionGeneradaMutation();
+    const token = useAppSelector((state) => state.auth.access);
+    const [descargandoPdfV29, setDescargandoPdfV29] = useState(false);
+
+    // Plantilla v2.9 (documento único Slate + WeasyPrint): sin secciones que
+    // listar/regenerar acá — el backend ya resuelve el motor correcto en
+    // GET /api/contratos/{id}/pdf/ (ver flow_helpers._resolver_pdf_contrato),
+    // mismo patrón que ya usa PDFContrato.tsx.
+    const handleVerPdfV29 = async () => {
+        setDescargandoPdfV29(true);
+        try {
+            const baseUrl = import.meta.env.VITE_API_URL ?? '';
+            const response = await fetch(`${baseUrl}/api/contratos/${contrato.id}/pdf/`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch (error: unknown) {
+            toast.error(getErrorMessage(error));
+        } finally {
+            setDescargandoPdfV29(false);
+        }
+    };
 
     const [seccionModal, setSeccionModal] = useState<ISeccionContratoGenerada | null>(null);
     const [contenidoEdit, setContenidoEdit] = useState('');
@@ -414,6 +442,58 @@ const TabDocumento = ({ contrato, puedeEditar }: ITabDocumentoProps) => {
         puedeEditar &&
         seccion.es_editable_en_contrato &&
         !TIPOS_SIEMPRE_READONLY.has(seccion.tipo ?? '');
+
+    // Plantilla v2.9: documento único (Slate), no secciones — la UI de abajo
+    // (listado/edición por sección, "Generar borrador" vía /generar-secciones/)
+    // es del motor viejo y no aplica acá. El editor v2.9 en sí se edita desde
+    // "Ver plantilla"; esta pestaña solo ofrece ver/descargar el PDF final.
+    if (plantillaDetalle?.version_editor === 'v29') {
+        return (
+            <Card>
+                <CardHeader className='border border-x-0 border-t-0 border-b-black'>
+                    <CardHeaderChild>
+                        <div>
+                            <div className='text-lg font-semibold text-blue-500'>Documento del contrato</div>
+                            <div className='text-sm text-zinc-500'>
+                                Basado en plantilla: {plantillaDetalle.titulo}
+                            </div>
+                        </div>
+                    </CardHeaderChild>
+                    <CardHeaderChild>
+                        <Badge color='blue' variant='outline'>Editor v2.9</Badge>
+                    </CardHeaderChild>
+                </CardHeader>
+                <CardBody className='space-y-4 p-4'>
+                    <div className='flex flex-wrap items-center justify-between gap-2'>
+                        <Button
+                            size='sm'
+                            variant='solid'
+                            color='blue'
+                            icon='HeroDocumentArrowDown'
+                            isLoading={descargandoPdfV29}
+                            onClick={handleVerPdfV29}>
+                            Ver / descargar PDF
+                        </Button>
+                        {contrato.plantilla && (
+                            <Button
+                                size='sm'
+                                icon='HeroArrowTopRightOnSquare'
+                                onClick={() =>
+                                    navigate(`/registros/plantillas-contrato/${contrato.plantilla}`)
+                                }>
+                                Ver plantilla
+                            </Button>
+                        )}
+                    </div>
+                    <p className='text-sm text-zinc-500'>
+                        Esta plantilla usa el editor v2.9 (documento único) — el contenido se edita
+                        desde "Ver plantilla". El PDF se genera bajo demanda con los datos actuales
+                        del contrato.
+                    </p>
+                </CardBody>
+            </Card>
+        );
+    }
 
     return (
         <Card>

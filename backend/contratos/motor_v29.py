@@ -125,7 +125,10 @@ def _nodo_a_html(
             "</div>"
             for f in firmantes
         )
-        return f'<div style="margin:24pt 0;text-align:center;">{columnas}</div>'
+        return (
+            '<div data-bloque="firma" style="margin:24pt 0;text-align:center;">'
+            f"{columnas}</div>"
+        )
 
     if tipo == "tabla":
         anchos = nodo.get("anchoColumnas") or []
@@ -165,10 +168,197 @@ def _nodo_a_html(
             style += f"text-align:{align};"
         return f"<{tag} style=\"{style}\">{inner}</{tag}>"
 
+    if tipo == "bloque_dinamico":
+        # Placeholder void (ver frontend: no editable como texto, solo
+        # insertable/movible/eliminable) — el contenido SIEMPRE se resuelve
+        # acá contra los datos reales del contrato, nunca se congela en el
+        # árbol Slate. Es el equivalente v2.9 de TIPOS_BLOQUE_DINAMICO del
+        # motor viejo (bloque_servicios/licencias/condiciones/resumen).
+        subtipo = nodo.get("subtipo", "")
+        return _bloque_dinamico_html(subtipo, contrato)
+
     if tipo in ("bloque_transversal", "etiqueta"):
         # Bloque transversal no aplica en v2.9.
         # Etiqueta a nivel de bloque (inusual): ignorar.
         return ""
+
+    return ""
+
+
+# ─── Bloques dinámicos (servicios/licencias/condiciones/resumen) ────────────
+
+
+def _tabla_simple_html(headers: list[str], filas: list[list[str]]) -> str:
+    if not filas:
+        return '<p style="color:#666;font-style:italic;">Sin datos registrados.</p>'
+    thead = "".join(
+        f'<th style="border:1px solid #000;padding:4pt 6pt;background:#f4f4f5;text-align:left;">{_esc(h)}</th>'
+        for h in headers
+    )
+    filas_html = "".join(
+        "<tr>" + "".join(f'<td style="border:1px solid #000;padding:4pt 6pt;">{c}</td>' for c in fila) + "</tr>"
+        for fila in filas
+    )
+    return (
+        '<div data-bloque="dinamico" style="margin:6pt 0;">'
+        '<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'
+        f"<thead><tr>{thead}</tr></thead><tbody>{filas_html}</tbody></table></div>"
+    )
+
+
+def _formato_moneda_v29(monto, moneda: str) -> str:
+    if monto is None:
+        return "-"
+    return f"{moneda} {float(monto):,.2f}"
+
+
+def _bloque_dinamico_html(subtipo: str, contrato) -> str:
+    """Arma la tabla HTML de un bloque dinámico leyendo datos REALES del
+    contrato (nunca texto congelado) — mismo criterio de columnas que ya usa
+    `ContratoDocumentoRenderer.tsx` en el frontend legacy, para no inventar
+    una estructura de tabla distinta a la que el negocio ya conoce.
+
+    Defensivo con `getattr`: estos bloques solo deberían insertarse en
+    plantillas B2B (`AdaptadorContratoB2B`), pero si algún día aparecieran
+    sobre un contrato sin estas relaciones (ej. trabajador), degrada a
+    "sin datos" en vez de lanzar `AttributeError`.
+    """
+    if contrato is None:
+        return ""
+
+    if getattr(contrato, "pk", None) is None:
+        # Instancia sin guardar — el stub que arma `construir_adaptador_preview`
+        # para la Vista previa del editor ANTES de que la plantilla esté
+        # vinculada a un contrato real. Sus relaciones inversas (items_comerciales,
+        # contrato_licencias, etc.) no se pueden consultar sin pk — Django
+        # lanza ValueError, no una queryset vacía. Degradar a "sin datos" acá
+        # (mismo mensaje que un contrato real sin filas todavía).
+        headers_por_subtipo = {
+            "servicios": ["Servicio", "Cantidad", "Precio unitario", "Total"],
+            "cotizacion_venta": ["Ítem cotizado", "Cantidad", "Precio unitario", "Total"],
+            "licencias": ["Licencia", "Cantidad", "Modalidad"],
+            "condiciones_especiales": ["Condición", "Detalle"],
+        }
+        if subtipo == "resumen_comercial":
+            return '<p style="color:#666;font-style:italic;">Sin resumen comercial disponible.</p>'
+        return _tabla_simple_html(headers_por_subtipo.get(subtipo, []), [])
+
+    if subtipo == "servicios":
+        items = list(getattr(contrato, "items_comerciales", None).all()) if hasattr(contrato, "items_comerciales") else []
+        if not items:
+            return _tabla_simple_html(["Servicio", "Cantidad", "Precio unitario", "Total"], [])
+        from contratos.currency_utils import convertir_precio_item_safe, obtener_tipos_cambio_actuales
+
+        moneda_cobro = getattr(contrato, "moneda_cobro", None) or "CLP"
+        dolar, uf = obtener_tipos_cambio_actuales()
+        filas = []
+        for item in items:
+            moneda_item = item.moneda or "CLP"
+            total_propio = item.total_para_forma_pago_contractual
+            if moneda_item == moneda_cobro:
+                total = total_propio
+            else:
+                total = convertir_precio_item_safe(
+                    monto=total_propio,
+                    moneda_origen=moneda_item,
+                    moneda_destino=moneda_cobro,
+                    dolar_observado=dolar,
+                    valor_uf=uf,
+                )
+            filas.append([
+                _esc(item.snapshot_nombre or ""),
+                _esc(str(item.cantidad)),
+                _esc(_formato_moneda_v29(item.precio_unitario_contratado, moneda_item)),
+                _esc(_formato_moneda_v29(total, moneda_cobro)),
+            ])
+        return _tabla_simple_html(["Servicio", "Cantidad", "Precio unitario", "Total"], filas)
+
+    if subtipo == "cotizacion_venta":
+        # Los contratos de venta NO usan `items_comerciales` — sus ítems viven
+        # en las cotizaciones aceptadas vinculadas (`Cotizacion.items`,
+        # `ItemCotizacion`), una fuente de datos completamente distinta a la
+        # del subtipo "servicios". Reusa `construir_resumen_venta_contrato`
+        # (misma función que ya usa `total_contrato`/`resumen_comercial` en el
+        # serializer) para las cuotas, en vez de reimplementar esa lógica.
+        cotizaciones = (
+            list(contrato.cotizaciones_vinculadas.filter(estado="aceptada").prefetch_related("items"))
+            if hasattr(contrato, "cotizaciones_vinculadas")
+            else []
+        )
+        if not cotizaciones:
+            return _tabla_simple_html(["Ítem cotizado", "Cantidad", "Precio unitario", "Total"], [])
+
+        from contratos.venta_helpers import construir_resumen_venta_contrato, normalizar_moneda
+
+        filas_items = []
+        for cotizacion in cotizaciones:
+            try:
+                moneda_cot = normalizar_moneda(getattr(cotizacion, "tipo_moneda", None))
+            except ValueError:
+                moneda_cot = "CLP"
+            for item in cotizacion.items.all():
+                filas_items.append([
+                    _esc(item.nombre or ""),
+                    _esc(str(item.cantidad)),
+                    _esc(_formato_moneda_v29(item.precio_unitario, moneda_cot)),
+                    _esc(_formato_moneda_v29(item.costo_total, moneda_cot)),
+                ])
+        html = _tabla_simple_html(["Ítem cotizado", "Cantidad", "Precio unitario", "Total"], filas_items)
+
+        try:
+            cuotas = construir_resumen_venta_contrato(contrato).get("cuotas_venta_resumen") or []
+        except Exception:
+            cuotas = []
+        if cuotas:
+            moneda_cobro = getattr(contrato, "moneda_cobro", None) or "CLP"
+            filas_cuotas = [
+                [
+                    _esc(f"Cuota {c.get('orden', '')}"),
+                    _esc(f"{c.get('porcentaje', '')}%"),
+                    _esc(c.get("hito_pago_label") or c.get("hito_pago_descripcion") or "Sin definir"),
+                    _esc(_formato_moneda_v29(c.get("monto"), moneda_cobro)),
+                ]
+                for c in cuotas
+            ]
+            html += _tabla_simple_html(["Cuota", "Porcentaje", "Hito de cobro", "Monto"], filas_cuotas)
+        return html
+
+    if subtipo == "licencias":
+        licencias = list(contrato.contrato_licencias.all()) if hasattr(contrato, "contrato_licencias") else []
+        filas = [
+            [
+                _esc(l.nombre_snapshot or ""),
+                _esc(str(l.cantidad)),
+                _esc(l.get_modalidad_snapshot_display() if l.modalidad_snapshot else "-"),
+            ]
+            for l in licencias
+        ]
+        return _tabla_simple_html(["Licencia", "Cantidad", "Modalidad"], filas)
+
+    if subtipo == "condiciones_especiales":
+        condiciones = (
+            list(contrato.contrato_condiciones_especiales.all())
+            if hasattr(contrato, "contrato_condiciones_especiales")
+            else []
+        )
+        filas = []
+        for c in condiciones:
+            titulo = c.titulo_personalizado or (c.condicion.titulo if c.condicion_id else "Condición especial")
+            detalle = c.detalle_personalizado or (c.condicion.descripcion if c.condicion_id else (c.texto or ""))
+            filas.append([_esc(titulo), _esc(detalle)])
+        return _tabla_simple_html(["Condición", "Detalle"], filas)
+
+    if subtipo == "resumen_comercial":
+        from contratos.serializers import ContratoEmpresaClienteSerializer
+
+        try:
+            total = ContratoEmpresaClienteSerializer().get_total_contrato(contrato)
+        except Exception:
+            total = None
+        moneda = getattr(contrato, "moneda_cobro", None) or "CLP"
+        if total is None:
+            return '<p style="color:#666;font-style:italic;">Sin resumen comercial disponible.</p>'
+        return f'<p style="font-weight:bold;margin:6pt 0;">Total del contrato: {_esc(_formato_moneda_v29(total, moneda))}</p>'
 
     return ""
 
@@ -224,8 +414,25 @@ def _render_zona_html(
     return _esc(texto), pos
 
 
-def _envolver_en_html(cuerpo: str, config: dict, adaptador: IContratoBase, contrato) -> str:
-    """Envuelve el cuerpo HTML en un documento completo listo para WeasyPrint."""
+def _envolver_en_html(
+    cuerpo: str,
+    config: dict,
+    adaptador: IContratoBase,
+    contrato,
+    overrides: dict | None = None,
+) -> str:
+    """Envuelve el cuerpo HTML en un documento completo listo para WeasyPrint.
+
+    El ``<style>`` armado acá es la única fuente de verdad de paginación del
+    documento v2.9: lo usa tanto el PDF final (WeasyPrint) como la vista previa
+    del editor (Paged.js). Si se ajusta un margen, tamaño de página o regla de
+    fragmentación, se ajusta acá y en ningún otro lado — de lo contrario
+    preview y PDF vuelven a divergir.
+
+    ``overrides`` (simulador de condicionales del editor) solo aplica en el
+    endpoint de vista previa; el PDF real (``generar_documento_v29_html``) lo
+    deja en ``None`` y evalúa las condiciones contra el contrato real.
+    """
     tamano = _PAGE_SIZES.get(config.get("tamano", "a4"), "A4")
     fuente = config.get("fuente", "Arial, sans-serif")
 
@@ -234,7 +441,7 @@ def _envolver_en_html(cuerpo: str, config: dict, adaptador: IContratoBase, contr
 
     enc_html = ""
     if enc.get("activo"):
-        enc_inner, enc_align = _render_zona_html(enc, adaptador, contrato)
+        enc_inner, enc_align = _render_zona_html(enc, adaptador, contrato, overrides)
         enc_html = (
             '<div style="border-bottom:1px solid #ccc;padding-bottom:6pt;'
             f'margin-bottom:12pt;font-size:9pt;color:#666;text-align:{enc_align};">'
@@ -243,7 +450,7 @@ def _envolver_en_html(cuerpo: str, config: dict, adaptador: IContratoBase, contr
 
     pie_html = ""
     if pie.get("activo"):
-        pie_inner, pie_align = _render_zona_html(pie, adaptador, contrato)
+        pie_inner, pie_align = _render_zona_html(pie, adaptador, contrato, overrides)
         pie_html = (
             '<div style="border-top:1px solid #ccc;padding-top:6pt;'
             f'margin-top:12pt;font-size:9pt;color:#666;text-align:{pie_align};">'
@@ -255,9 +462,11 @@ def _envolver_en_html(cuerpo: str, config: dict, adaptador: IContratoBase, contr
         "<html><head><meta charset=\"utf-8\">\n"
         "<style>\n"
         f"@page {{ size: {tamano}; margin: 2.5cm 2.5cm 2cm 2.5cm; }}\n"
-        f"body {{ font-family: {fuente}; font-size: 11pt; line-height: 1.5; color: #000; }}\n"
+        f"body {{ font-family: {fuente}; font-size: 11pt; line-height: 1.5; color: #000; "
+        "orphans: 3; widows: 3; }\n"
         "p { margin: 0 0 6pt; }\n"
         "ul, ol { margin: 0 0 6pt; padding-left: 20pt; }\n"
+        "p, li, tr, div[data-bloque=\"firma\"] { break-inside: avoid; }\n"
         "</style></head>\n"
         "<body>\n"
         f"{enc_html}\n"

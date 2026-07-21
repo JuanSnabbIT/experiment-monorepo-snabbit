@@ -1444,6 +1444,7 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     resumen_comercial = serializers.SerializerMethodField()
     contrato_anterior_detalle = serializers.SerializerMethodField()
     renovaciones_detalle = serializers.SerializerMethodField()
+    documento_v29_html = serializers.SerializerMethodField()
 
     documento_final_url = serializers.CharField(read_only=True, required=False)
 
@@ -1456,6 +1457,35 @@ class ContratoEmpresaClienteSerializer(serializers.ModelSerializer):
     def _usar_snapshot(self, obj):
         """True cuando el contrato ya no es editable y debe mostrar valores congelados."""
         return obj.estado not in self._ESTADOS_EDITABLES
+
+    def get_documento_v29_html(self, obj):
+        """HTML completo del documento v2.9 (mismo motor que el PDF real), o
+        ``None`` si la plantilla no usa el editor v2.9.
+
+        Conecta el congelamiento v2.9 (``generar_o_recongelar_documento_v29``,
+        disparado hoy solo como side-effect en ``enviar_aprobacion``/
+        ``_resolver_pdf_contrato``) con este serializer — que es lo que
+        alimenta tanto el snapshot público (``construir_snapshot_contrato``)
+        como cualquier otra respuesta que serialice el contrato. Sin esto,
+        las vistas públicas (aprobación/firma/resumen) nunca ven el
+        documento v2.9 y muestran el contrato vacío.
+        """
+        plantilla = obj.plantilla
+        if not plantilla or plantilla.version_editor != "v29":
+            return None
+
+        documento = obj.documentos_v29.filter(plantilla=plantilla).order_by("-fecha_modificacion").first()
+        if documento:
+            return documento.html_generado
+
+        from contratos.adaptadores import AdaptadorContratoB2B
+        from contratos.motor_v29 import generar_o_recongelar_documento_v29
+
+        try:
+            documento = generar_o_recongelar_documento_v29(AdaptadorContratoB2B(obj))
+        except Exception:
+            return None
+        return documento.html_generado
 
     def to_representation(self, instance):
         # FASE 7 — Memoización de tipos de cambio por request.

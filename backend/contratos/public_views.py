@@ -528,17 +528,22 @@ class PublicContratoResumenDetailView(APIView):
 
         contrato = envio.contrato
         secciones_generadas = []
-        try:
-            from .motor_plantillas import generar_secciones_contrato
-            secciones_qs = generar_secciones_contrato(contrato)
-            secciones_generadas = SeccionGeneradaPublicSerializer(
-                secciones_qs, many=True
-            ).data
-        except Exception:
-            import logging
-            logging.getLogger(__name__).exception(
-                "Error generando secciones para resumen público (silencioso)."
-            )
+        # Plantilla v2.9 (documento único): no tiene SeccionPlantilla que generar
+        # vía el motor viejo — su contenido viaja en `contrato_payload.documento_v29_html`
+        # (ver ContratoEmpresaClienteSerializer.get_documento_v29_html). Intentar
+        # generar secciones acá para v2.9 solo produce una lista vacía silenciosa.
+        if not (contrato.plantilla and contrato.plantilla.version_editor == "v29"):
+            try:
+                from .motor_plantillas import generar_secciones_contrato
+                secciones_qs = generar_secciones_contrato(contrato)
+                secciones_generadas = SeccionGeneradaPublicSerializer(
+                    secciones_qs, many=True
+                ).data
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Error generando secciones para resumen público (silencioso)."
+                )
 
         contrato_payload = construir_snapshot_contrato(contrato)
 

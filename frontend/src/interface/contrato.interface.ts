@@ -107,6 +107,10 @@ export interface IContratoEmpresaCliente {
     dias_aviso_termino?: number;
     requiere_nda?: boolean;
     snapshot_total_venta?: string | null;
+    /** Documento completo del motor v2.9 (mismo HTML que el PDF real) — solo
+     *  presente si `plantilla` usa `version_editor === 'v29'`. Null en cualquier
+     *  otro caso (plantilla v1/v2, o sin plantilla). */
+    documento_v29_html?: string | null;
 }
 
 export interface IEmpresaContrato {
