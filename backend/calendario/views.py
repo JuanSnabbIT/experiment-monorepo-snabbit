@@ -1,8 +1,10 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from datetime import date
 from core.models import PersonalizacionUsuario
+from core.permissions import IsAdminOrRRHH
 from .serializers import *
 from .models import *
 import requests
@@ -10,6 +12,7 @@ import holidays
 
 
 class DiaCalendarioViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
     serializer_class = DiaCalendarioSerializer
     # filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     # filterset_fields = ['fecha', 'es_feriado']
