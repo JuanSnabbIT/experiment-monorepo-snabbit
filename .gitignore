@@ -134,3 +134,8 @@ devclaw/
 
 # Workspace settings (local only)
 erp-smart-workspace.code-workspace
+
+# Playwright (capturas/reportes generados localmente, no versionar)
+.playwright-mcp/
+frontend/playwright-report/
+frontend/test-results/
