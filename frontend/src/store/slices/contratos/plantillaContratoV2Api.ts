@@ -4,6 +4,8 @@ import {
     ICreatePlantillaV2Payload,
     IPlantillaContratoV2,
     IPlantillaContratoV2List,
+    IPreviewHtmlV29Payload,
+    IPreviewHtmlV29Response,
     IReordenarBloquesPayload,
     IReordenarSeccionesPayload,
     ISeccionPlantillaV2,
@@ -165,6 +167,25 @@ const plantillaContratoV2Api = RtkQueryService.injectEndpoints({
             }),
             providesTags: ['EtiquetaPlantillaV2'],
         }),
+
+        // ─── Catálogo de etiquetas del adaptador (V2.9) ──────────────────
+        getEtiquetasCatalogo: builder.query<IEtiquetaPlantilla[], { tipo_contrato: string }>({
+            query: (params) => ({
+                url: '/api/etiquetas-disponibles/',
+                method: 'get',
+                params,
+            }),
+            providesTags: ['EtiquetasCatalogo'],
+        }),
+
+        // ─── Vista previa v2.9 (sin persistir) ───────────────────────────
+        previewHtmlV29: builder.mutation<IPreviewHtmlV29Response, IPreviewHtmlV29Payload>({
+            query: ({ plantillaId, ...data }) => ({
+                url: `/api/plantillas-contrato-v2/${plantillaId}/preview-html/`,
+                method: 'post',
+                data,
+            }),
+        }),
     }),
     overrideExisting: false,
 });
@@ -184,6 +205,8 @@ export const {
     useDeleteSeccionV2Mutation,
     useGetBloquesTransversalesQuery,
     useGetEtiquetasV2Query,
+    useGetEtiquetasCatalogoQuery,
+    usePreviewHtmlV29Mutation,
 } = plantillaContratoV2Api;
 
 export default plantillaContratoV2Api;

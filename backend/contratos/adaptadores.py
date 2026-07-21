@@ -88,6 +88,16 @@ class IContratoBase(ABC):
           aplicara fallbacks).
         """
 
+    # ----- Catálogo de etiquetas para el editor v2.9 -----
+    @classmethod
+    def catalogo_etiquetas(cls, tipo_contrato: str = "") -> list[dict]:
+        """
+        Retorna las etiquetas disponibles para el editor v2.9.
+        Shape compatible con IEtiquetaPlantilla del frontend.
+        Default vacío; los adaptadores concretos lo sobreescriben.
+        """
+        return []
+
 
 # ---------------------------------------------------------------------------
 # Adaptador B2B
@@ -97,9 +107,12 @@ class AdaptadorContratoB2B(IContratoBase):
     """
     Adaptador para ``ContratoEmpresaCliente``.
 
-    Delega toda la resolucion de etiquetas y la generacion de PDF al motor v1
-    existente, retornando ``NOT_HANDLED`` en ``resolver_ruta_extendida`` para
-    que el motor v2 caiga al ``_resolver_ruta`` original.
+    Resuelve claves cortas expandiendo ``_ALIAS`` y delegando en
+    ``motor_plantillas._resolver_ruta`` (usado por el editor v2.9, que no
+    aporta un ``etiquetas_map`` real). Las rutas ya expandidas (con punto),
+    que vienen de una ``EtiquetaPlantilla`` real en BD del editor v2 legacy,
+    retornan ``NOT_HANDLED`` para que el motor v2 caiga al mismo
+    ``_resolver_ruta`` via el fallback de ``motor_plantillas_v2``.
     """
 
     def __init__(self, contrato_empresa_cliente):
@@ -147,9 +160,260 @@ class AdaptadorContratoB2B(IContratoBase):
         self._c.plantilla_version_usada = version_str
         self._c.save(update_fields=["plantilla_version_usada", "fecha_modificacion"])
 
+    def _format_date(self, value) -> str:
+        if not value:
+            return ""
+        try:
+            return value.strftime("%d/%m/%Y")
+        except AttributeError:
+            return str(value)
+
     def resolver_ruta_extendida(self, ruta, default=None):
-        # B2B no aporta rutas extras: el motor v2 hara fallback al motor v1.
+        if not ruta or not isinstance(ruta, str):
+            return NOT_HANDLED
+
+        if "." not in ruta:
+            # Clave sin origen_dato navegable (ver _CLAVES_SIN_RUTA): se
+            # resuelve con un metodo propio, no via _ALIAS.
+            if ruta == "licenciatarios_tabla":
+                return self._renderizar_licenciatarios_tabla() or (default or "")
+
+            # Clave corta del editor v2.9 (motor_v29 siempre llama con
+            # etiquetas_map={}, por lo que nunca hay una EtiquetaPlantilla real
+            # que aporte un origen_dato con punto). Expandir via _ALIAS y
+            # resolver aqui mismo — antes este metodo ignoraba _ALIAS por
+            # completo y toda clave corta B2B en v2.9 quedaba sin resolver.
+            ruta_expandida = self._ALIAS.get(ruta)
+            if ruta_expandida is None:
+                return NOT_HANDLED
+            if ruta_expandida.startswith("licencia_principal."):
+                return self._resolver_licencia_principal(ruta_expandida, default)
+            from contratos.motor_plantillas import _resolver_ruta
+            return _resolver_ruta(self._c, ruta_expandida, default)
+
+        # Ruta ya expandida (con punto): viene de una EtiquetaPlantilla real en
+        # BD, camino del editor v2 legacy. Sin cambios — sigue el fallback a
+        # motor v1 via motor_plantillas_v2._resolver_ruta_v2.
         return NOT_HANDLED
+
+    def _resolver_licencia_principal(self, ruta: str, default=None) -> str:
+        """Resuelve ``licencia_principal.<campo>`` sobre la primera linea de
+        ContratoLicencia del contrato. ContratoLicencia es 1-a-muchos por
+        contrato, igual que ContratoItemComercial; se referencia solo la
+        primera linea (limitacion conocida, igual que ``items_comerciales[0]``
+        para servicios/venta)."""
+        campo = ruta.split(".", 1)[1]
+        linea = self._c.contrato_licencias.first()
+        if not linea:
+            return default or ""
+        if campo == "nombre":
+            return linea.nombre_snapshot or (default or "")
+        if campo == "proveedor":
+            return linea.proveedor_snapshot or (default or "")
+        if campo == "modalidad":
+            return linea.get_modalidad_snapshot_display() or (default or "")
+        if campo == "cantidad":
+            return str(linea.cantidad) if linea.cantidad else (default or "")
+        if campo == "precio_unitario":
+            valor = linea.precio_unitario_snapshot
+            return str(valor) if valor is not None else (default or "")
+        if campo == "fecha_inicio":
+            return self._format_date(linea.fecha_inicio)
+        if campo == "fecha_fin":
+            return self._format_date(linea.fecha_fin)
+        return default or ""
+
+    def _renderizar_licenciatarios_tabla(self) -> str:
+        """Tabla HTML con los licenciatarios de todas las lineas de licencia
+        del contrato — a diferencia de las variables ``licencia_principal.*``,
+        esta tabla no se limita a la primera linea."""
+        filas = []
+        for linea in self._c.contrato_licencias.all():
+            for vinculo in linea.vinculos_licencia.all():
+                filas.append(
+                    f"<tr><td>{escape(linea.nombre_snapshot or '')}</td>"
+                    f"<td>{escape(vinculo.nombre_asignado or '')}</td>"
+                    f"<td>{escape(vinculo.correo_asignado or '')}</td></tr>"
+                )
+        if not filas:
+            return ""
+        return (
+            "<table><thead><tr>"
+            "<th>Licencia</th><th>Licenciatario</th><th>Correo</th>"
+            "</tr></thead><tbody>" + "".join(filas) + "</tbody></table>"
+        )
+
+    # Alias de claves cortas → rutas navegables por el motor v1
+    # (``motor_plantillas._resolver_ruta``). Fuente de verdad única para el
+    # catálogo de etiquetas del editor v2.9 — ampliar aquí cuando se agreguen.
+    _ALIAS: dict[str, str] = {
+        # cliente
+        "nombre_cliente":              "empresa_cliente.nombre",
+        "rut_cliente":                 "empresa_cliente.rut_empresa",
+        "domicilio_cliente":           "empresa_cliente.direccion_principal",
+        "representante_cliente":       "representante_cliente.usuario.get_nombre_completo",
+        "rut_representante_cliente":   "representante_cliente.usuario.rut",
+        # proveedor (prestadora)
+        "nombre_proveedor":            "empresa_prestadora.nombre",
+        "rut_proveedor":               "empresa_prestadora.rut_empresa",
+        "domicilio_proveedor":         "empresa_prestadora.direccion_principal",
+        "representante_proveedor":     "representante_proveedor.usuario.get_nombre_completo",
+        "rut_representante_proveedor": "representante_proveedor.usuario.rut",
+        # contrato
+        "nombre_contrato":             "contrato.nombre",
+        "fecha_inicio_contrato":       "contrato.fecha_inicio",
+        "fecha_fin_contrato":          "contrato.fecha_fin",
+        "moneda_contrato":             "contrato.moneda_cobro",
+        "vigencia_meses":              "calculado:vigencia_meses",
+        "lugar_firma":                 "contrato.lugar_firma",
+        "fecha_firma":                 "contrato.fecha_firma",
+        # servicio / venta (item comercial — primera linea)
+        "nombre_plan":                  "items_comerciales[0].snapshot_nombre",
+        "descripcion_servicio":         "items_comerciales[0].snapshot_descripcion",
+        "incluye_servicio":             "items_comerciales[0].snapshot_incluye",
+        "no_incluye_servicio":          "items_comerciales[0].snapshot_no_incluye",
+        "clausulas_especiales_servicio": "items_comerciales[0].snapshot_clausulas",
+        "cantidad_contratada":          "items_comerciales[0].cantidad",
+        "visitas_mensuales":            "items_comerciales[0].snapshot_num_visitas_mensuales",
+        "precio_unitario_mensual":      "items_comerciales[0].precio_unitario_contratado",
+        # economico
+        "forma_pago":                  "contrato.get_forma_pago_contractual_display",
+        "dia_facturacion":             "contrato.dia_facturacion",
+        "valor_total":                 "contrato.total_items_comerciales",
+        # contrato (venta)
+        "renovacion_automatica":       "contrato.renovacion_automatica",
+        "dias_aviso_termino":          "contrato.dias_aviso_termino",
+        # licencia (primera linea de ContratoLicencia)
+        "nombre_licencia":             "licencia_principal.nombre",
+        "proveedor_licencia":          "licencia_principal.proveedor",
+        "modalidad_licencia":          "licencia_principal.modalidad",
+        "cantidad_licencias":          "licencia_principal.cantidad",
+        "precio_unitario_licencia":    "licencia_principal.precio_unitario",
+        "vigencia_licencia_inicio":    "licencia_principal.fecha_inicio",
+        "vigencia_licencia_fin":       "licencia_principal.fecha_fin",
+        "valor_total_licencia":        "contrato.snapshot_total_servicios",
+    }
+
+    _PREFIJO_A_CATEGORIA: dict[str, str] = {
+        "empresa_cliente":         "cliente",
+        "representante_cliente":   "cliente",
+        "empresa_prestadora":      "proveedor",
+        "representante_proveedor": "proveedor",
+        "contrato":                "contrato",
+        "calculado":               "contrato",
+        "items_comerciales[0]":    "servicio",
+        "licencia_principal":      "licencia",
+    }
+
+    # Categoria por clave para casos donde el prefijo de la ruta no refleja la
+    # categoria real (ej. "valor_total" tiene prefijo "contrato." pero es un
+    # dato economico, no contractual).
+    _CATEGORIA_OVERRIDE: dict[str, str] = {
+        "valor_total": "economico",
+        "forma_pago": "economico",
+        "dia_facturacion": "economico",
+        "valor_total_licencia": "economico",
+    }
+
+    # Tipos de contrato donde cada clave es relevante. Las claves ausentes de
+    # este diccionario se consideran comunes a los 3 tipos (cliente, proveedor,
+    # datos generales del contrato, firma). Ampliar aqui cuando se agreguen
+    # etiquetas nuevas que no apliquen a los 3 tipos por igual.
+    _TIPOS_APLICABLES: dict[str, tuple[str, ...]] = {
+        # servicios + venta: comparten ContratoItemComercial como linea principal.
+        "nombre_plan":                   ("servicios", "venta"),
+        "descripcion_servicio":          ("servicios", "venta"),
+        "incluye_servicio":              ("servicios", "venta"),
+        "no_incluye_servicio":           ("servicios", "venta"),
+        "clausulas_especiales_servicio": ("servicios", "venta"),
+        "cantidad_contratada":           ("servicios", "venta"),
+        "visitas_mensuales":             ("servicios", "venta"),
+        "precio_unitario_mensual":       ("servicios", "venta"),
+        "valor_total":                   ("servicios", "venta"),
+        # servicios + licencia: comparten facturacion recurrente (mensual/anual),
+        # segun el propio help_text de snapshot_total_servicios en models.py.
+        "forma_pago":                    ("servicios", "licencia"),
+        "dia_facturacion":               ("servicios", "licencia"),
+        # venta unicamente: pago en cuotas y cotizaciones vinculadas — gateado
+        # explicitamente por tipo=="venta" en funciones.py:728 (motor v1).
+        "forma_pago_venta":                 ("venta",),
+        "cantidad_cuotas_venta":             ("venta",),
+        "cuotas_venta_tabla":                ("venta",),
+        "cotizaciones_tabla":                ("venta",),
+        "cantidad_cotizaciones":             ("venta",),
+        "total_cotizaciones":                ("venta",),
+        "cotizaciones_totales_convertidos":  ("venta",),
+        "dolar_observado_cotizaciones":      ("venta",),
+        # licencia unicamente.
+        "nombre_licencia":            ("licencia",),
+        "proveedor_licencia":         ("licencia",),
+        "modalidad_licencia":         ("licencia",),
+        "cantidad_licencias":         ("licencia",),
+        "precio_unitario_licencia":   ("licencia",),
+        "vigencia_licencia_inicio":   ("licencia",),
+        "vigencia_licencia_fin":      ("licencia",),
+        "valor_total_licencia":       ("licencia",),
+        "licenciatarios_tabla":       ("licencia",),
+    }
+    _TIPOS_COMUNES: tuple[str, ...] = ("servicios", "venta", "licencia")
+
+    # Claves sin origen_dato navegable: se resuelven antes de llegar al
+    # adaptador, en motor_plantillas_v2._CLAVES_ESPECIALES_B2B (cotizaciones,
+    # cuotas de venta) o directamente en este adaptador (licenciatarios_tabla).
+    # Se listan aqui solo para que aparezcan en el catalogo del editor v2.9.
+    _CLAVES_SIN_RUTA: dict[str, dict] = {
+        "cotizaciones_tabla":                {"nombre_display": "Tabla de Cotizaciones Vinculadas", "categoria": "economico"},
+        "cantidad_cotizaciones":             {"nombre_display": "Cantidad de Cotizaciones Vinculadas", "categoria": "economico"},
+        "total_cotizaciones":                {"nombre_display": "Total Consolidado de Cotizaciones", "categoria": "economico"},
+        "forma_pago_venta":                  {"nombre_display": "Forma de Pago Venta", "categoria": "economico"},
+        "cantidad_cuotas_venta":              {"nombre_display": "Cantidad de Cuotas Venta", "categoria": "economico"},
+        "cuotas_venta_tabla":                 {"nombre_display": "Tabla de Cuotas Venta", "categoria": "economico"},
+        "cotizaciones_totales_convertidos":   {"nombre_display": "Totales Convertidos de Cotizaciones", "categoria": "economico"},
+        "dolar_observado_cotizaciones":       {"nombre_display": "Dolar Observado por Cotizacion", "categoria": "economico"},
+        "licenciatarios_tabla":               {"nombre_display": "Tabla de Licenciatarios", "categoria": "licencia"},
+    }
+
+    @classmethod
+    def catalogo_etiquetas(cls, tipo_contrato: str = "servicios") -> list[dict]:
+        catalogo = []
+        for i, (clave, ruta) in enumerate(cls._ALIAS.items()):
+            if tipo_contrato not in cls._TIPOS_APLICABLES.get(clave, cls._TIPOS_COMUNES):
+                continue
+            categoria = cls._CATEGORIA_OVERRIDE.get(clave)
+            if categoria is None:
+                prefijo = ruta.split(":")[0] if ruta.startswith("calculado:") else ruta.split(".")[0]
+                categoria = cls._PREFIJO_A_CATEGORIA.get(prefijo, "custom")
+            catalogo.append({
+                "id": i,
+                "empresa_prestadora": None,
+                "clave": clave,
+                "nombre_display": clave.replace("_", " ").title(),
+                "categoria": categoria,
+                "tipo_contrato": tipo_contrato,
+                "origen_dato": ruta,
+                "descripcion": None,
+                "valor_default": None,
+                "fecha_creacion": "",
+                "fecha_modificacion": "",
+            })
+        offset = len(catalogo)
+        for j, (clave, meta) in enumerate(cls._CLAVES_SIN_RUTA.items()):
+            if tipo_contrato not in cls._TIPOS_APLICABLES.get(clave, cls._TIPOS_COMUNES):
+                continue
+            catalogo.append({
+                "id": offset + j,
+                "empresa_prestadora": None,
+                "clave": clave,
+                "nombre_display": meta["nombre_display"],
+                "categoria": meta["categoria"],
+                "tipo_contrato": tipo_contrato,
+                "origen_dato": None,
+                "descripcion": None,
+                "valor_default": None,
+                "fecha_creacion": "",
+                "fecha_modificacion": "",
+            })
+        return sorted(catalogo, key=lambda x: (x["categoria"], x["clave"]))
 
 
 # ---------------------------------------------------------------------------
@@ -367,10 +631,100 @@ class AdaptadorContratoTrabajador(IContratoBase):
             return f"Sistema de salud: {otro}"
         return self._ue.get_sistema_salud_display() if sistema else ""
 
+    # Alias de claves cortas → rutas completas del adaptador.
+    # Permite usar [nombre_afp] en plantillas sin registrar EtiquetaPlantilla en BD.
+    # Fuente de verdad única: este diccionario. Ampliar aquí cuando se agreguen etiquetas.
+    _ALIAS: dict[str, str] = {
+        # trabajador
+        "nombre_trabajador":        "trabajador.nombre_completo",
+        "rut_trabajador":           "trabajador.rut",
+        "direccion_trabajador":     "trabajador.direccion",
+        "telefono_trabajador":      "trabajador.celular",
+        "email_trabajador":         "trabajador.email",
+        "nacionalidad":             "trabajador.nacionalidad",
+        "estado_civil":             "contrato.estado_civil",
+        "profesion_u_oficio":       "contrato.profesion_u_oficio",
+        # empresa / empleador
+        "nombre_empresa":           "empresa.nombre",
+        "rut_empresa":              "empresa.rut",
+        "domicilio_empresa":        "empresa.direccion_principal",
+        "representante_legal":      "empresa.representante_legal",
+        "rut_representante":        "empresa.rut_representante_legal",
+        # contrato
+        "nombre_cargo":             "contrato.cargo",
+        "funciones_cargo":          "contrato.funciones",
+        "fecha_inicio":             "contrato.fecha_inicio",
+        "fecha_termino":            "contrato.fecha_termino",
+        "tipo_contrato":            "contrato.tipo_contrato",
+        "vigencia_descripcion":     "contrato.vigencia_descripcion",
+        "jornada_label":            "contrato.jornada",
+        "jornada_descripcion":      "contrato.jornada_descripcion",
+        "horas_semanales":          "contrato.horas_semanales",
+        "hora_inicio":              "contrato.hora_inicio",
+        "hora_fin":                 "contrato.hora_fin",
+        "dias_semana_texto":        "contrato.dias_semana_texto",
+        # remuneración
+        "sueldo_base":              "remuneracion.sueldo_base",
+        "sueldo_base_palabras":     "remuneracion.sueldo_base_palabras",
+        "sueldo_liquido":           "remuneracion.sueldo_liquido",
+        "moneda":                   "remuneracion.moneda",
+        "gratificacion_legal":      "remuneracion.gratificacion_descripcion",
+        "gratificacion_descripcion": "remuneracion.gratificacion_descripcion",
+        "bono_movilizacion":        "remuneracion.bono_movilizacion",
+        "bono_colacion":            "remuneracion.bono_colacion",
+        # previsión
+        "nombre_afp":               "prevision.afp_nombre",
+        "sistema_salud_label":      "prevision.salud_descripcion",
+        "nombre_isapre":            "prevision.nombre_isapre",
+        "nombre_banco":             "prevision.banco_nombre",
+        "tipo_cuenta_bancaria":     "prevision.tipo_cuenta",
+        "numero_cuenta_bancaria":   "prevision.numero_cuenta",
+        # firma
+        "lugar_firma":              "firma.lugar_firma",
+        "fecha_firma":              "firma.fecha_firma",
+    }
+
+    _PREFIJO_A_CATEGORIA: dict[str, str] = {
+        "trabajador":   "trabajador",
+        "empresa":      "empleador",
+        "contrato":     "contrato",
+        "remuneracion": "economico",
+        "prevision":    "trabajador",
+        "firma":        "contrato",
+        "empleador":    "empleador",
+        "finiquito":    "contrato",
+    }
+
+    @classmethod
+    def catalogo_etiquetas(cls, tipo_contrato: str = "trabajador") -> list[dict]:
+        catalogo = []
+        for i, (clave, ruta) in enumerate(cls._ALIAS.items()):
+            prefijo = ruta.split(".")[0] if "." in ruta else "contrato"
+            categoria = cls._PREFIJO_A_CATEGORIA.get(prefijo, "custom")
+            catalogo.append({
+                "id": i,
+                "empresa_prestadora": None,
+                "clave": clave,
+                "nombre_display": clave.replace("_", " ").title(),
+                "categoria": categoria,
+                "tipo_contrato": tipo_contrato,
+                "origen_dato": ruta,
+                "descripcion": None,
+                "valor_default": None,
+                "fecha_creacion": "",
+                "fecha_modificacion": "",
+            })
+        return sorted(catalogo, key=lambda x: (x["categoria"], x["clave"]))
+
     # ----- Resolucion de rutas -----
     def resolver_ruta_extendida(self, ruta, default=None):
         if not ruta or not isinstance(ruta, str):
             return NOT_HANDLED
+
+        # Expandir alias cortos antes de parsear prefijos.
+        # Solo se expande si la clave no contiene punto (ya es ruta completa).
+        if "." not in ruta:
+            ruta = self._ALIAS.get(ruta, ruta)
 
         # Soportar prefijo opcional 'contrato_trabajador.' y 'contrato.' como alias.
         partes = ruta.split(".")

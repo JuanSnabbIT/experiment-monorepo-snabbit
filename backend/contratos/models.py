@@ -1996,6 +1996,26 @@ class PlantillaContrato(ModeloBase):
         help_text="Si se activa, el contrato derivado de esta plantilla exigira NDA antes de enviar a aprobacion.",
     )
 
+    # ── Editor v2.9 (documento único Slate) ──
+    version_editor = models.CharField(
+        max_length=5,
+        choices=[("v2", "Editor V2 (secciones)"), ("v29", "Editor V2.9 (documento único)")],
+        default="v2",
+        verbose_name="Versión del editor",
+    )
+    contenido_documento_v29 = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Documento Slate v2.9",
+        help_text="Árbol Slate completo del documento. Solo se usa cuando version_editor='v29'.",
+    )
+    config_pagina_v29 = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Configuración de página v2.9",
+        help_text="{'tamano':'a4','fuente':'Arial, sans-serif','encabezado':{...},'pie':{...}}",
+    )
+
     # ── Posición de bloques demo en el documento ──
     orden_bloque_alcance = models.PositiveIntegerField(
         default=1000,
@@ -2261,6 +2281,95 @@ class SeccionContratoGenerada(ModeloBase):
         if self.contrato_trabajador_id:
             return f"ContratoTrab #{self.contrato_trabajador_id} → {self.titulo}"
         return self.titulo
+
+
+class DocumentoContratoGeneradoV29(ModeloBase):
+    """
+    Congelamiento por contrato del documento único v2.9 (equivalente a
+    ``SeccionContratoGenerada`` para el editor de secciones v2).
+
+    Guarda el HTML ya interpolado (etiquetas resueltas) en el momento de
+    generar el documento para un contrato especifico, para que:
+    - editar la plantilla despues no cambie lo que ya se genero/firmo,
+    - el gate de ``enviar_aprobacion`` y el motor de PDF lean de aqui,
+      no de ``plantilla.contenido_documento_v29`` en vivo.
+
+    Se identifica por (contrato, plantilla) — no solo por contrato — porque
+    un mismo ``ContratoTrabajador`` puede tener dos plantillas v2.9 vigentes
+    a la vez: la del contrato base y la de su finiquito (``AdaptadorFiniquito``
+    sobreescribe ``plantilla`` pero comparte la misma instancia de contrato).
+    """
+
+    contrato = models.ForeignKey(
+        ContratoEmpresaCliente,
+        on_delete=models.CASCADE,
+        related_name="documentos_v29",
+        null=True,
+        blank=True,
+    )
+    contrato_trabajador = models.ForeignKey(
+        "rrhh.ContratoTrabajador",
+        on_delete=models.CASCADE,
+        related_name="documentos_v29",
+        null=True,
+        blank=True,
+    )
+    plantilla = models.ForeignKey(
+        "contratos.PlantillaContrato",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documentos_generados_v29",
+    )
+    html_generado = models.TextField(verbose_name="HTML final con etiquetas resueltas")
+    plantilla_version_usada = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name="Versión de plantilla utilizada",
+        help_text="Versión de la plantilla al momento del último congelamiento.",
+    )
+    fue_editado_manualmente = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Documento de contrato generado (v2.9)"
+        verbose_name_plural = "Documentos de contrato generados (v2.9)"
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(contrato__isnull=False, contrato_trabajador__isnull=True)
+                    | models.Q(contrato__isnull=True, contrato_trabajador__isnull=False)
+                ),
+                name="documento_v29_uno_de_dos",
+            ),
+            models.UniqueConstraint(
+                fields=["contrato", "plantilla"],
+                condition=models.Q(contrato__isnull=False),
+                name="documento_v29_unico_por_contrato_b2b",
+            ),
+            models.UniqueConstraint(
+                fields=["contrato_trabajador", "plantilla"],
+                condition=models.Q(contrato_trabajador__isnull=False),
+                name="documento_v29_unico_por_contrato_trabajador",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if bool(self.contrato_id) == bool(self.contrato_trabajador_id):
+            from django.core.exceptions import ValidationError
+
+            raise ValidationError(
+                "DocumentoContratoGeneradoV29 debe pertenecer exactamente a uno: "
+                "contrato (B2B) o contrato_trabajador.",
+            )
+
+    def __str__(self):
+        if self.contrato_id:
+            return f"{self.contrato.nombre} → documento v2.9"
+        if self.contrato_trabajador_id:
+            return f"ContratoTrab #{self.contrato_trabajador_id} → documento v2.9"
+        return "Documento v2.9"
 
 
 # =====================================================================

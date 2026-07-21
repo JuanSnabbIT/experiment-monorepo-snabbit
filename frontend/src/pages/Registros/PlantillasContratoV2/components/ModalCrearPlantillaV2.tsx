@@ -56,6 +56,7 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
             tipo_contrato: '',
             descripcion: '',
             empresa_cliente: null as number | null,
+            version_editor: 'v2' as 'v2' | 'v29',
         },
         validationSchema,
         onSubmit: async (values, { resetForm }) => {
@@ -65,6 +66,7 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
                     tipo_contrato: values.tipo_contrato,
                     descripcion: values.descripcion,
                     empresa_cliente: values.empresa_cliente,
+                    version_editor: values.version_editor,
                 }).unwrap();
                 toast.success('Plantilla creada correctamente');
                 resetForm();
@@ -127,6 +129,29 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
                             onChange={formik.handleChange}
                             rows={3}
                         />
+                    </div>
+                    <div>
+                        <Label>Editor</Label>
+                        <div className='mt-1.5 flex gap-4'>
+                            {(['v2', 'v29'] as const).map((v) => (
+                                <label key={v} className='flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300'>
+                                    <input
+                                        type='radio'
+                                        name='version_editor'
+                                        value={v}
+                                        checked={formik.values.version_editor === v}
+                                        onChange={() => formik.setFieldValue('version_editor', v)}
+                                        className='accent-blue-600'
+                                    />
+                                    {v === 'v2' ? 'Editor de secciones (v2)' : 'Documento único (v2.9)'}
+                                </label>
+                            ))}
+                        </div>
+                        {formik.values.version_editor === 'v29' && (
+                            <p className='mt-1.5 text-xs text-blue-600'>
+                                Editor Word-like con bloques condicionales, firma digital y PDF 1:1.
+                            </p>
+                        )}
                     </div>
                     <div>
                         <Label htmlFor='v2-crear-cliente'>Empresa cliente</Label>

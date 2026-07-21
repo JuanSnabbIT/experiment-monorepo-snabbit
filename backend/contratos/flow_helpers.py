@@ -421,7 +421,39 @@ def construir_pdf_desde_payload(
     )
 
 
-def construir_pdf_contrato(contrato: ContratoEmpresaCliente):
+def _resolver_pdf_contrato(
+    contrato: ContratoEmpresaCliente,
+    *,
+    firma_cliente_b64=None,
+    firmante_cliente=None,
+    payload_fallback=None,
+):
+    """
+    Punto único de decisión v1/v2.9 para el PDF de un contrato B2B. Usado por
+    ``construir_pdf_contrato`` y ``actualizar_pdf_firmado_envio`` — antes cada
+    uno decidía por su cuenta si el contrato tenía secciones generadas, lo que
+    podía divergir entre el PDF de aprobación y el PDF firmado final.
+
+    - Si la plantilla es v2.9: congela (o recongela, si cambió de versión) el
+      documento único y renderiza con WeasyPrint. La firma capturada no se
+      embebe en el documento todavía — el bloque "firma" del motor v2.9 solo
+      dibuja líneas para firma húmeda, no una imagen de firma digital
+      (limitación conocida, fuera de alcance de esta integración).
+    - Si no, sigue la lógica v1 existente (secciones + plantilla), con
+      fallback al payload genérico (``payload_fallback`` si se provee —
+      p.ej. el snapshot congelado al enviar a aprobación — o el serializer
+      en vivo) si el contrato no tiene plantilla o no se pudieron generar
+      secciones.
+    """
+    if contrato.plantilla and contrato.plantilla.version_editor == "v29":
+        from contratos.adaptadores import AdaptadorContratoB2B
+        from contratos.motor_v29 import generar_o_recongelar_documento_v29
+        from weasyprint import HTML as WeasyHTML
+
+        adaptador = AdaptadorContratoB2B(contrato)
+        documento = generar_o_recongelar_documento_v29(adaptador)
+        return WeasyHTML(string=documento.html_generado).write_pdf()
+
     if contrato.plantilla:
         # Si el contrato tiene plantilla pero aún no tiene secciones generadas,
         # intentar regenerarlas para mantener el PDF fiel a la plantilla.
@@ -434,28 +466,31 @@ def construir_pdf_contrato(contrato: ContratoEmpresaCliente):
             generar_secciones_contrato(contrato)
 
         if contrato.secciones_generadas.exists():
-            return generar_contrato_desde_plantilla(contrato)
+            return generar_contrato_desde_plantilla(
+                contrato,
+                firma_cliente_b64=firma_cliente_b64,
+                firmante_cliente=firmante_cliente or "",
+            )
 
-    payload = ContratoEmpresaClienteSerializer(contrato).data
-    return construir_pdf_desde_payload(payload)
+    payload = payload_fallback or ContratoEmpresaClienteSerializer(contrato).data
+    return construir_pdf_desde_payload(
+        payload,
+        firma_cliente_b64=firma_cliente_b64,
+        firmante_cliente=firmante_cliente,
+    )
+
+
+def construir_pdf_contrato(contrato: ContratoEmpresaCliente):
+    return _resolver_pdf_contrato(contrato)
 
 
 def actualizar_pdf_firmado_envio(envio: EnvioContratoFirmaUsuario):
     contrato = envio.usuario.contrato
-    if contrato.plantilla and contrato.secciones_generadas.exists():
-        envio.pdf_congelado = generar_contrato_desde_plantilla(
-            contrato,
-            firma_cliente_b64=envio.firma,
-            firmante_cliente=envio.usuario.nombre_display,
-        )
-        return envio
-    snapshot = envio.snapshot_contrato or ContratoEmpresaClienteSerializer(
-        envio.usuario.contrato
-    ).data
-    envio.pdf_congelado = construir_pdf_desde_payload(
-        snapshot,
+    envio.pdf_congelado = _resolver_pdf_contrato(
+        contrato,
         firma_cliente_b64=envio.firma,
         firmante_cliente=envio.usuario.nombre_display,
+        payload_fallback=envio.snapshot_contrato,
     )
     return envio
 

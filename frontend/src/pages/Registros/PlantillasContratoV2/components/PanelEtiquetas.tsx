@@ -1,4 +1,5 @@
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface'; // V1 compat — mismo shape
+import { CATEGORIA_CHIP_SOLIDO, CATEGORIA_DEFAULT, CATEGORIA_DOT_CLASS } from '@/utils/categoriaEtiquetaColores';
 import { useEffect, useMemo, useState } from 'react';
 
 interface IPanelEtiquetasProps {
@@ -6,6 +7,8 @@ interface IPanelEtiquetasProps {
     onInsertarEtiqueta: (clave: string) => void;
     onWrapSelection?: (abre: string, cierra: string) => void;
     editingEnabled: boolean;
+    /** false cuando un contenedor externo (ej. el selector de pestañas de EditorDocumentoV29) ya muestra su propio encabezado. */
+    mostrarHeaderPropio?: boolean;
 }
 
 const CATEGORIA_LABELS: Record<string, string> = {
@@ -15,6 +18,8 @@ const CATEGORIA_LABELS: Record<string, string> = {
     servicio: 'Servicio',
     economico: 'Económico',
     trabajador: 'Datos del Trabajador',
+    empleador: 'Empleador',
+    licencia: 'Licencia',
     custom: 'Personalizada',
 };
 
@@ -22,6 +27,7 @@ const PanelEtiquetas = ({
     etiquetas,
     onInsertarEtiqueta,
     editingEnabled,
+    mostrarHeaderPropio = true,
 }: IPanelEtiquetasProps) => {
     // Agrupar por categoria
     const grouped = useMemo(
@@ -64,25 +70,27 @@ const PanelEtiquetas = ({
     }, [categoryKeys]);
 
     return (
-        <div className='flex h-full flex-col overflow-hidden border-l border-zinc-200 dark:border-zinc-700'>
+        <div className={`flex h-full flex-col overflow-hidden ${mostrarHeaderPropio ? 'border-l border-zinc-200 dark:border-zinc-700' : ''}`}>
             {/* ── Header ─────────────────────────────────────────────────────── */}
-            <div className='flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900'>
-                <span className='text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400'>
-                    Etiquetas disponibles
-                </span>
-                <svg
-                    className='h-4 w-4 text-zinc-400'
-                    fill='none'
-                    viewBox='0 0 24 24'
-                    stroke='currentColor'>
-                    <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={2}
-                        d='M19 9l-7 7-7-7'
-                    />
-                </svg>
-            </div>
+            {mostrarHeaderPropio && (
+                <div className='flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900'>
+                    <span className='text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400'>
+                        Etiquetas disponibles
+                    </span>
+                    <svg
+                        className='h-4 w-4 text-zinc-400'
+                        fill='none'
+                        viewBox='0 0 24 24'
+                        stroke='currentColor'>
+                        <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={2}
+                            d='M19 9l-7 7-7-7'
+                        />
+                    </svg>
+                </div>
+            )}
 
             {/* ── Buscador ────────────────────────────────────────────────────── */}
             <div className='shrink-0 border-b border-zinc-200 px-3 py-2 dark:border-zinc-700'>
@@ -118,7 +126,12 @@ const PanelEtiquetas = ({
                                     }))
                                 }
                                 className='flex w-full items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 transition-colors hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-blue-500 dark:hover:bg-zinc-950'>
-                                <span>{CATEGORIA_LABELS[categoria] ?? categoria}</span>
+                                <span className='flex items-center gap-2'>
+                                    <span
+                                        className={`h-2 w-2 shrink-0 rounded-full ${CATEGORIA_DOT_CLASS[categoria] ?? CATEGORIA_DOT_CLASS[CATEGORIA_DEFAULT]}`}
+                                    />
+                                    {CATEGORIA_LABELS[categoria] ?? categoria}
+                                </span>
                                 <span className='flex items-center gap-1 text-[11px] text-zinc-400'>
                                     {filteredItems.length}
                                     <svg
@@ -134,42 +147,38 @@ const PanelEtiquetas = ({
                                 </span>
                             </button>
                             {isOpen && (
-                                <div className='mt-2 space-y-1'>
-                                    {filteredItems.map((et) => (
-                                        <div
-                                            key={et.id}
-                                            draggable={editingEnabled}
-                                            onDragStart={(e) => {
-                                                if (!editingEnabled) return;
-                                                e.dataTransfer.setData('text/plain', `[${et.clave}]`);
-                                                e.dataTransfer.effectAllowed = 'copy';
-                                            }}
-                                            className={[
-                                                'flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-all',
-                                                editingEnabled
-                                                    ? 'cursor-grab border-zinc-200 bg-white text-zinc-700 hover:border-blue-300 hover:bg-blue-50 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-blue-500'
-                                                    : 'border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600',
-                                            ].join(' ')}>
-                                            <span className='min-w-0 truncate font-mono text-[11px]'>
-                                                [{et.clave}]
-                                            </span>
-                                            <button
-                                                type='button'
-                                                disabled={!editingEnabled}
-                                                onClick={() =>
-                                                    editingEnabled && onInsertarEtiqueta(et.clave)
-                                                }
-                                                title={`Insertar ${et.nombre_display}`}
+                                <div className='mt-2 flex flex-col items-start gap-1.5'>
+                                    {filteredItems.map((et) => {
+                                        const chipSolido = CATEGORIA_CHIP_SOLIDO[categoria] ?? CATEGORIA_CHIP_SOLIDO[CATEGORIA_DEFAULT];
+                                        return (
+                                            <div
+                                                key={et.id}
+                                                draggable={editingEnabled}
+                                                onDragStart={(e) => {
+                                                    if (!editingEnabled) return;
+                                                    e.dataTransfer.setData('text/plain', `[${et.clave}]`);
+                                                    e.dataTransfer.effectAllowed = 'copy';
+                                                }}
                                                 className={[
-                                                    'ml-2 flex h-5 w-5 shrink-0 items-center justify-center rounded text-[13px] font-bold transition-colors',
+                                                    'inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-all',
                                                     editingEnabled
-                                                        ? 'bg-zinc-100 text-zinc-500 hover:bg-blue-100 hover:text-blue-600 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-blue-900 dark:hover:text-blue-300'
-                                                        : 'cursor-not-allowed bg-zinc-100 text-zinc-300 dark:bg-zinc-800 dark:text-zinc-600',
+                                                        ? `cursor-grab active:cursor-grabbing ${chipSolido}`
+                                                        : 'cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600',
                                                 ].join(' ')}>
-                                                +
-                                            </button>
-                                        </div>
-                                    ))}
+                                                [{et.clave}]
+                                                <button
+                                                    type='button'
+                                                    disabled={!editingEnabled}
+                                                    onClick={() =>
+                                                        editingEnabled && onInsertarEtiqueta(et.clave)
+                                                    }
+                                                    title={`Insertar ${et.nombre_display}`}
+                                                    className='ml-0.5 leading-none opacity-60 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40'>
+                                                    +
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

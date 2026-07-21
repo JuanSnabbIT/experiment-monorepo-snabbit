@@ -76,9 +76,14 @@ def resolver_valor_etiqueta_v2(clave: str, adaptador: IContratoBase, etiquetas_m
     etiqueta = etiquetas_map.get(clave)
 
     if not etiqueta or not etiqueta.origen_dato:
-        # Fallback: si la clave contiene punto, tratarla como ruta directa.
+        # Fallback 1: ruta directa si la clave ya tiene punto.
         if "." in clave:
             return _resolver_ruta_v2(adaptador, clave)
+        # Fallback 2: intentar el adaptador directamente (honra _ALIAS en AdaptadorContratoTrabajador
+        # y cualquier alias que el adaptador conozca, sin requerir EtiquetaPlantilla en BD).
+        resultado_adaptador = adaptador.resolver_ruta_extendida(clave)
+        if resultado_adaptador is not NOT_HANDLED:
+            return str(resultado_adaptador) if resultado_adaptador is not None else ""
         return etiqueta.valor_default if etiqueta else f"[{clave}]"
 
     return _resolver_ruta_v2(adaptador, etiqueta.origen_dato, etiqueta.valor_default)

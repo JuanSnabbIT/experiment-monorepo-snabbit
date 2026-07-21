@@ -173,6 +173,19 @@ def _generar_pdf_trabajador(
 
     adaptador = AdaptadorContratoTrabajador(contrato)
 
+    # ── Rama v2.9: documento único Slate → WeasyPrint ────────────────────────
+    if plantilla.version_editor == "v29":
+        from contratos.motor_v29 import generar_o_recongelar_documento_v29
+        from weasyprint import HTML as WeasyHTML  # deferred: no rompe path v2 si no instalado
+
+        documento = generar_o_recongelar_documento_v29(adaptador)
+        pdf_bytes = WeasyHTML(string=documento.html_generado).write_pdf()
+        if persistir:
+            nombre_archivo = f"contrato_trabajador_{contrato.id}.pdf"
+            contrato.archivo_pdf.save(nombre_archivo, ContentFile(pdf_bytes), save=True)
+        return pdf_bytes
+    # ─────────────────────────────────────────────────────────────────────────
+
     # Generar/refrescar secciones renderizadas segun plantilla.
     generar_secciones_v2(adaptador)
 
@@ -314,8 +327,16 @@ def generar_pdf_finiquito(finiquito, *, persistir: bool = False) -> bytes:
         )
 
     adaptador = AdaptadorFiniquito(contrato, plantilla, finiquito)
-    generar_secciones_v2(adaptador)
-    pdf_bytes = generar_contrato_pdf_v2(adaptador)
+
+    if plantilla.version_editor == "v29":
+        from contratos.motor_v29 import generar_o_recongelar_documento_v29
+        from weasyprint import HTML as WeasyHTML
+
+        documento = generar_o_recongelar_documento_v29(adaptador)
+        pdf_bytes = WeasyHTML(string=documento.html_generado).write_pdf()
+    else:
+        generar_secciones_v2(adaptador)
+        pdf_bytes = generar_contrato_pdf_v2(adaptador)
 
     if persistir:
         nombre_archivo = f"finiquito_{contrato.id}.pdf"

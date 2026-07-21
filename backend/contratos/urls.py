@@ -29,6 +29,7 @@ from contratos.views import (
     SeccionPlantillaV2ViewSet,
     BloqueTransversalContratoV2ViewSet,
     EtiquetaPlantillaV2ViewSet,
+    etiquetas_disponibles,
 )
 from django.urls import path
 from contratos.public_views import (
@@ -162,6 +163,11 @@ urlpatterns = (
             'envio-firma/<uuid:uuid>/firmar/',
             firmar_envio,
             name='firmar-envio'
+        ),
+        path(
+            'etiquetas-disponibles/',
+            etiquetas_disponibles,
+            name='etiquetas-disponibles'
         ),
     ]
 )

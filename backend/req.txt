@@ -27,6 +27,7 @@ django-celery-beat
 channels_redis
 holidays
 reportlab
+weasyprint
 django-prometheus
 Twisted[http2,tls]
 firebase-admin

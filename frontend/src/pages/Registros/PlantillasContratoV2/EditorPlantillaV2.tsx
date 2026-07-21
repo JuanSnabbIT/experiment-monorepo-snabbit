@@ -5,13 +5,16 @@ import { ISeccionPlantillaV2 as ISeccionPlantilla } from '@/interface/plantillaC
 import {
     useDuplicarPlantillaV2Mutation,
     useGetDetallePlantillaV2Query,
+    useGetEtiquetasCatalogoQuery,
     useGetEtiquetasV2Query,
     useReordenarSeccionesV2Mutation,
 } from '@/store/slices/contratos/plantillaContratoV2Api';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import EditorDocumentoV29, { IEditorDocumentoV29Handle } from './components/EditorDocumentoV29';
 import ModalCrearSeccionV2 from './components/ModalCrearSeccionV2.tsx';
 import ModalEditarPlantillaV2 from './components/ModalEditarPlantillaV2';
 import PanelDocumento, { IPanelDocumentoHandle } from './components/PanelDocumento';
@@ -28,9 +31,14 @@ const EditorPlantillaV2 = () => {
         isLoading,
         isError,
     } = useGetDetallePlantillaV2Query(plantillaId ?? '');
-    const { data: etiquetas = [] } = useGetEtiquetasV2Query(
-        plantilla?.tipo_contrato ? { tipo_contrato: plantilla.tipo_contrato } : undefined,
+    const isV29 = plantilla?.version_editor === 'v29';
+    const { data: etiquetasV2 = [] } = useGetEtiquetasV2Query(
+        plantilla?.tipo_contrato && !isV29 ? { tipo_contrato: plantilla.tipo_contrato } : skipToken,
     );
+    const { data: etiquetasCatalogo = [] } = useGetEtiquetasCatalogoQuery(
+        plantilla?.tipo_contrato && isV29 ? { tipo_contrato: plantilla.tipo_contrato } : skipToken,
+    );
+    const etiquetas = isV29 ? etiquetasCatalogo : etiquetasV2;
     const [duplicar, { isLoading: isDuplicating }] = useDuplicarPlantillaV2Mutation();
     const [reordenarSecciones] = useReordenarSeccionesV2Mutation();
 
@@ -46,6 +54,7 @@ const EditorPlantillaV2 = () => {
 
     // Ref del documento para guardar / insertar / envolver seleccion
     const panelDocumentoRef = useRef<IPanelDocumentoHandle>(null);
+    const editorV29Ref = useRef<IEditorDocumentoV29Handle>(null);
 
     // ─── Handlers ────────────────────────────────────────────────────────────
     const handleSeleccionarSeccion = useCallback((seccion: ISeccionPlantilla) => {
@@ -54,15 +63,18 @@ const EditorPlantillaV2 = () => {
     }, []);
 
     const handleInsertarEtiqueta = useCallback((clave: string) => {
-        panelDocumentoRef.current?.insertarTexto(`[${clave}]`);
-    }, []);
+        if (isV29) editorV29Ref.current?.insertarEtiqueta(clave);
+        else panelDocumentoRef.current?.insertarTexto(`[${clave}]`);
+    }, [isV29]);
 
     const handleWrapSelection = useCallback((abre: string, cierra: string) => {
-        panelDocumentoRef.current?.wrapSelection(abre, cierra);
-    }, []);
+        if (isV29) editorV29Ref.current?.wrapSelection(abre, cierra);
+        else panelDocumentoRef.current?.wrapSelection(abre, cierra);
+    }, [isV29]);
 
     const handleGuardarCambios = async () => {
-        await panelDocumentoRef.current?.guardar();
+        if (isV29) await editorV29Ref.current?.guardar();
+        else await panelDocumentoRef.current?.guardar();
     };
 
     const handleDuplicar = async () => {
@@ -133,7 +145,7 @@ const EditorPlantillaV2 = () => {
     // ─── Render de carga / error ─────────────────────────────────────────────
     if (isLoading) {
         return (
-            <div className='flex h-screen items-center justify-center'>
+            <div className='flex h-[calc(100dvh-var(--header-height))] items-center justify-center'>
                 <div className='flex flex-col items-center gap-3'>
                     <div className='h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent' />
                     <p className='text-sm text-zinc-400'>Cargando plantilla...</p>
@@ -144,7 +156,7 @@ const EditorPlantillaV2 = () => {
 
     if (isError || !plantilla) {
         return (
-            <div className='flex h-screen flex-col items-center justify-center gap-4'>
+            <div className='flex h-[calc(100dvh-var(--header-height))] flex-col items-center justify-center gap-4'>
                 <p className='text-zinc-500'>No se pudo cargar la plantilla.</p>
                 <Button
                     onClick={() => navigate('/registros/plantillas-contrato-v2')}
@@ -156,7 +168,7 @@ const EditorPlantillaV2 = () => {
     }
 
     return (
-        <div className='flex h-screen flex-col overflow-hidden bg-white dark:bg-zinc-950'>
+        <div className='flex h-[calc(100dvh-var(--header-height))] flex-col overflow-hidden bg-white dark:bg-zinc-950'>
             {/* ═══════════════════════════════════════════════════════════════
                 BARRA SUPERIOR
             ═══════════════════════════════════════════════════════════════ */}
@@ -233,7 +245,7 @@ const EditorPlantillaV2 = () => {
                         variant='solid'
                         icon='HeroCheck'
                         onClick={handleGuardarCambios}
-                        isDisable={!isEditing}>
+                        isDisable={!isV29 && !isEditing}>
                         Guardar cambios
                     </Button>
                     {/* Menu de opciones */}
@@ -260,54 +272,70 @@ const EditorPlantillaV2 = () => {
             </header>
 
             {/* ═══════════════════════════════════════════════════════════════
-                CONTENIDO PRINCIPAL — 3 paneles (ocultar laterales en preview)
+                CONTENIDO PRINCIPAL
             ═══════════════════════════════════════════════════════════════ */}
             <div className='flex min-h-0 flex-1 overflow-hidden'>
-                {/* ── Panel izquierdo: Estructura (oculto en preview) ── */}
-                {viewMode === 'editor' && (
-                    <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
-                        <PanelEstructura
-                            secciones={secciones}
-                            seccionActivaId={seccionActivaId}
-                            onSelectSeccion={handleSeleccionarSeccion}
-                            onNuevaSeccion={() => setModalNuevaSeccionOpen(true)}
-                            onReordenarSecciones={handleReordenarSecciones}
-                            bloques={plantilla?.bloques_transversales ?? []}
-                        />
-                    </aside>
-                )}
-
-                {/* ── Panel central: Documento completo ── */}
-                <main className='flex min-w-0 flex-1 flex-col overflow-hidden'>
-                    <PanelDocumento
-                        ref={panelDocumentoRef}
-                        secciones={secciones}
-                        seccionActivaId={viewMode === 'preview' ? null : seccionActivaId}
-                        isEditing={viewMode === 'preview' ? false : isEditing}
-                        plantillaId={plantillaId ?? ''}
-                        tituloPagina={plantilla.titulo}
+                {isV29 ? (
+                    /* ── Editor v2.9: documento único Slate ── */
+                    <EditorDocumentoV29
+                        ref={editorV29Ref}
+                        plantilla={plantilla}
                         etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                        onSelectSeccion={handleSeleccionarSeccion}
-                        onStartEditar={() => setIsEditing(true)}
-                        onStopEditar={() => setIsEditing(false)}
-                        onSaved={() => {/* invalidado automáticamente por RTK Query */}}
-                        onDirtyChange={setHayUnsavedChanges}
-                        bloques={plantilla?.bloques_transversales ?? []}
                         viewMode={viewMode}
-                        plantillaTipoContrato={plantilla.tipo_contrato}
+                        onDirtyChange={setHayUnsavedChanges}
+                        onSaved={() => { /* invalidado automáticamente por RTK Query */ }}
+                        onStopEditar={() => setIsEditing(false)}
                     />
-                </main>
+                ) : (
+                    /* ── Editor v2: secciones ── */
+                    <>
+                        {/* Panel izquierdo: Estructura (oculto en preview) */}
+                        {viewMode === 'editor' && (
+                            <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
+                                <PanelEstructura
+                                    secciones={secciones}
+                                    seccionActivaId={seccionActivaId}
+                                    onSelectSeccion={handleSeleccionarSeccion}
+                                    onNuevaSeccion={() => setModalNuevaSeccionOpen(true)}
+                                    onReordenarSecciones={handleReordenarSecciones}
+                                    bloques={plantilla?.bloques_transversales ?? []}
+                                />
+                            </aside>
+                        )}
 
-                {/* ── Panel derecho: Etiquetas (oculto en preview) ── */}
-                {viewMode === 'editor' && (
-                    <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
-                        <PanelEtiquetas
-                            etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                            onInsertarEtiqueta={handleInsertarEtiqueta}
-                            onWrapSelection={handleWrapSelection}
-                            editingEnabled={isEditing}
-                        />
-                    </aside>
+                        {/* Panel central: Documento completo */}
+                        <main className='flex min-w-0 flex-1 flex-col overflow-hidden'>
+                            <PanelDocumento
+                                ref={panelDocumentoRef}
+                                secciones={secciones}
+                                seccionActivaId={viewMode === 'preview' ? null : seccionActivaId}
+                                isEditing={viewMode === 'preview' ? false : isEditing}
+                                plantillaId={plantillaId ?? ''}
+                                tituloPagina={plantilla.titulo}
+                                etiquetas={etiquetas as IEtiquetaPlantilla[]}
+                                onSelectSeccion={handleSeleccionarSeccion}
+                                onStartEditar={() => setIsEditing(true)}
+                                onStopEditar={() => setIsEditing(false)}
+                                onSaved={() => { /* invalidado automáticamente por RTK Query */ }}
+                                onDirtyChange={setHayUnsavedChanges}
+                                bloques={plantilla?.bloques_transversales ?? []}
+                                viewMode={viewMode}
+                                plantillaTipoContrato={plantilla.tipo_contrato}
+                            />
+                        </main>
+
+                        {/* Panel derecho: Etiquetas (oculto en preview) */}
+                        {viewMode === 'editor' && (
+                            <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
+                                <PanelEtiquetas
+                                    etiquetas={etiquetas as IEtiquetaPlantilla[]}
+                                    onInsertarEtiqueta={handleInsertarEtiqueta}
+                                    onWrapSelection={handleWrapSelection}
+                                    editingEnabled={isEditing}
+                                />
+                            </aside>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -320,14 +348,16 @@ const EditorPlantillaV2 = () => {
                 plantilla={plantilla}
             />
 
-            <ModalCrearSeccionV2
-                isOpen={modalNuevaSeccionOpen}
-                setIsOpen={setModalNuevaSeccionOpen}
-                plantillaId={plantillaId ?? ''}
-                etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                nextOrder={(secciones.at(-1)?.orden ?? 0) + 1}
-                onCreated={handleSeccionCreada}
-            />
+            {!isV29 && (
+                <ModalCrearSeccionV2
+                    isOpen={modalNuevaSeccionOpen}
+                    setIsOpen={setModalNuevaSeccionOpen}
+                    plantillaId={plantillaId ?? ''}
+                    etiquetas={etiquetas as IEtiquetaPlantilla[]}
+                    nextOrder={(secciones.at(-1)?.orden ?? 0) + 1}
+                    onCreated={handleSeccionCreada}
+                />
+            )}
         </div>
     );
 };

@@ -56,6 +56,7 @@ const ModalEditarPlantillaV2 = ({
             subtipo_trabajador: plantilla?.subtipo_trabajador || '',
             descripcion: plantilla?.descripcion || '',
             activa: plantilla?.activa ?? true,
+            version_editor: (plantilla?.version_editor ?? 'v2') as 'v2' | 'v29',
         },
         validationSchema,
         onSubmit: async (values) => {
@@ -169,6 +170,29 @@ const ModalEditarPlantillaV2 = ({
                             onChange={formik.handleChange}
                             rows={3}
                         />
+                    </div>
+                    <div>
+                        <Label>Editor</Label>
+                        <div className='mt-1.5 flex gap-4'>
+                            {(['v2', 'v29'] as const).map((v) => (
+                                <label key={v} className='flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300'>
+                                    <input
+                                        type='radio'
+                                        name='version_editor'
+                                        value={v}
+                                        checked={formik.values.version_editor === v}
+                                        onChange={() => formik.setFieldValue('version_editor', v)}
+                                        className='accent-blue-600'
+                                    />
+                                    {v === 'v2' ? 'Editor de secciones (v2)' : 'Documento único (v2.9)'}
+                                </label>
+                            ))}
+                        </div>
+                        {plantilla?.version_editor === 'v29' && formik.values.version_editor === 'v2' && (
+                            <Alert color='amber' icon='HeroExclamationTriangle' variant='outline' className='mt-2'>
+                                Cambiar a v2 no elimina el documento guardado, pero dejará de ser editable desde el editor de documento único.
+                            </Alert>
+                        )}
                     </div>
                     <div className='rounded-lg border border-zinc-200 p-3 dark:border-zinc-700'>
                         <Checkbox

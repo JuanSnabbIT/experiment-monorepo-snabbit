@@ -2014,6 +2014,7 @@ class PlantillaContratoV2Serializer(serializers.ModelSerializer):
             "es_default", "requiere_nda",
             "orden_bloque_alcance", "orden_bloque_operacion", "orden_bloque_condiciones",
             "secciones", "bloques_transversales",
+            "version_editor", "contenido_documento_v29", "config_pagina_v29",
             "fecha_creacion", "fecha_modificacion",
         ]
         read_only_fields = [
@@ -2045,6 +2046,7 @@ class PlantillaContratoV2ListSerializer(serializers.ModelSerializer):
             "subtipo_trabajador", "subtipo_trabajador_label",
             "empresa_cliente", "empresa_cliente_nombre",
             "es_default", "requiere_nda",
+            "version_editor",
             "total_secciones",
             "fecha_creacion", "fecha_modificacion",
         ]

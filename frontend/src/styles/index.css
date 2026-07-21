@@ -106,6 +106,26 @@
     .signature-canvas {
         @apply block h-full w-full bg-white;
     }
+
+    /* Vista previa v2.9 (EditorDocumentoV29): HTML generado por el backend
+       (contratos/motor_v29.py), inyectado vía dangerouslySetInnerHTML. Ese HTML
+       no trae su propio <style> — solo lo agrega _envolver_en_html() para el
+       PDF final — así que hereda el reset global de Tailwind de esta app
+       (list-style:none en ol/ul, reglas de h1/h2/h3 con line-height propio que
+       compiten con el font-size inline que manda el backend). `revert` restaura
+       el comportamiento por defecto del navegador; los estilos inline que cada
+       elemento ya trae (font-size, margin, etc.) siguen ganando sobre eso. */
+    .v29-preview-html :is(ol, ul) {
+        list-style: revert;
+        padding-left: 20pt;
+        margin: 0 0 6pt;
+    }
+    .v29-preview-html li {
+        display: list-item;
+    }
+    .v29-preview-html :is(h1, h2, h3) {
+        all: revert;
+    }
 }
 
 @layer utilities {

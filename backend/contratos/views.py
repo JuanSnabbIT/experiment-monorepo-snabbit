@@ -69,8 +69,9 @@ from .serializers import (
 )
 from cuentas.functions import obtener_usuario_empresa
 from rest_framework import permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes as drf_permission_classes
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from django.db import transaction
 from django.db.utils import OperationalError, ProgrammingError
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -1850,7 +1851,16 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        if not contrato.secciones_generadas.exists():
+        # Editor v2.9 (documento unico): no hay secciones — se congela el
+        # documento aqui mismo si aun no existe o si la plantilla cambio de
+        # version, igual que el flujo v1 lo hace de forma perezosa en
+        # construir_pdf_contrato/_resolver_pdf_contrato.
+        if contrato.plantilla and contrato.plantilla.version_editor == "v29":
+            from contratos.adaptadores import AdaptadorContratoB2B
+            from contratos.motor_v29 import generar_o_recongelar_documento_v29
+
+            generar_o_recongelar_documento_v29(AdaptadorContratoB2B(contrato))
+        elif not contrato.secciones_generadas.exists():
             return Response(
                 {
                     "detail": (
@@ -3987,6 +3997,10 @@ from contratos.serializers import (
 from django.db.models import Q
 
 
+class PreviewV29Throttle(UserRateThrottle):
+    scope = "preview_v29"
+
+
 class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
     """ViewSet V2 para gestion de plantillas de contrato con el editor Slate.
 
@@ -4028,10 +4042,14 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
                 empresa_prestadora=empresa, activa=True
             ).order_by("tipo_contrato", "titulo")
 
-        # Listado modulo: plantillas de la empresa + globales (excluye finiquito)
+        # Listado modulo: plantillas de la empresa + globales (excluye finiquito
+        # SOLO del listado — el detalle/edicion/preview de una plantilla finiquito
+        # puntual sigue accesible por id, p.ej. desde el editor o la vista previa).
         qs = PlantillaContrato.objects.filter(
             models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
-        ).exclude(tipo_contrato='finiquito')
+        )
+        if self.action == "list":
+            qs = qs.exclude(tipo_contrato='finiquito')
         tipo = self.request.query_params.get("tipo_contrato")
         if tipo:
             qs = qs.filter(tipo_contrato=tipo)
@@ -4061,6 +4079,9 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
             orden_bloque_operacion=original.orden_bloque_operacion,
             orden_bloque_condiciones=original.orden_bloque_condiciones,
             es_default=False,
+            version_editor=original.version_editor,
+            contenido_documento_v29=original.contenido_documento_v29,
+            config_pagina_v29=original.config_pagina_v29,
         )
         for seccion in original.secciones.all():
             SeccionPlantilla.objects.create(
@@ -4127,6 +4148,62 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
         serializer = PlantillaContratoV2Serializer(plantilla, context={"request": request})
         return Response(serializer.data)
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="preview-html",
+        throttle_classes=[PreviewV29Throttle],
+    )
+    def preview_html(self, request, pk=None):
+        """Vista previa v2.9 sin persistir: interpola contenido_documento_v29
+        (aun sin guardar) con el mismo motor que genera el PDF real.
+
+        Body: {
+            "contenido_documento_v29": [...],       # requerido, arbol Slate actual
+            "config_pagina_v29": {...},              # opcional, encabezado/pie
+            "condiciones_simuladas": {clave: bool},  # opcional, overrides del Simulador
+        }
+        """
+        plantilla = self.get_object()
+        nodos = request.data.get("contenido_documento_v29")
+        if not isinstance(nodos, list):
+            return Response({"detail": "contenido_documento_v29 debe ser una lista."}, status=400)
+        config = request.data.get("config_pagina_v29") or {}
+        overrides = request.data.get("condiciones_simuladas") or {}
+
+        from contratos.motor_v29 import (
+            construir_adaptador_preview,
+            generar_bloques_html_v29,
+            _render_zona_html,
+        )
+
+        try:
+            adaptador = construir_adaptador_preview(plantilla)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+
+        try:
+            contrato = adaptador.instancia
+            bloques = generar_bloques_html_v29(nodos, adaptador, contrato, overrides)
+
+            encabezado_html, pie_html = "", ""
+            enc_cfg = config.get("encabezado") or {}
+            pie_cfg = config.get("pie") or {}
+            if enc_cfg.get("activo"):
+                encabezado_html, _ = _render_zona_html(enc_cfg, adaptador, contrato, overrides)
+            if pie_cfg.get("activo"):
+                pie_html, _ = _render_zona_html(pie_cfg, adaptador, contrato, overrides)
+        except Exception as exc:
+            return Response(
+                {"detail": f"No se pudo generar la vista previa: {exc}"}, status=400
+            )
+
+        return Response({
+            "bloques": bloques,
+            "encabezado_html": encabezado_html,
+            "pie_html": pie_html,
+        })
+
 
 class BloqueTransversalContratoV2ViewSet(viewsets.ReadOnlyModelViewSet):
     """Catalogo de bloques transversales disponibles por tipo de contrato.
@@ -4172,6 +4249,36 @@ class EtiquetaPlantillaV2ViewSet(viewsets.ReadOnlyModelViewSet):
                 models.Q(tipo_contrato__isnull=True) | models.Q(tipo_contrato=tipo)
             )
         return qs.order_by("categoria", "nombre_display")
+
+
+@api_view(["GET"])
+@drf_permission_classes([permissions.IsAuthenticated])
+def etiquetas_disponibles(request):
+    """Catálogo de etiquetas del adaptador para el editor v2.9.
+
+    Devuelve las etiquetas derivadas del código del adaptador (no de la BD).
+    Compatible con IEtiquetaPlantilla del frontend.
+
+    Query params:
+        tipo_contrato: 'trabajador' | 'finiquito' | 'servicios' | 'venta' | 'licencia'
+    """
+    from contratos.adaptadores import AdaptadorContratoTrabajador, AdaptadorContratoB2B
+
+    _ADAPTADORES = {
+        "trabajador": AdaptadorContratoTrabajador,
+        "finiquito":  AdaptadorContratoTrabajador,
+        "servicios":  AdaptadorContratoB2B,
+        "venta":      AdaptadorContratoB2B,
+        "licencia":   AdaptadorContratoB2B,
+    }
+    tipo = request.query_params.get("tipo_contrato", "")
+    adaptador_cls = _ADAPTADORES.get(tipo)
+    if not adaptador_cls:
+        return Response(
+            {"error": f"tipo_contrato '{tipo}' no válido. Opciones: {list(_ADAPTADORES)}"},
+            status=400,
+        )
+    return Response(adaptador_cls.catalogo_etiquetas(tipo))
 
 
 class SeccionPlantillaV2ViewSet(viewsets.ModelViewSet):

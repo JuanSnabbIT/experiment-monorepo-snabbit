@@ -144,6 +144,7 @@ const RtkQueryService = createApi({
         'SeccionPlantillaV2',
         'BloqueTransversal',
         'EtiquetaPlantillaV2',
+        'EtiquetasCatalogo',
         'SolicitudVacaciones',
         'SolicitudVacacionesList',
         'DiasCalendario',
