@@ -212,6 +212,70 @@ def _formato_moneda_v29(monto, moneda: str) -> str:
     return f"{moneda} {float(monto):,.2f}"
 
 
+def _lista_componentes_plan_html(item) -> str:
+    """Nombres de los componentes incluidos en un item de plan (`tipo_origen="plan"`),
+    leídos del snapshot congelado — ver `ContratoItemComercial.snapshot_componentes_plan`.
+    Mismo criterio que la vista compacta legacy (`PlanIncludedServicesDetail`): solo
+    nombres, sin entrar al detalle de incluye/no_incluye/cláusulas por componente.
+    """
+    componentes = item.snapshot_componentes_plan or []
+    nombres = [c.get("nombre") for c in componentes if c.get("nombre")]
+    if not nombres:
+        return ""
+    items_html = "".join(f"<li>{_esc(n)}</li>" for n in nombres)
+    return (
+        '<ul style="margin:4pt 0 0 14pt;padding:0;font-size:8.5pt;color:#555;">'
+        f"{items_html}</ul>"
+    )
+
+
+_EJEMPLOS_BLOQUE_DINAMICO: dict[str, tuple[list[str], list[list[str]]]] = {
+    "servicios": (
+        ["Servicio", "Cantidad", "Precio unitario", "Total"],
+        [["Servicio de ejemplo", "1", "CLP 0,00", "CLP 0,00"]],
+    ),
+    "cotizacion_venta": (
+        ["Ítem cotizado", "Cantidad", "Precio unitario", "Total"],
+        [["Ítem de ejemplo", "1", "CLP 0,00", "CLP 0,00"]],
+    ),
+    "licencias": (
+        ["Licencia", "Cantidad", "Modalidad"],
+        [["Licencia de ejemplo", "1", "—"]],
+    ),
+    "condiciones_especiales": (
+        ["Condición", "Detalle"],
+        [["Condición de ejemplo", "Detalle de la condición de ejemplo."]],
+    ),
+}
+
+
+def _bloque_dinamico_ejemplo_html(subtipo: str) -> str:
+    """Contenido de ejemplo para la Vista previa del editor de PLANTILLAS
+    (nunca para un contrato real ni el PDF final — ver el llamador). Se marca
+    a propósito como ejemplo (leyenda + texto gris/itálica) para que no se
+    confunda con datos reales, mismo criterio que el placeholder `[clave]`
+    de una etiqueta sin resolver.
+    """
+    leyenda = (
+        '<p style="color:#888;font-style:italic;font-size:9pt;margin:0 0 4pt;">'
+        "Vista previa de ejemplo — se completa con los datos reales del contrato "
+        "al generar el documento.</p>"
+    )
+
+    if subtipo == "resumen_comercial":
+        return (
+            leyenda
+            + '<p style="font-weight:bold;margin:6pt 0;color:#888;font-style:italic;">'
+            "Total del contrato: (ejemplo)</p>"
+        )
+
+    headers, filas = _EJEMPLOS_BLOQUE_DINAMICO.get(subtipo, ([], []))
+    if not headers:
+        return leyenda
+    tabla = _tabla_simple_html(headers, filas)
+    return leyenda + f'<div style="color:#888;font-style:italic;">{tabla}</div>'
+
+
 def _bloque_dinamico_html(subtipo: str, contrato) -> str:
     """Arma la tabla HTML de un bloque dinámico leyendo datos REALES del
     contrato (nunca texto congelado) — mismo criterio de columnas que ya usa
@@ -228,20 +292,15 @@ def _bloque_dinamico_html(subtipo: str, contrato) -> str:
 
     if getattr(contrato, "pk", None) is None:
         # Instancia sin guardar — el stub que arma `construir_adaptador_preview`
-        # para la Vista previa del editor ANTES de que la plantilla esté
-        # vinculada a un contrato real. Sus relaciones inversas (items_comerciales,
-        # contrato_licencias, etc.) no se pueden consultar sin pk — Django
-        # lanza ValueError, no una queryset vacía. Degradar a "sin datos" acá
-        # (mismo mensaje que un contrato real sin filas todavía).
-        headers_por_subtipo = {
-            "servicios": ["Servicio", "Cantidad", "Precio unitario", "Total"],
-            "cotizacion_venta": ["Ítem cotizado", "Cantidad", "Precio unitario", "Total"],
-            "licencias": ["Licencia", "Cantidad", "Modalidad"],
-            "condiciones_especiales": ["Condición", "Detalle"],
-        }
-        if subtipo == "resumen_comercial":
-            return '<p style="color:#666;font-style:italic;">Sin resumen comercial disponible.</p>'
-        return _tabla_simple_html(headers_por_subtipo.get(subtipo, []), [])
+        # para la Vista previa del editor de PLANTILLAS (no de un contrato
+        # específico: una plantilla se reutiliza en muchos contratos, así que
+        # esta pantalla SIEMPRE trabaja con datos de ejemplo, nunca con un
+        # contrato real). Este stub nunca llega al PDF real — `generar_documento_v29_html`
+        # (el que usa WeasyPrint) siempre recibe un adaptador con contrato real
+        # y `pk`, así que mostrar datos de ejemplo acá no puede filtrarse a un
+        # documento real. Se muestran marcados como ejemplo (texto gris/itálica
+        # + leyenda) para que no se confundan con datos reales.
+        return _bloque_dinamico_ejemplo_html(subtipo)
 
     if subtipo == "servicios":
         items = list(getattr(contrato, "items_comerciales", None).all()) if hasattr(contrato, "items_comerciales") else []
@@ -265,8 +324,11 @@ def _bloque_dinamico_html(subtipo: str, contrato) -> str:
                     dolar_observado=dolar,
                     valor_uf=uf,
                 )
+            nombre_html = _esc(item.snapshot_nombre or "")
+            if item.tipo_origen == "plan":
+                nombre_html += _lista_componentes_plan_html(item)
             filas.append([
-                _esc(item.snapshot_nombre or ""),
+                nombre_html,
                 _esc(str(item.cantidad)),
                 _esc(_formato_moneda_v29(item.precio_unitario_contratado, moneda_item)),
                 _esc(_formato_moneda_v29(total, moneda_cobro)),
@@ -540,6 +602,31 @@ def construir_adaptador_preview(plantilla) -> IContratoBase:
         return AdaptadorContratoB2B(stub)
 
     raise ValueError(f"Tipo de plantilla sin adaptador de preview: {tipo}")
+
+
+# ─── Marca de agua BORRADOR (solo al vuelo, nunca se persiste) ───────────────
+
+
+def inyectar_marca_agua_borrador(html: str) -> str:
+    """
+    Superpone un aviso "BORRADOR" al HTML antes de convertirlo a PDF.
+
+    Se usa exclusivamente para el render efimero que ve el empleador en el
+    boton "Ver PDF" de la vista publica de aprobacion mientras el contrato
+    sigue pendiente — nunca debe aplicarse sobre el HTML que se persiste en
+    ``DocumentoContratoGeneradoV29.html_generado`` (eso quedaria marcado
+    para siempre, incluso despues de aprobar).
+
+    ``position: fixed`` hace que WeasyPrint repita el elemento en cada
+    pagina impresa.
+    """
+    marca = (
+        '<div style="position:fixed;top:40%;left:0;width:100%;'
+        "text-align:center;transform:rotate(-30deg);"
+        "font-size:80pt;color:rgba(200,0,0,0.25);z-index:9999;"
+        'pointer-events:none;">BORRADOR</div>'
+    )
+    return html.replace("</body>", f"{marca}</body>")
 
 
 # ─── Congelamiento por contrato ──────────────────────────────────────────────

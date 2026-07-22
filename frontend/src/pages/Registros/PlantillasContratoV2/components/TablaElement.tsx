@@ -13,6 +13,10 @@ interface ITablaElementProps {
     editor: Editor;
     isEditor: boolean;
     children: ReactNode;
+    /** Offset de paginación (ver EditorDocumentoV29.tsx/renderElement) — solo
+     *  tiene valor cuando esta tabla es un nodo top-level y el algoritmo de
+     *  paginación decide que ahí arranca una página nueva. */
+    cortePaddingTop?: number;
 }
 
 interface IMedidas {
@@ -30,7 +34,7 @@ interface IMedidas {
  * porque necesita hooks propios (useLayoutEffect/useState) para medir el DOM
  * y posicionar los controles de resize/agregar/eliminar por instancia de tabla.
  */
-const TablaElement = ({ attributes, element, editor, isEditor, children }: ITablaElementProps) => {
+const TablaElement = ({ attributes, element, editor, isEditor, children, cortePaddingTop }: ITablaElementProps) => {
     const wrapRef = useRef<HTMLDivElement>(null);
     const [medidas, setMedidas] = useState<IMedidas | null>(null);
 
@@ -198,7 +202,10 @@ const TablaElement = ({ attributes, element, editor, isEditor, children }: ITabl
     const anchoTotal = element.anchoColumnas.reduce((a, b) => a + b, 0);
 
     return (
-        <div {...attributes} className='group/tabla relative my-4'>
+        <div
+            {...attributes}
+            className='group/tabla relative my-4'
+            style={cortePaddingTop !== undefined ? { paddingTop: cortePaddingTop } : undefined}>
             <div ref={wrapRef} className='relative' style={{ width: anchoTotal }}>
                 <table className='border-collapse' style={{ tableLayout: 'fixed', width: '100%' }}>
                     <colgroup>

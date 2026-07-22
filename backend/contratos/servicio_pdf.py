@@ -175,11 +175,17 @@ def _generar_pdf_trabajador(
 
     # ── Rama v2.9: documento único Slate → WeasyPrint ────────────────────────
     if plantilla.version_editor == "v29":
-        from contratos.motor_v29 import generar_o_recongelar_documento_v29
+        from contratos.motor_v29 import (
+            generar_o_recongelar_documento_v29,
+            inyectar_marca_agua_borrador,
+        )
         from weasyprint import HTML as WeasyHTML  # deferred: no rompe path v2 si no instalado
 
         documento = generar_o_recongelar_documento_v29(adaptador)
-        pdf_bytes = WeasyHTML(string=documento.html_generado).write_pdf()
+        html_final = documento.html_generado
+        if forzar_borrador:
+            html_final = inyectar_marca_agua_borrador(html_final)
+        pdf_bytes = WeasyHTML(string=html_final).write_pdf()
         if persistir:
             nombre_archivo = f"contrato_trabajador_{contrato.id}.pdf"
             contrato.archivo_pdf.save(nombre_archivo, ContentFile(pdf_bytes), save=True)

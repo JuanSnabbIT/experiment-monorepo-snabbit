@@ -1,4 +1,5 @@
 import Icon from '@/components/icon/Icon';
+import type { TIcons } from '@/types/icons.type';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
@@ -76,14 +77,16 @@ const CONDICIONES_LABELS: Record<string, string> = {
 // reales del contrato (nunca texto congelado, ver motor_v29.py). `tipos`
 // indica en qué `tipo_contrato` de plantilla tiene sentido ofrecer cada uno
 // desde el menú Insertar (resumen comercial aplica a los tres).
-const BLOQUES_DINAMICOS: { subtipo: TSubtipoBloqueDinamico; label: string; icono: string; tipos: string[] }[] = [
-    { subtipo: 'servicios', label: 'Tabla de servicios contratados', icono: '🧾', tipos: ['servicios'] },
+// `icono` referencia el sistema de íconos real del proyecto (@/components/icon/Icon,
+// set Hero) — regla de UX/UI del proyecto: nunca emojis Unicode en la interfaz.
+const BLOQUES_DINAMICOS: { subtipo: TSubtipoBloqueDinamico; label: string; icono: TIcons; tipos: string[] }[] = [
+    { subtipo: 'servicios', label: 'Tabla de servicios contratados', icono: 'HeroClipboardDocumentList', tipos: ['servicios'] },
     // Venta NO usa items_comerciales — sus ítems vienen de las cotizaciones
     // aceptadas vinculadas al contrato (ver _bloque_dinamico_html en motor_v29.py).
-    { subtipo: 'cotizacion_venta', label: 'Ítems cotizados y cuotas', icono: '🛒', tipos: ['venta'] },
-    { subtipo: 'licencias', label: 'Tabla de licencias', icono: '🔑', tipos: ['licencia'] },
-    { subtipo: 'condiciones_especiales', label: 'Condiciones especiales', icono: '📋', tipos: ['servicios', 'venta', 'licencia'] },
-    { subtipo: 'resumen_comercial', label: 'Resumen comercial', icono: '💰', tipos: ['servicios', 'venta', 'licencia'] },
+    { subtipo: 'cotizacion_venta', label: 'Ítems cotizados y cuotas', icono: 'HeroShoppingCart', tipos: ['venta'] },
+    { subtipo: 'licencias', label: 'Tabla de licencias', icono: 'HeroKey', tipos: ['licencia'] },
+    { subtipo: 'condiciones_especiales', label: 'Condiciones especiales', icono: 'HeroDocumentText', tipos: ['servicios', 'venta', 'licencia'] },
+    { subtipo: 'resumen_comercial', label: 'Resumen comercial', icono: 'HeroBanknotes', tipos: ['servicios', 'venta', 'licencia'] },
 ];
 const BLOQUE_DINAMICO_LABEL: Record<TSubtipoBloqueDinamico, string> = {
     servicios: 'Servicios contratados',
@@ -91,6 +94,35 @@ const BLOQUE_DINAMICO_LABEL: Record<TSubtipoBloqueDinamico, string> = {
     licencias: 'Licencias',
     condiciones_especiales: 'Condiciones especiales',
     resumen_comercial: 'Resumen comercial',
+};
+
+// Esquema de columnas de cada bloque dinámico — mismos headers y mismo origen
+// de dato que `_bloque_dinamico_html` en motor_v29.py (backend). Se muestra en
+// modo Editor como una tabla con los campos que se van a resolver, en vez de
+// datos simulados: en una PLANTILLA (reutilizable en muchos contratos) mostrar
+// una fila con "Servicio de ejemplo" sugiere un dato real que nunca existió;
+// mostrar qué campo llena cada columna documenta el bloque sin inventar datos.
+const BLOQUE_DINAMICO_ESQUEMA: Record<TSubtipoBloqueDinamico, { headers: string[]; campos: string[] }> = {
+    servicios: {
+        headers: ['Servicio', 'Cantidad', 'Precio unitario', 'Total'],
+        campos: ['Nombre del servicio', 'Cantidad contratada', 'Precio unitario', 'Total'],
+    },
+    cotizacion_venta: {
+        headers: ['Ítem cotizado', 'Cantidad', 'Precio unitario', 'Total'],
+        campos: ['Nombre del ítem', 'Cantidad', 'Precio unitario', 'Total'],
+    },
+    licencias: {
+        headers: ['Licencia', 'Cantidad', 'Modalidad'],
+        campos: ['Nombre de la licencia', 'Cantidad', 'Modalidad'],
+    },
+    condiciones_especiales: {
+        headers: ['Condición', 'Detalle'],
+        campos: ['Título de la condición', 'Detalle de la condición'],
+    },
+    resumen_comercial: {
+        headers: ['Total del contrato'],
+        campos: ['Total del contrato'],
+    },
 };
 
 // Layouts de firma disponibles al insertar — reemplazan el <select> plano de
@@ -642,6 +674,26 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const el = props.element as any as TSlateNode & { type: string };
 
+                // Offset de paginación: si este nodo top-level es un punto de corte, un
+                // paddingTop lo empuja al inicio del área de contenido de la página
+                // siguiente. Es paddingTop y no marginTop a propósito: los márgenes
+                // verticales adyacentes colapsan al máximo en CSS (no se suman), así que
+                // un marginTop grande acá colapsaría con el marginBottom del bloque
+                // anterior y el offset real terminaba siendo más corto que el calculado
+                // — el texto de la página 2 en adelante quedaba invadiendo el encabezado.
+                // padding nunca colapsa con márgenes de otros nodos. Calculado ACÁ (antes
+                // de cualquier `if` de tipo) para que TODOS los nodos top-level lo reciban
+                // — antes solo llegaban a usarlo `heading`/`parrafo`, dejando que firma,
+                // tablas, listas y bloques dinámicos invadieran el pie/encabezado de la
+                // tarjeta de página cuando el corte caía justo en ellos.
+                let cortePaddingTop: number | undefined;
+                try {
+                    const path = ReactEditor.findPath(editor as ReactEditor, el as any);
+                    if (path.length === 1) {
+                        cortePaddingTop = cortes.find((c) => c.index === path[0])?.offsetPx;
+                    }
+                } catch { /* ok */ }
+
                 if (el.type === 'etiqueta') {
                     const etq = el as TNodoEtiqueta;
                     const label = formatEtiquetaLabel(etq.clave, etiquetasMap);
@@ -696,7 +748,14 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                     const cls = (el as { formato: string }).formato === 'ordenado'
                         ? 'list-decimal pl-6 mb-2'
                         : 'list-disc pl-6 mb-2';
-                    return <Tag {...props.attributes} className={cls}>{props.children}</Tag>;
+                    return (
+                        <Tag
+                            {...props.attributes}
+                            className={cls}
+                            style={cortePaddingTop !== undefined ? { paddingTop: cortePaddingTop } : undefined}>
+                            {props.children}
+                        </Tag>
+                    );
                 }
 
                 if ((el.type as string) === 'item-listado') {
@@ -709,7 +768,8 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                             attributes={props.attributes}
                             element={el as unknown as TNodoTabla}
                             editor={editor}
-                            isEditor>
+                            isEditor
+                            cortePaddingTop={cortePaddingTop}>
                             {props.children}
                         </TablaElement>
                     );
@@ -731,12 +791,18 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
 
                 if (el.type === 'bloque_transversal') {
                     const bt = el as TNodoBloqueTransversal;
+                    // El offset de paginación va en un wrapper SIN borde/fondo propio —
+                    // si se lo pone directo al div con `border`, el padding-top empuja el
+                    // contenido pero el borde queda anclado arriba y se ESTIRA para cubrir
+                    // el hueco hasta la página siguiente, en vez de moverse entero.
                     return (
                         <div
                             {...props.attributes}
                             contentEditable={false}
-                            className='my-2 rounded border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-400'>
-                            🔒 {bt.titulo}
+                            style={cortePaddingTop !== undefined ? { paddingTop: cortePaddingTop } : undefined}>
+                            <div className='my-2 rounded border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-400'>
+                                🔒 {bt.titulo}
+                            </div>
                             {props.children}
                         </div>
                     );
@@ -745,20 +811,57 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                 if (el.type === 'condicional') {
                     const cond = el as TNodoCondicional;
                     const label = CONDICIONES_LABELS[cond.condition] ?? cond.condition;
+                    // Mismo motivo que bloque_transversal: el borde-izquierdo/fondo va en
+                    // un div interior, no en el que lleva el padding-top del corte de página
+                    // (si no, el borde se estira en vez de moverse entero a la página siguiente).
                     return (
                         <div
                             {...props.attributes}
-                            className='group relative my-2 rounded-r border-l-4 border-orange-400 bg-orange-50/30 pl-3 pr-2 pt-1 pb-2'>
-                            <div
-                                contentEditable={false}
-                                className='mb-1 flex select-none items-center justify-between'>
-                                <span className='rounded bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-600'>
-                                    condicional: {label}
+                            style={cortePaddingTop !== undefined ? { paddingTop: cortePaddingTop } : undefined}>
+                            <div className='group relative my-2 rounded-r border-l-4 border-orange-400 bg-orange-50/30 pl-3 pr-2 pt-1 pb-2'>
+                                <div
+                                    contentEditable={false}
+                                    className='mb-1 flex select-none items-center justify-between'>
+                                    <span className='rounded bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-600'>
+                                        condicional: {label}
+                                    </span>
+                                    <button
+                                        type='button'
+                                        className='ml-2 hidden rounded px-1 text-[10px] text-zinc-400 hover:bg-red-100 hover:text-red-500 group-hover:flex'
+                                        onMouseDown={(e) => { e.preventDefault(); eliminarNodo(cond); }}>
+                                        ×
+                                    </button>
+                                </div>
+                                {props.children}
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (el.type === 'firma') {
+                    const firma = el as TNodoFirma;
+                    const firmantes = obtenerFirmantes(firma);
+                    // Mismo motivo que bloque_transversal/condicional: borde/fondo en un
+                    // div interior, padding-top del corte en el exterior sin estilo visual.
+                    return (
+                        <div
+                            {...props.attributes}
+                            contentEditable={false}
+                            style={cortePaddingTop !== undefined ? { paddingTop: cortePaddingTop } : undefined}>
+                            <div className='group relative my-4 flex justify-center gap-8 rounded border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3'>
+                                <span className='absolute -top-2.5 left-3 rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold text-zinc-500'>
+                                    Firma: {firmantes.map((f) => f.rol).join(' + ')}
                                 </span>
+                                {firmantes.map((f, i) => (
+                                    <div key={i} className='flex flex-col items-center gap-1'>
+                                        <div className='w-40 border-t border-zinc-400' />
+                                        <span className='text-[11px] text-zinc-600'>{f.rol}</span>
+                                    </div>
+                                ))}
                                 <button
                                     type='button'
-                                    className='ml-2 hidden rounded px-1 text-[10px] text-zinc-400 hover:bg-red-100 hover:text-red-500 group-hover:flex'
-                                    onMouseDown={(e) => { e.preventDefault(); eliminarNodo(cond); }}>
+                                    className='absolute right-1 top-1 hidden rounded px-1 text-[10px] text-zinc-400 hover:bg-red-100 hover:text-red-500 group-hover:flex'
+                                    onMouseDown={(e) => { e.preventDefault(); eliminarNodo(firma); }}>
                                     ×
                                 </button>
                             </div>
@@ -767,93 +870,79 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                     );
                 }
 
-                if (el.type === 'firma') {
-                    const firma = el as TNodoFirma;
-                    const firmantes = obtenerFirmantes(firma);
-                    return (
-                        <div
-                            {...props.attributes}
-                            contentEditable={false}
-                            className='group relative my-4 flex justify-center gap-8 rounded border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3'>
-                            <span className='absolute -top-2.5 left-3 rounded bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold text-zinc-500'>
-                                Firma: {firmantes.map((f) => f.rol).join(' + ')}
-                            </span>
-                            {firmantes.map((f, i) => (
-                                <div key={i} className='flex flex-col items-center gap-1'>
-                                    <div className='w-40 border-t border-zinc-400' />
-                                    <span className='text-[11px] text-zinc-600'>{f.rol}</span>
-                                </div>
-                            ))}
-                            <button
-                                type='button'
-                                className='absolute right-1 top-1 hidden rounded px-1 text-[10px] text-zinc-400 hover:bg-red-100 hover:text-red-500 group-hover:flex'
-                                onMouseDown={(e) => { e.preventDefault(); eliminarNodo(firma); }}>
-                                ×
-                            </button>
-                            {props.children}
-                        </div>
-                    );
-                }
-
                 if (el.type === 'bloque_dinamico') {
                     const bloque = el as TNodoBloqueDinamico;
                     const meta = BLOQUES_DINAMICOS.find((b) => b.subtipo === bloque.subtipo);
+                    const esquema = BLOQUE_DINAMICO_ESQUEMA[bloque.subtipo];
+                    // Mismo motivo que bloque_transversal/condicional/firma: borde/fondo en
+                    // un div interior, padding-top del corte en el exterior sin estilo visual
+                    // — si no, el borde punteado se estira cruzando el hueco entre páginas en
+                    // vez de moverse entero al inicio de la siguiente.
                     return (
                         <div
                             {...props.attributes}
                             contentEditable={false}
-                            className='group relative my-3 rounded border border-dashed border-blue-300 bg-blue-50/40 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/20'>
-                            <div className='flex items-center justify-between gap-2'>
-                                <span className='text-[12px] font-semibold text-blue-700 dark:text-blue-400'>
-                                    {meta?.icono} {BLOQUE_DINAMICO_LABEL[bloque.subtipo]}
-                                </span>
-                                <div className='hidden items-center gap-1 group-hover:flex'>
-                                    <button
-                                        type='button'
-                                        title='Mover arriba'
-                                        className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700'
-                                        onMouseDown={(e) => { e.preventDefault(); moverBloqueDinamico(bloque, -1); }}>
-                                        ▲
-                                    </button>
-                                    <button
-                                        type='button'
-                                        title='Mover abajo'
-                                        className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700'
-                                        onMouseDown={(e) => { e.preventDefault(); moverBloqueDinamico(bloque, 1); }}>
-                                        ▼
-                                    </button>
-                                    <button
-                                        type='button'
-                                        title='Quitar bloque'
-                                        className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900'
-                                        onMouseDown={(e) => { e.preventDefault(); void eliminarBloqueDinamicoConfirmado(bloque, bloque.subtipo); }}>
-                                        ×
-                                    </button>
+                            style={cortePaddingTop !== undefined ? { paddingTop: cortePaddingTop } : undefined}>
+                            <div className='group relative my-3 rounded border border-dashed border-blue-300 bg-blue-50/40 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/20'>
+                                <div className='flex items-center justify-between gap-2'>
+                                    <span className='flex items-center gap-1.5 text-[12px] font-semibold text-blue-700 dark:text-blue-400'>
+                                        {meta?.icono && <Icon icon={meta.icono} className='h-3.5 w-3.5' />}
+                                        {BLOQUE_DINAMICO_LABEL[bloque.subtipo]}
+                                    </span>
+                                    <div className='hidden items-center gap-1 group-hover:flex'>
+                                        <button
+                                            type='button'
+                                            title='Mover arriba'
+                                            className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700'
+                                            onMouseDown={(e) => { e.preventDefault(); moverBloqueDinamico(bloque, -1); }}>
+                                            ▲
+                                        </button>
+                                        <button
+                                            type='button'
+                                            title='Mover abajo'
+                                            className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-zinc-700'
+                                            onMouseDown={(e) => { e.preventDefault(); moverBloqueDinamico(bloque, 1); }}>
+                                            ▼
+                                        </button>
+                                        <button
+                                            type='button'
+                                            title='Quitar bloque'
+                                            className='rounded px-1.5 text-[11px] text-zinc-400 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900'
+                                            onMouseDown={(e) => { e.preventDefault(); void eliminarBloqueDinamicoConfirmado(bloque, bloque.subtipo); }}>
+                                            ×
+                                        </button>
+                                    </div>
                                 </div>
+                                <table className='mt-2 w-full border-collapse text-[10px]'>
+                                    <thead>
+                                        <tr>
+                                            {esquema.headers.map((h) => (
+                                                <th key={h} className='border border-zinc-400 bg-zinc-100 px-2 py-1 text-left font-semibold text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'>
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            {esquema.campos.map((campo) => (
+                                                <td key={campo} className='border border-zinc-400 px-2 py-1 dark:border-zinc-600'>
+                                                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${CHIP_CLASS_DEFAULT}`}>
+                                                        {campo}
+                                                    </span>
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p className='mt-1 text-[10px] italic text-zinc-500 dark:text-zinc-400'>
+                                    Se completa automáticamente con los datos del contrato al generar el documento.
+                                </p>
                             </div>
-                            <p className='mt-1 text-[11px] italic text-zinc-500 dark:text-zinc-400'>
-                                Se completa automáticamente con los datos del contrato al generar el documento.
-                            </p>
                             {props.children}
                         </div>
                     );
                 }
-
-                // Offset de paginación: si este nodo top-level es un punto de corte, un
-                // paddingTop lo empuja al inicio del área de contenido de la página
-                // siguiente. Es paddingTop y no marginTop a propósito: los márgenes
-                // verticales adyacentes colapsan al máximo en CSS (no se suman), así que
-                // un marginTop grande acá colapsaría con el marginBottom del bloque
-                // anterior y el offset real terminaba siendo más corto que el calculado
-                // — el texto de la página 2 en adelante quedaba invadiendo el encabezado.
-                // padding nunca colapsa con márgenes de otros nodos.
-                let cortePaddingTop: number | undefined;
-                try {
-                    const path = ReactEditor.findPath(editor as ReactEditor, el as any);
-                    if (path.length === 1) {
-                        cortePaddingTop = cortes.find((c) => c.index === path[0])?.offsetPx;
-                    }
-                } catch { /* ok */ }
 
                 if (el.type === 'heading') {
                     const h = el as TNodoHeading;
@@ -1269,7 +1358,14 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                             dentro del área del documento (o si el contenedor externo llega a
                             desbordar la altura del viewport). */}
                         {viewMode === 'editor' && (
-                            <div className='sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-0.5 border-b border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900'>
+                            // z-50 (no z-10): esta barra "sticky" crea su propio contexto de
+                            // apilamiento — un z-index puesto en un hijo (el dropdown "Insertar",
+                            // z-50 más abajo) nunca compite fuera de ese contexto. El backdrop
+                            // "click fuera cierra el dropdown" (más abajo, fixed z-40) vive FUERA
+                            // de esta barra, así que con z-10 acá el backdrop terminaba ganando y
+                            // tapando el menú — el click en cualquier opción de "Insertar" cerraba
+                            // el dropdown antes de llegar al botón real. z-50 iguala al del hijo.
+                            <div className='sticky top-0 z-50 flex shrink-0 flex-wrap items-center gap-0.5 border-b border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900'>
                                 {/* Tamaño de página: único formato soportado (Carta) — sin selector */}
                                 <span
                                     title='Tamaño de página'
@@ -1543,7 +1639,7 @@ const EditorDocumentoV29 = forwardRef<IEditorDocumentoV29Handle, IEditorDocument
                                                         insertarBloqueDinamico(editor, b.subtipo);
                                                         ReactEditor.focus(editor);
                                                     }}>
-                                                    <span className='w-3 text-center'>{b.icono}</span>
+                                                    <Icon icon={b.icono} className='h-3.5 w-3.5 shrink-0' />
                                                     {b.label}
                                                 </button>
                                             ))}

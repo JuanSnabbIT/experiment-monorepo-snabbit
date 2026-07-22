@@ -8,9 +8,15 @@ from contratos.models import (
     ContratoItemComercial,
     ContratoLicencia,
     Licencia,
+    PlanServicio,
     Servicio,
 )
-from contratos.motor_v29 import _bloque_dinamico_html, _envolver_en_html, _nodo_a_html
+from contratos.motor_v29 import (
+    _bloque_dinamico_ejemplo_html,
+    _bloque_dinamico_html,
+    _envolver_en_html,
+    _nodo_a_html,
+)
 from empresas.models import Empresa
 
 
@@ -140,6 +146,62 @@ class BloqueDinamicoTest(TestCase):
         self.assertIn("USD 300.00", html)
         self.assertIn('data-bloque="dinamico"', html)
 
+    def test_servicios_item_plan_muestra_componentes_incluidos(self):
+        plan = PlanServicio.objects.create(nombre="Plan Full", precio=500, tipo_moneda="USD")
+        ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="plan",
+            plan_version=plan,
+            snapshot_nombre="Plan Full Mensual",
+            snapshot_componentes_plan=[
+                {"nombre": "Soporte remoto"},
+                {"nombre": "Mantenimiento preventivo"},
+            ],
+            cantidad=1,
+            forma_pago="mensual",
+            moneda="USD",
+            precio_unitario_contratado=500,
+            total_mensual=500,
+        )
+        html = _bloque_dinamico_html("servicios", self.contrato)
+        self.assertIn("<ul", html)
+        self.assertIn("Soporte remoto", html)
+        self.assertIn("Mantenimiento preventivo", html)
+
+    def test_servicios_item_servicio_no_muestra_lista_de_componentes(self):
+        servicio = Servicio.objects.create(nombre="Soporte Tecnico")
+        ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="servicio",
+            servicio_version=servicio,
+            snapshot_nombre="Soporte Tecnico Mensual",
+            cantidad=2,
+            forma_pago="mensual",
+            moneda="USD",
+            precio_unitario_contratado=150,
+            total_mensual=300,
+        )
+        html = _bloque_dinamico_html("servicios", self.contrato)
+        self.assertNotIn("<ul", html)
+
+    def test_servicios_item_plan_sin_snapshot_no_rompe(self):
+        plan = PlanServicio.objects.create(nombre="Plan Basico", precio=200, tipo_moneda="USD")
+        ContratoItemComercial.objects.create(
+            contrato=self.contrato,
+            tipo_origen="plan",
+            plan_version=plan,
+            snapshot_nombre="Plan Basico Mensual",
+            snapshot_componentes_plan=[],
+            cantidad=1,
+            forma_pago="mensual",
+            moneda="USD",
+            precio_unitario_contratado=200,
+            total_mensual=200,
+        )
+        html = _bloque_dinamico_html("servicios", self.contrato)
+        self.assertIn("Plan Basico Mensual", html)
+        self.assertNotIn("<ul", html)
+
     def test_licencias_con_dato_real(self):
         licencia_catalogo = Licencia.objects.create(nombre="Microsoft 365", proveedor="Microsoft")
         ContratoLicencia.objects.create(
@@ -210,3 +272,39 @@ class BloqueDinamicoTest(TestCase):
         html_venta = _bloque_dinamico_html("cotizacion_venta", contrato_venta)
         self.assertIn("Notebook Dell Latitude", html_venta)
         self.assertIn("CLP 1,500,000.00", html_venta)
+
+
+class BloqueDinamicoEjemploTest(SimpleTestCase):
+    """Vista previa del editor de PLANTILLAS (sin contrato real, `pk is None`)
+    debe mostrar datos de ejemplo marcados como tales — nunca "Sin datos
+    registrados." (eso confundía al usuario armando una plantilla nueva,
+    dando la impresión de que el bloque estaba roto).
+    """
+
+    class _ContratoSinGuardar:
+        """Stub minimal equivalente al que arma `construir_adaptador_preview`:
+        una instancia sin `pk` (nunca persistida)."""
+
+        pk = None
+
+    def test_pk_none_devuelve_html_de_ejemplo_no_sin_datos(self):
+        contrato_stub = self._ContratoSinGuardar()
+        for subtipo in (
+            "servicios",
+            "cotizacion_venta",
+            "licencias",
+            "condiciones_especiales",
+            "resumen_comercial",
+        ):
+            with self.subTest(subtipo=subtipo):
+                html = _bloque_dinamico_html(subtipo, contrato_stub)
+                self.assertIn("ejemplo", html.lower())
+                self.assertNotIn("Sin datos registrados", html)
+
+    def test_ejemplo_subtipo_desconocido_no_rompe(self):
+        html = _bloque_dinamico_ejemplo_html("subtipo_inexistente")
+        self.assertIn("Vista previa de ejemplo", html)
+
+    def test_ejemplo_resumen_comercial_marca_total_como_ejemplo(self):
+        html = _bloque_dinamico_ejemplo_html("resumen_comercial")
+        self.assertIn("(ejemplo)", html)
