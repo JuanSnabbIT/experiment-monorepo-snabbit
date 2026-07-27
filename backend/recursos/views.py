@@ -4,6 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from core.permissions import requiere_roles
 
 from .models import *
 from .serializers import *
@@ -12,6 +13,7 @@ from .serializers import *
 class EquipoViewSet(viewsets.ModelViewSet):
     queryset = Equipo.objects.all()
     serializer_class = EquipoSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def get_queryset(self):
         empresa_id = self.kwargs.get('empresa_pk')  # Obtener empresa_id desde la URL
@@ -94,15 +96,17 @@ class EquipoViewSet(viewsets.ModelViewSet):
 class SoftwareInstaladoViewSet(viewsets.ModelViewSet):
     queryset = SoftwareInstalado.objects.all()
     serializer_class = SoftwareInstaladoSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
 class MonitorEquipoViewSet(viewsets.ModelViewSet):
     queryset = MonitorEquipo.objects.all()
     serializer_class = MonitorEquipoSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
 class UsuarioEquipoViewSet(viewsets.ModelViewSet):
     queryset = UsuarioEquipo.objects.all()
     serializer_class = UsuarioEquipoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def _empresa_autenticada(self):
         from core.models import PersonalizacionUsuario
@@ -400,14 +404,17 @@ class UsuarioEquipoViewSet(viewsets.ModelViewSet):
 class AlmacenamientoEquipoViewSet(viewsets.ModelViewSet):
     queryset = AlmacenamientoEquipo.objects.all()
     serializer_class = AlmacenamientoEquipoSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
 class FotoEquipoViewSet(viewsets.ModelViewSet):
     queryset = FotoEquipo.objects.all()
     serializer_class = FotoEquipoSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
 class SoftwareDeEmpresaViewSet(viewsets.ModelViewSet):
     queryset = SoftwareDeEmpresa.objects.all()
     serializer_class = SoftwareDeEmpresaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     @action(detail=False, methods=['get'], url_path="empresa/(?P<empresa_id>[^/.]+)")
     def software_segun_empresa(self, request, empresa_id=None):

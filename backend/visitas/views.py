@@ -1,6 +1,8 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from core.models import PersonalizacionUsuario
+from core.permissions import requiere_roles
 from .models import AsistenciaUsuario, EntregaDeEquipo, VisitaSoporte
 from .serializers import AsistenciaUsuarioSerializer, EntregaDeEquipoSerializer, VisitaSoporteSerializer
 from rest_framework import viewsets, status
@@ -10,6 +12,7 @@ from rest_framework.decorators import action
 class AsistenciaUsuarioViewSet(viewsets.ModelViewSet):
     queryset = AsistenciaUsuario.objects.all()
     serializer_class = AsistenciaUsuarioSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico")]
 
     def get_queryset(self):
         return super().get_queryset().filter(visita_id=self.kwargs.get('visita_soporte_pk'))
@@ -41,6 +44,7 @@ class AsistenciaUsuarioViewSet(viewsets.ModelViewSet):
 class VisitaSoporteViewSet(viewsets.ModelViewSet):
     queryset = VisitaSoporte.objects.all()
     serializer_class = VisitaSoporteSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico")]
 
     def get_queryset(self):
         user = self.request.user
@@ -87,6 +91,7 @@ class VisitaSoporteViewSet(viewsets.ModelViewSet):
 class EntregaDeEquipoViewSet(viewsets.ModelViewSet):
     queryset = EntregaDeEquipo.objects.all()
     serializer_class = EntregaDeEquipoSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico")]
 
     def get_queryset(self):
         return super().get_queryset().filter(visita_id=self.kwargs.get('visita_soporte_pk'))

@@ -1,7 +1,18 @@
 from djoser.serializers import UserSerializer as BaseUserSerializer
 from rest_framework import serializers
 from djoser.serializers import UserCreateSerializer as BaseUserCreateSerializer
+
+from core.models import DescripcionGrupo
+
 from .models import *
+
+
+class DescripcionGrupoSerializer(serializers.ModelSerializer):
+    nombre = serializers.CharField(source="group.name", read_only=True)
+
+    class Meta:
+        model = DescripcionGrupo
+        fields = ("nombre", "descripcion")
 
 class UserCreateSerializer(BaseUserCreateSerializer):
     class Meta(BaseUserCreateSerializer.Meta):

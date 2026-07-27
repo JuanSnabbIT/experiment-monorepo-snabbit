@@ -11,9 +11,10 @@ import { toast } from 'react-toastify';
 
 interface IProps {
     orden: IOrdenDeTrabajoV3;
+    puedeEditar: boolean;
 }
 
-const PanelRetroalimentacion = ({ orden }: IProps) => {
+const PanelRetroalimentacion = ({ orden, puedeEditar }: IProps) => {
     const [solicitarRetro, { isLoading: isLoadingReenviar }] = useSolicitarRetroalimentacionV3Mutation();
     const [cambiarEstado, { isLoading: isLoadingOmitir }] = useCambiarEstadoV3Mutation();
 
@@ -94,23 +95,25 @@ const PanelRetroalimentacion = ({ orden }: IProps) => {
                     </div>
                 )}
 
-                <div className='flex justify-end gap-3'>
-                    {solicitante && (
+                {puedeEditar && (
+                    <div className='flex justify-end gap-3'>
+                        {solicitante && (
+                            <Button
+                                icon='HeroArrowPath'
+                                isLoading={isLoadingReenviar}
+                                onClick={handleReenviar}>
+                                Reenviar correo
+                            </Button>
+                        )}
                         <Button
-                            icon='HeroArrowPath'
-                            isLoading={isLoadingReenviar}
-                            onClick={handleReenviar}>
-                            Reenviar correo
+                            color='amber'
+                            icon='HeroArrowRightOnRectangle'
+                            isLoading={isLoadingOmitir}
+                            onClick={handleOmitirRetroalimentacion}>
+                            Avanzar sin evaluación
                         </Button>
-                    )}
-                    <Button
-                        color='amber'
-                        icon='HeroArrowRightOnRectangle'
-                        isLoading={isLoadingOmitir}
-                        onClick={handleOmitirRetroalimentacion}>
-                        Avanzar sin evaluación
-                    </Button>
-                </div>
+                    </div>
+                )}
             </CardBody>
         </Card>
     );

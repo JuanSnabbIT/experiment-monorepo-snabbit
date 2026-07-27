@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -124,6 +125,9 @@ class UsuarioEquipoDetalleFlowAPITest(APITestCase):
         self.url_listado = (
             f"/api/usuarios-equipo/por-usuario-empresa/{self.usuario_empresa_cliente.id}/"
         )
+        grupo_rrhh, _ = Group.objects.get_or_create(name="rrhh")
+        self.usuario_empresa_prestadora.grupos.add(grupo_rrhh)
+        self.usuario_empresa_externo.grupos.add(grupo_rrhh)
         self.client.force_authenticate(user=self.user_prestadora)
 
     def _crear_traza(self, bodega):
@@ -270,3 +274,28 @@ class UsuarioEquipoDetalleFlowAPITest(APITestCase):
         self.assertEqual(response.data[0]["tarea_otv3"]["id"], tarea.id)
         self.assertEqual(response.data[0]["tarea_otv3"]["titulo"], tarea.titulo)
         self.assertEqual(response.data[0]["tarea_otv3"]["orden_id"], orden.id)
+
+
+class EquipoViewSetPermisosTest(APITestCase):
+    def setUp(self):
+        from core.factories import crear_usuario_en_rol
+
+        self.empresa = Empresa.objects.create(nombre="Empresa Permisos Recursos", direccion_principal="Dir")
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Casa Matriz", empresa=self.empresa)
+        self._crear_usuario_en_rol = crear_usuario_en_rol
+
+    def test_usuario_sin_rol_permitido_recibe_403(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "ventas", sufijo="recursos-sin-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/equipos/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_con_rol_rrhh_puede_listar(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "rrhh", sufijo="recursos-con-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/equipos/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

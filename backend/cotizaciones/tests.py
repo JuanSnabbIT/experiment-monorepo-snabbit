@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, timedelta
 
+from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -53,6 +54,8 @@ class CrearCopiaRechazadaTestCase(TestCase):
             usuario=self.user,
             sucursal=self.sucursal,
         )
+        grupo_ventas, _ = Group.objects.get_or_create(name="ventas")
+        self.usuario_empresa.grupos.add(grupo_ventas)
 
         # Crear cotización rechazada
         self.cotizacion_rechazada = Cotizacion.objects.create(
@@ -216,10 +219,12 @@ class MonedaItemCotizacionTestCase(TestCase):
             usuario=self.user,
             defaults={"sucursal_principal": self.sucursal},
         )
-        UsuarioEmpresa.objects.create(
+        usuario_empresa = UsuarioEmpresa.objects.create(
             usuario=self.user,
             sucursal=self.sucursal,
         )
+        grupo_ventas, _ = Group.objects.get_or_create(name="ventas")
+        usuario_empresa.grupos.add(grupo_ventas)
         self.client.force_authenticate(user=self.user)
 
     def test_crear_item_rechaza_moneda_uf_sin_tasas(self):
@@ -484,3 +489,39 @@ class FlujoCotizacionPublicaTestCase(TestCase):
         token_falso = uuid.uuid4()
         response = self.client.post(f"/api/public/cotizacion/{token_falso}/rechazar/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class CotizacionPermisosTest(TestCase):
+    def setUp(self):
+        from core.factories import crear_usuario_en_rol
+
+        self.empresa = Empresa.objects.create(nombre="Empresa Permisos Cot")
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Casa Matriz", empresa=self.empresa)
+        self.client = APIClient()
+        self._crear_usuario_en_rol = crear_usuario_en_rol
+
+    def test_usuario_sin_rol_permitido_recibe_403(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "bodega", sufijo="cot-sin-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/cotizaciones/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_con_rol_ventas_puede_listar(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "ventas", sufijo="cot-con-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/cotizaciones/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_usuario_tecnico_puede_listar_pero_no_crear(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "tecnico", sufijo="cot-tecnico")
+        self.client.force_authenticate(user=user)
+
+        response_list = self.client.get("/api/cotizaciones/")
+        self.assertEqual(response_list.status_code, status.HTTP_200_OK)
+
+        response_create = self.client.post("/api/cotizaciones/", {}, format="json")
+        self.assertEqual(response_create.status_code, status.HTTP_403_FORBIDDEN)

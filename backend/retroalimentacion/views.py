@@ -1,7 +1,8 @@
 from rest_framework import generics, viewsets, status
 from .models import Retroalimentacion, LogDeAccesoRetroalimentacion, RetroalimentacionAplicada
 from .serializers import RetroalimentacionAplicadaSerializer, RetroalimentacionPublicaSerializer, RetroalimentacionSerializer
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from core.permissions import requiere_roles
 from rest_framework.views import APIView
 from django.db.models import F
 from rest_framework.decorators import action
@@ -171,6 +172,7 @@ class RetroalimentacionAplicadaViewSet(viewsets.GenericViewSet):
 class RetroalimentacionViewSet(viewsets.ModelViewSet):
     queryset = Retroalimentacion.objects.all()
     serializer_class = RetroalimentacionSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "rrhh", "staff")]
 
 
 class RetroalimentacionResponderPorTokenView(APIView):

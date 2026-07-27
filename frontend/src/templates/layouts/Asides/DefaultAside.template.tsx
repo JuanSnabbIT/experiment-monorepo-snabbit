@@ -79,7 +79,6 @@ const DefaultAsideTemplate = () => {
                                     icon={Pages.empresa.subPages.listaUsuariosEmpresa.icon}
                                     id={Pages.empresa.subPages.listaUsuariosEmpresa.id}></NavItem>
                             </AuthorityCheckNav>
-
                             <AuthorityCheckNav
                                 authority={Pages.empresa.subPages.detalleCliente.authority}
                                 userAuthority={listaGrupos?.grupos}>

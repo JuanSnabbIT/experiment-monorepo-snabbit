@@ -11,5 +11,6 @@ router.register(r'invitaciones-empresa', InvitacionEmpresaViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('get_grupos_user/', get_grupos_user, name='get_info_user'),
+    path('roles-disponibles/', roles_disponibles, name='roles_disponibles'),
     path('activar-cuenta/<uuid:token>/', activate_account, name='activate_account'),
 ]

@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from django.contrib.auth.models import Group
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -47,6 +48,8 @@ class PrefacturaOTV3ApiTest(APITestCase):
             usuario=self.user,
             sucursal=self.sucursal,
         )
+        grupo_finanzas, _ = Group.objects.get_or_create(name="finanzas")
+        self.usuario_empresa.grupos.add(grupo_finanzas)
         pers = PersonalizacionUsuario.objects.filter(usuario=self.user).first()
         if pers:
             pers.sucursal_principal = self.sucursal

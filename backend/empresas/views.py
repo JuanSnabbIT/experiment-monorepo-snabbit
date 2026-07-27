@@ -8,7 +8,9 @@ from recursos.models import Equipo
 from recursos.serializers import EquipoSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from core.permissions import requiere_roles
 from rrhh.mixins import TrabajadoresClienteMixin
 from vacaciones.models import SolicitudVacaciones
 
@@ -20,6 +22,29 @@ from .serializers import *
 class EmpresaViewSet(TrabajadoresClienteMixin, viewsets.ModelViewSet):
     queryset = Empresa.objects.all()
     serializer_class = EmpresaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "multi-empresas")]
+
+    # Acciones de solo lectura usadas transversalmente por cualquier rol para
+    # navegar su propio contexto (selector de empresa/cliente, sucursales,
+    # equipos, usuarios) — no son administracion de la entidad Empresa, asi
+    # que no llevan el gate de rol restringido de la clase.
+    ACTIONS_CONTEXTO_ABIERTO = (
+        "select_empresas",
+        "mis_clientes",
+        "mis_prospectos",
+        "sucursales",
+        "equipos",
+        "usuarios",
+        "usuarios_de_clientes",
+        "trabajadores",
+        "equipos_de_mis_clientes",
+        "equipos_asignados",
+    )
+
+    def get_permissions(self):
+        if self.action in self.ACTIONS_CONTEXTO_ABIERTO:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     @action(detail=False, methods=["get"], url_path="select-empresas")
     def select_empresas(self, request):
@@ -209,6 +234,7 @@ class EmpresaViewSet(TrabajadoresClienteMixin, viewsets.ModelViewSet):
 class SucursalEmpresaViewSet(viewsets.ModelViewSet):
     queryset = SucursalEmpresa.objects.all()
     serializer_class = SucursalEmpresaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff")]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -229,6 +255,7 @@ class SucursalEmpresaViewSet(viewsets.ModelViewSet):
 class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
     queryset = UsuarioEmpresa.objects.all()
     serializer_class = UsuarioEmpresaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def get_queryset(self):
         usuario = self.request.user
@@ -541,6 +568,14 @@ class UsuarioEmpresaViewSet(viewsets.ModelViewSet):
 class RelacionEmpresaViewSet(viewsets.ModelViewSet):
     queryset = RelacionEmpresa.objects.all()
     serializer_class = RelacionEmpresaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
+
+    def get_permissions(self):
+        # finanzas necesita ver el detalle del cliente (via DetalleCliente.tsx) para
+        # facturar, no administrar la relacion prestador-cliente.
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated(), requiere_roles("superadmin", "staff", "rrhh", "finanzas")()]
+        return super().get_permissions()
 
     @action(detail=True, methods=["post"], url_path="promover-a-cliente")
     def promover_a_cliente(self, request, pk=None):

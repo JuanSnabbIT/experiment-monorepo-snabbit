@@ -13,7 +13,9 @@ from celery.exceptions import CeleryError
 from kombu.exceptions import OperationalError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from core.permissions import requiere_roles
 
 from bodegas.models import ItemEnOrdenCompra, ItemOrdenCompraEnStock, MovimientoStock, OrdenCompra
 from bodegas.serializers import OrdenCompraSerializer
@@ -74,6 +76,19 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         copias_count=Count("copias")
     )
     serializer_class = CotizacionSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "ventas")]
+
+    def get_permissions(self):
+        # Crear ordenes de compra desde una cotizacion tambien lo puede hacer 'comprador'.
+        if self.action in ("crear_orden_compra", "crear_ordenes_compra_multiples"):
+            return [IsAuthenticated(), requiere_roles("superadmin", "staff", "ventas", "comprador")()]
+        # Widget de resumen del dashboard, visible a cualquier usuario autenticado.
+        if self.action == "metricas_dashboard":
+            return [IsAuthenticated()]
+        # tecnico necesita ver la cotizacion asociada a su OT, no gestionarla.
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated(), requiere_roles("superadmin", "staff", "ventas", "tecnico")()]
+        return super().get_permissions()
 
     def perform_create(self, serializer):
         """Interceptar la creación para agregar seguimiento"""
@@ -1263,6 +1278,7 @@ class CotizacionViewSet(viewsets.ModelViewSet):
 class ItemCotizacionViewSet(viewsets.ModelViewSet):
     serializer_class = ItemCotizacionSerializer
     queryset = ItemCotizacion.objects.all()
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "ventas")]
 
     def get_queryset(self):
         cotizacion_id = self.kwargs.get(
@@ -1328,6 +1344,7 @@ class ItemCotizacionViewSet(viewsets.ModelViewSet):
 class SeguimientoCotizacionViewSet(viewsets.ModelViewSet):
     serializer_class = SeguimientoCotizacionSerializer
     queryset = SeguimientoCotizacion.objects.all()
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "ventas")]
 
     def get_queryset(self):
         cotizacion_id = self.kwargs.get(
@@ -1343,6 +1360,7 @@ class SeguimientoCotizacionViewSet(viewsets.ModelViewSet):
 class SolicitanteCotizacionViewSet(viewsets.ModelViewSet):
     serializer_class = SolicitanteCotizacionSerializer
     queryset = SolicitanteCotizacion.objects.all()
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "ventas")]
 
     def get_queryset(self):
         queryset = SolicitanteCotizacion.objects.all()
@@ -1380,3 +1398,4 @@ class SolicitanteCotizacionViewSet(viewsets.ModelViewSet):
 class SolicitanteExternoViewSet(viewsets.ModelViewSet):
     serializer_class = SolicitanteExternoSerializer
     queryset = SolicitanteExterno.objects.all()
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "ventas")]

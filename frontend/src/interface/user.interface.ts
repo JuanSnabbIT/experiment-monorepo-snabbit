@@ -26,6 +26,9 @@ export interface IUserMe {
 }
 
 export interface IGruposUsuarios {
+    // TRol (roles.interface.ts) es el catalogo de roles validos, pero
+    // pages.config.ts (fuente real de los arrays `authority`) todavia no esta
+    // tipado con TRol, asi que forzar TRol[] aqui rompe esa cascada.
     grupos: string[];
 }
 

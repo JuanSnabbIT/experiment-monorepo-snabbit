@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import requiere_roles
 from .filters import *
 from .models import *
 from .serializers import *
@@ -266,7 +267,9 @@ class ActividadRecienteViewSet(viewsets.ViewSet):
 class SoftwareViewSet(viewsets.ModelViewSet):
     queryset = Software.objects.all()
     serializer_class = SoftwareSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff")]
 
 class AcuerdoConfidencialidadBaseViewSet(viewsets.ModelViewSet):
     queryset = AcuerdoConfidencialidadBase.objects.all()
     serializer_class = AcuerdoConfidencialidadBaseSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff")]

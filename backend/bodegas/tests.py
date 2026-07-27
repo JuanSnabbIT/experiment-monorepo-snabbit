@@ -1,5 +1,6 @@
 import json
 
+from django.contrib.auth.models import Group
 from django.test import TestCase, TransactionTestCase
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -46,6 +47,8 @@ class EliminarGuiaSalidaTestBase(TransactionTestCase):
         self.usuario_empresa = UsuarioEmpresa.objects.create(
             usuario=self.user, sucursal=self.sucursal
         )
+        grupo_bodega, _ = Group.objects.get_or_create(name="bodega")
+        self.usuario_empresa.grupos.add(grupo_bodega)
         pers = PersonalizacionUsuario.objects.filter(usuario=self.user).first()
         if pers:
             pers.sucursal_principal = self.sucursal
@@ -248,12 +251,13 @@ class EliminarGuiaEstadoNoPermitidoTest(EliminarGuiaSalidaTestBase):
     """Caso 4: Intento de eliminar guia en estado no permitido (via API)."""
 
     def test_destroy_api_rechaza_estado_er(self):
-        self.client.force_login(self.user)
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.user)
         guia = self._crear_guia(estado="ER")
         self._agregar_item_no_serializado(guia, cantidad=2)
         cantidad_antes_delete = self.stock.cantidad
 
-        response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
+        response = api_client.delete(f"/api/guia-salida/{guia.pk}/")
         self.assertEqual(response.status_code, 400)
         self.assertIn("No se puede eliminar", response.json()["detail"])
 
@@ -264,18 +268,20 @@ class EliminarGuiaEstadoNoPermitidoTest(EliminarGuiaSalidaTestBase):
         self.assertTrue(GuiaSalida.objects.filter(pk=guia.pk).exists())
 
     def test_destroy_api_rechaza_estado_et(self):
-        self.client.force_login(self.user)
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.user)
         guia = self._crear_guia(estado="ET")
 
-        response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
+        response = api_client.delete(f"/api/guia-salida/{guia.pk}/")
         self.assertEqual(response.status_code, 400)
         self.assertTrue(GuiaSalida.objects.filter(pk=guia.pk).exists())
 
     def test_destroy_api_permite_estado_pendiente(self):
-        self.client.force_login(self.user)
+        api_client = APIClient()
+        api_client.force_authenticate(user=self.user)
         guia = self._crear_guia(estado="P")
 
-        response = self.client.delete(f"/api/guia-salida/{guia.pk}/")
+        response = api_client.delete(f"/api/guia-salida/{guia.pk}/")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(GuiaSalida.objects.filter(pk=guia.pk).exists())
 
@@ -597,6 +603,8 @@ class GuiaSerializacionUnitariaTest(TransactionTestCase):
         self.usuario = UsuarioEmpresa.objects.create(
             usuario=self.user, sucursal=self.sucursal
         )
+        grupo_bodega, _ = Group.objects.get_or_create(name="bodega")
+        self.usuario.grupos.add(grupo_bodega)
         personalizacion = PersonalizacionUsuario.objects.filter(usuario=self.user).first()
         if personalizacion:
             personalizacion.sucursal_principal = self.sucursal
@@ -804,3 +812,39 @@ class GuiaCotizacionOrigenTest(TransactionTestCase):
             ).count(),
             2,
         )
+
+
+class BodegaViewSetPermisosTest(TestCase):
+    def setUp(self):
+        from core.factories import crear_usuario_en_rol
+
+        self.empresa = Empresa.objects.create(nombre="Empresa Permisos Bodega", direccion_principal="Dir")
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Casa Matriz", empresa=self.empresa)
+        self._crear_usuario_en_rol = crear_usuario_en_rol
+        self.api_client = APIClient()
+
+    def test_usuario_sin_rol_permitido_recibe_403(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "ventas", sufijo="bod-sin-rol")
+        self.api_client.force_authenticate(user=user)
+
+        response = self.api_client.get("/api/bodegas/")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_usuario_con_rol_bodega_puede_listar(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "bodega", sufijo="bod-con-rol")
+        self.api_client.force_authenticate(user=user)
+
+        response = self.api_client.get("/api/bodegas/")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_tecnico_puede_listar_guias_pero_no_bodegas(self):
+        user, _ = self._crear_usuario_en_rol(self.sucursal, "tecnico", sufijo="bod-tecnico")
+        self.api_client.force_authenticate(user=user)
+
+        response_guias = self.api_client.get("/api/guia-salida/")
+        self.assertEqual(response_guias.status_code, 200)
+
+        response_bodegas = self.api_client.get("/api/bodegas/")
+        self.assertEqual(response_bodegas.status_code, 403)

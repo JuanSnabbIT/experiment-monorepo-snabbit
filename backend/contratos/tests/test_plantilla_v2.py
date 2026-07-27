@@ -8,13 +8,14 @@ Cubre:
   - SeccionV2: POST sin plantilla en body -> 201; plantilla de otra empresa -> 404
 """
 
+from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from contratos.models import PlantillaContrato, SeccionPlantilla
 from cuentas.models import User
 from core.models import PersonalizacionUsuario
-from empresas.models import Empresa, SucursalEmpresa
+from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 
 
 class PlantillaV2TestBase(APITestCase):
@@ -30,6 +31,9 @@ class PlantillaV2TestBase(APITestCase):
         pers = PersonalizacionUsuario.objects.get(usuario=user)
         pers.sucursal_principal = sucursal
         pers.save()
+        usuario_empresa = UsuarioEmpresa.objects.create(usuario=user, sucursal=sucursal)
+        grupo_rrhh, _ = Group.objects.get_or_create(name="rrhh")
+        usuario_empresa.grupos.add(grupo_rrhh)
         return empresa, sucursal, user
 
     def setUp(self):

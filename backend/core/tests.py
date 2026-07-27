@@ -105,3 +105,33 @@ class SendEmailTaskTest(TestCase):
         html_content = message.alternatives[0][0]
         self.assertIn('ACME S.A.', html_content)
         self.assertIn('El Equipo de ACME S.A.', html_content)
+
+
+class SoftwareViewSetPermisosTest(TestCase):
+    def setUp(self):
+        from empresas.models import Empresa, SucursalEmpresa
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.empresa = Empresa.objects.create(nombre="Empresa Permisos Core", direccion_principal="Dir")
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Casa Matriz", empresa=self.empresa)
+
+    def test_usuario_sin_rol_permitido_recibe_403(self):
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "tecnico", sufijo="core-sin-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/softwares/")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_usuario_con_rol_staff_puede_listar(self):
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "staff", sufijo="core-con-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/softwares/")
+
+        self.assertEqual(response.status_code, 200)

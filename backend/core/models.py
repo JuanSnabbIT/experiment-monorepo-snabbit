@@ -66,6 +66,7 @@ class AcuerdoConfidencialidadBase(ModeloBaseHistorico):
 class DescripcionGrupo(ModeloBaseHistorico):
     group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name='descripcion')
     descripcion = models.TextField(blank=True, null=True)
+    activo = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = "Descripción del Grupo"

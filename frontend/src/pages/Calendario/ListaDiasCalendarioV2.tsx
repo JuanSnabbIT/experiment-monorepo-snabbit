@@ -99,7 +99,7 @@ function ListaDiasCalendarioV2() {
     const { data: listaDiasCalendario = [] } = useGetDiasCalendarioQuery();
     const { data: listaSolicitudesVacaciones = [] } = useGetSolicitudesVacacionesCalendarioQuery();
     const { data: listaOrdenesV3 = [] } = useGetOrdenesV3Query(undefined, { skip: esRrhhPuro });
-    const { data: listaContratosB2B = [] } = useGetContratosQuery();
+    const { data: listaContratosB2B = [] } = useGetContratosQuery(undefined, { skip: esRrhhPuro });
     const { data: listaContratosLaborales = [] } = useGetContratosTrabajadorQuery();
     const [updateOrden] = useUpdateOrdenV3Mutation();
 
@@ -353,10 +353,10 @@ function ListaDiasCalendarioV2() {
         <PageWrapper isProtectedRoute={true} title='Calendario' name='Calendario'>
             <Subheader>
                 <SubheaderRight>
-                    {/* Toggles de capas — RRHH no ve la capa OT */}
+                    {/* Toggles de capas — RRHH no ve las capas OT ni Contratos B2B */}
                     <div className='flex items-center gap-1'>
                         {(Object.keys(LAYER_CONFIG) as TLayer[])
-                            .filter((layer) => !(esRrhhPuro && layer === 'ot'))
+                            .filter((layer) => !(esRrhhPuro && (layer === 'ot' || layer === 'contratos')))
                             .map((layer) => (
                                 <Button
                                     key={layer}

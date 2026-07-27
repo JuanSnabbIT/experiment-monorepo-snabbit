@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import permissions, serializers, status, viewsets
+from core.permissions import requiere_roles
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -73,7 +74,16 @@ ESTADOS_GUIA_FIRMADA = {"FR", "ET", "E", "T"}
 
 
 class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
+
+    def get_permissions(self):
+        # Widget de resumen del dashboard, visible a cualquier usuario autenticado.
+        if self.action == "metricas_dashboard":
+            return [permissions.IsAuthenticated()]
+        # finanzas necesita ver OTs para facturar, no administrarlas.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "tecnico", "operaciones", "finanzas")()]
+        return super().get_permissions()
 
     def get_queryset(self):
         empresa = _get_empresa_usuario(self.request.user)
@@ -1181,7 +1191,7 @@ class OrdenDeTrabajoV3ViewSet(viewsets.ModelViewSet):
 
 
 class TareaOTV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     serializer_class = TareaOTV3Serializer
 
     def get_queryset(self):
@@ -1362,7 +1372,7 @@ class TareaOTV3ViewSet(viewsets.ModelViewSet):
 
 
 class AsignacionTecnicoOTV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     serializer_class = AsignacionTecnicoOTV3Serializer
 
     def get_queryset(self):
@@ -1386,7 +1396,7 @@ class AsignacionTecnicoOTV3ViewSet(viewsets.ModelViewSet):
 
 
 class ChecklistItemOTV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     serializer_class = ChecklistItemOTV3Serializer
 
     def get_queryset(self):
@@ -1428,7 +1438,7 @@ class ChecklistItemOTV3ViewSet(viewsets.ModelViewSet):
 
 
 class SeguimientoOTV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     serializer_class = SeguimientoOTV3Serializer
 
     def get_queryset(self):
@@ -1458,7 +1468,7 @@ class SeguimientoOTV3ViewSet(viewsets.ModelViewSet):
 
 
 class GastoOTV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     serializer_class = GastoOTV3Serializer
 
     def get_queryset(self):
@@ -1480,7 +1490,7 @@ class GastoOTV3ViewSet(viewsets.ModelViewSet):
 
 
 class AdjuntoOTV3ViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = AdjuntoOTV3Serializer
 
@@ -1527,7 +1537,7 @@ class AdjuntoOTV3ViewSet(viewsets.ModelViewSet):
 
 
 class HistorialEstadoOTV3ViewSet(viewsets.ReadOnlyModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     serializer_class = HistorialEstadoOTV3Serializer
 
     def get_queryset(self):
@@ -1557,7 +1567,7 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
     - POST /api/v3/prefacturas-otv3/comparativa/
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "finanzas")]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):

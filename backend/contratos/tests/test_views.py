@@ -2,10 +2,12 @@ import uuid
 from datetime import date, timedelta
 from unittest.mock import patch
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from core.factories import crear_usuario_en_rol
 from cuentas.models import User
 from core.models import AcuerdoConfidencialidadBase, PersonalizacionUsuario
 from contratos.models import (
@@ -87,6 +89,12 @@ class ContratoAPITestBase(APITestCase):
             usuario=self.user,
             sucursal=self.sucursal_prestadora,
         )
+        # 'superadmin' ademas de 'contratos': el usuario base de estos tests
+        # necesita pasar por ViewSets con distintos grupos de roles (catalogos,
+        # plantillas, facturacion), y 'superadmin' esta permitido en todos.
+        grupo_contratos, _ = Group.objects.get_or_create(name="contratos")
+        grupo_superadmin, _ = Group.objects.get_or_create(name="superadmin")
+        self.usuario_empresa.grupos.add(grupo_contratos, grupo_superadmin)
 
         # Usuario de otra empresa
         self.user_otro = User.objects.create_user(
@@ -98,6 +106,11 @@ class ContratoAPITestBase(APITestCase):
         self.personalizacion_otro = PersonalizacionUsuario.objects.get(usuario=self.user_otro)
         self.personalizacion_otro.sucursal_principal = self.sucursal_otra
         self.personalizacion_otro.save()
+        self.usuario_empresa_otro = UsuarioEmpresa.objects.create(
+            usuario=self.user_otro,
+            sucursal=self.sucursal_otra,
+        )
+        self.usuario_empresa_otro.grupos.add(grupo_contratos)
 
         # Autenticar usuario por defecto
         self.client.force_authenticate(user=self.user)
@@ -421,6 +434,11 @@ class PlantillaContratoReordenarTest(ContratoAPITestBase):
             first_name="Sin",
             last_name="Config",
         )
+        # UsuarioEmpresa solo para tener rol valido (permiso), sin sucursal_principal
+        # en PersonalizacionUsuario (que es lo que get_queryset() realmente usa).
+        ue_sin = UsuarioEmpresa.objects.create(usuario=user_sin, sucursal=self.sucursal_prestadora)
+        grupo_contratos, _ = Group.objects.get_or_create(name="contratos")
+        ue_sin.grupos.add(grupo_contratos)
         self.client.force_authenticate(user=user_sin)
 
         response = self.client.get("/api/contratos/")
@@ -1722,24 +1740,23 @@ class ContratoActualizarTransaccionalTest(ContratoAPITestBase):
 
 class ContratoAuthTest(ContratoAPITestBase):
     """Tests de autenticación.
-    
-    NOTA: El ViewSet no tiene permission_classes explícito y
-    DEFAULT_PERMISSION_CLASSES es AllowAny, por lo que get_queryset()
-    recibe AnonymousUser. Estos tests documentan el comportamiento actual.
-    Idealmente se debería agregar IsAuthenticated al ViewSet.
+
+    ContratoEmpresaClienteViewSet ahora exige IsAuthenticated + rol
+    (superadmin/staff/contratos/representante_legal), asi que un usuario
+    anonimo queda bloqueado en la capa de permisos antes de llegar a
+    get_queryset() — ya no se dispara el TypeError que ocurria antes con
+    AnonymousUser bajo el default AllowAny.
     """
 
     def test_sin_auth_listar_falla_por_anonymous_user(self):
-        """Sin auth, get_queryset() falla al filtrar con AnonymousUser."""
         self.client.force_authenticate(user=None)
-        with self.assertRaises(TypeError):
-            self.client.get("/api/contratos/")
+        response = self.client.get("/api/contratos/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_sin_auth_detalle_falla_por_anonymous_user(self):
-        """Sin auth, get_queryset() falla al filtrar con AnonymousUser."""
         self.client.force_authenticate(user=None)
-        with self.assertRaises(TypeError):
-            self.client.get(f"/api/contratos/{self.contrato.id}/")
+        response = self.client.get(f"/api/contratos/{self.contrato.id}/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class RutasPublicasTest(APITestCase):
@@ -2963,3 +2980,29 @@ class SnapshotTasasCambioTest(ContratoAPITestBase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.contrato.refresh_from_db()
         self.assertEqual(self.contrato.snapshot_tasa_dolar, dolar_fijo)
+
+
+class ContratoPermisosTest(ContratoAPITestBase):
+    def test_usuario_sin_rol_permitido_recibe_403(self):
+        user, _ = crear_usuario_en_rol(self.sucursal_prestadora, "tecnico", sufijo="contratos-sin-rol")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/contratos/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_usuario_con_rol_contratos_puede_listar(self):
+        # self.user (base setUp) ya tiene el rol 'contratos' asignado.
+        response = self.client.get("/api/contratos/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_usuario_finanzas_puede_listar_pero_no_crear(self):
+        user, _ = crear_usuario_en_rol(self.sucursal_prestadora, "finanzas", sufijo="contratos-finanzas")
+        self.client.force_authenticate(user=user)
+
+        response_list = self.client.get("/api/contratos/")
+        self.assertEqual(response_list.status_code, status.HTTP_200_OK)
+
+        response_create = self.client.post("/api/contratos/", {}, format="json")
+        self.assertEqual(response_create.status_code, status.HTTP_403_FORBIDDEN)

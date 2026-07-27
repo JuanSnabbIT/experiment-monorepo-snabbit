@@ -12,6 +12,7 @@ import Card, {
 import Modal, { ModalBody, ModalFooter, ModalFooterChild, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import { useEstadoContrato } from '@/hooks/useEstadoContrato';
+import useAuthority from '@/hooks/useAuthority';
 import type { IContratoEmpresaCliente } from '@/interface/contrato.interface';
 import ApiService from '@/services/ApiService';
 import {
@@ -105,15 +106,31 @@ const DetalleContrato = () => {
 
     // ── Redux legacy (catálogos sin migrar) ──
     const { listaContentType } = useAppSelector((state) => state.core);
+    const { listaGrupos } = useAppSelector((state) => state.auth);
 
     // ── Hook de permisos ──
+    // `finanzas` solo tiene acceso de lectura (list/retrieve) a Contratos en el
+    // backend (ver ContratoEmpresaClienteViewSet.get_permissions()) — se combina
+    // aquí con el estado del contrato para que los botones de escritura no se
+    // muestren a roles que el backend igual rechazaría con 403.
+    const tieneRolEscritura = useAuthority(listaGrupos?.grupos, [
+        'staff',
+        'superadmin',
+        'contratos',
+        'representante_legal',
+    ]);
     const {
-        puedeEditar,
-        puedeActivar,
-        puedeSuspender,
-        puedeFinalizar,
-        puedeRenovar,
+        puedeEditar: puedeEditarPorEstado,
+        puedeActivar: puedeActivarPorEstado,
+        puedeSuspender: puedeSuspenderPorEstado,
+        puedeFinalizar: puedeFinalizarPorEstado,
+        puedeRenovar: puedeRenovarPorEstado,
     } = useEstadoContrato(contrato ?? null);
+    const puedeEditar = puedeEditarPorEstado && tieneRolEscritura;
+    const puedeActivar = puedeActivarPorEstado && tieneRolEscritura;
+    const puedeSuspender = puedeSuspenderPorEstado && tieneRolEscritura;
+    const puedeFinalizar = puedeFinalizarPorEstado && tieneRolEscritura;
+    const puedeRenovar = puedeRenovarPorEstado && tieneRolEscritura;
     const firmaPrestadoraDisponible = Boolean(contrato?.datos_empresa.firma_empresa);
     const tieneConfidencialidad = Boolean(contrato?.firmas_confidencialidad.length);
     const ultimoEnvioAprobacionDeprecado = Boolean(contrato?.ultimo_envio_aprobacion?.deprecado);
@@ -335,7 +352,7 @@ const DetalleContrato = () => {
                                     Activar
                                 </Button>
                             )}
-                            {['borrador', 'cambios_solicitados'].includes(contrato.estado) && (
+                            {tieneRolEscritura && ['borrador', 'cambios_solicitados'].includes(contrato.estado) && (
                                 <Button
                                     variant='solid'
                                     color='blue'
@@ -344,12 +361,12 @@ const DetalleContrato = () => {
                                     Enviar a aprobación
                                 </Button>
                             )}
-                            {contrato.estado === 'en_aprobacion_cliente' && (
+                            {tieneRolEscritura && contrato.estado === 'en_aprobacion_cliente' && (
                                 <Button icon='HeroEnvelope' onClick={handleReenviarAprobacion}>
                                     Reenviar aprobación
                                 </Button>
                             )}
-                            {contrato.estado === 'en_aprobacion_cliente' && (
+                            {tieneRolEscritura && contrato.estado === 'en_aprobacion_cliente' && (
                                 <Button
                                     variant='solid'
                                     color='amber'
@@ -377,7 +394,7 @@ const DetalleContrato = () => {
                                     Ver PDF del contrato
                                 </Button>
                             )}
-                            {contrato.estado === 'aprobado_cliente' && (
+                            {tieneRolEscritura && contrato.estado === 'aprobado_cliente' && (
                                 <Button
                                     variant='solid'
                                     color='blue'
@@ -406,12 +423,12 @@ const DetalleContrato = () => {
                                     Ver PDF enviado
                                 </Button>
                             )}
-                            {contrato.estado === 'en_firma' && (
+                            {tieneRolEscritura && contrato.estado === 'en_firma' && (
                                 <Button icon='HeroEnvelope' onClick={handleReenviarFirma}>
                                     Reenviar firma
                                 </Button>
                             )}
-                            {contrato.estado === 'en_firma' && (
+                            {tieneRolEscritura && contrato.estado === 'en_firma' && (
                                 <Button
                                     variant='solid'
                                     color='emerald'

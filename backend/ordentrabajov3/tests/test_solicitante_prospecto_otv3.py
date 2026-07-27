@@ -1,3 +1,4 @@
+from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -40,7 +41,9 @@ class CrearSolicitanteProspectoOTV3ApiTest(APITestCase):
             first_name="Staff",
             last_name="Test",
         )
-        UsuarioEmpresa.objects.create(usuario=self.user, sucursal=self.sucursal_prestadora)
+        usuario_empresa = UsuarioEmpresa.objects.create(usuario=self.user, sucursal=self.sucursal_prestadora)
+        grupo_staff, _ = Group.objects.get_or_create(name="staff")
+        usuario_empresa.grupos.add(grupo_staff)
 
         pers = PersonalizacionUsuario.objects.filter(usuario=self.user).first()
         if pers:

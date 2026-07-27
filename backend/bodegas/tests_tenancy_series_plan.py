@@ -1,6 +1,7 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError, transaction
 from django.test import TransactionTestCase
@@ -84,6 +85,12 @@ class GuiaTenancyAndSeriesLifecycleTests(TransactionTestCase):
             usuario=self.user_a,
             sucursal=self.sucursal_a,
         )
+        # Reutiliza el grupo 'superadmin' (sembrado por migracion, ya existe de forma
+        # estable) en vez de crear uno nuevo: TransactionTestCase + reset_sequences
+        # no garantiza el flush de auth_group entre metodos, y un Group.objects
+        # .get_or_create("bodega") nuevo puede chocar de PK con filas sembradas.
+        grupo_superadmin, _ = Group.objects.get_or_create(name="superadmin")
+        self.usuario_empresa_a.grupos.add(grupo_superadmin)
         PersonalizacionUsuario.objects.update_or_create(
             usuario=self.user_a,
             defaults={"sucursal_principal": self.sucursal_a},

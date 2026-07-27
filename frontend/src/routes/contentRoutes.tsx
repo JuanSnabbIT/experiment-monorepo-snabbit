@@ -4,6 +4,9 @@ import { lazy } from 'react';
 import { Navigate, RouteProps, useLocation, useParams } from 'react-router-dom';
 import pagesConfig, { authPages, Pages } from '../config/pages.config';
 
+// TRol (roles.interface.ts) es el catalogo de roles validos, pero
+// pages.config.ts (fuente real de estos arrays) todavia no esta tipado con
+// TRol, asi que forzarlo aqui rompe esa cascada — queda como mejora futura.
 export type IRoutePersonalizadas = RouteProps & {
     authority: string[];
 };

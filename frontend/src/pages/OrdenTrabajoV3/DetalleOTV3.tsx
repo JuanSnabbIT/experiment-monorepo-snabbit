@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import type { IUsuarioEmpresa } from '@/interface/empresas.interface';
 import type { TEstadoOTV3, TEtapaUIOTV3 } from '@/interface/ordenTrabajoV3.interface';
+import useAuthority from '@/hooks/useAuthority';
 import { useAppSelector } from '@/store';
 import { useGetUsuariosTodaLaEmpresaQuery, useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useGetBodegasQuery } from '@/store/slices/ordenTrabajo/ordenTrabajoApi';
@@ -127,9 +128,19 @@ const SWAL_CONFIRM: Record<
 const DetalleOTV3 = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
 
     const empresaId = personalizacionUsuario?.empresa ?? undefined;
+
+    // `finanzas` solo tiene acceso de lectura (list/retrieve) a OT V3 en el
+    // backend (ver OrdenDeTrabajoV3ViewSet.get_permissions()) — el CTA de
+    // transicion de estado no debe mostrarse para ese rol.
+    const tieneRolEscritura = useAuthority(listaGrupos?.grupos, [
+        'staff',
+        'superadmin',
+        'tecnico',
+        'operaciones',
+    ]);
 
     const { data: orden, isLoading } = useGetDetalleOrdenV3Query(id!, {
         skip: !id,
@@ -264,7 +275,7 @@ const DetalleOTV3 = () => {
                     </Badge>
                 </SubheaderLeft>
                 <SubheaderRight>
-                    {ctaLabel && (
+                    {ctaLabel && tieneRolEscritura && (
                         <Button
                             variant='solid'
                             color='blue'
@@ -378,6 +389,7 @@ const DetalleOTV3 = () => {
                         orden={orden}
                         tecnicosOptions={tecnicosOptions}
                         solicitantesOptions={receptoresOptions}
+                        puedeEditar={tieneRolEscritura}
                     />
                 )}
                 {orden.estado !== 'borrador' && etapaActual === 'preparacion' && (
@@ -386,13 +398,19 @@ const DetalleOTV3 = () => {
                         tecnicosOptions={tecnicosOptions}
                         receptoresOptions={receptoresOptions}
                         bodegasOptions={bodegasOptions}
+                        puedeEditar={tieneRolEscritura}
                     />
                 )}
                 {orden.estado !== 'borrador' && etapaActual === 'ejecucion' && (
-                    <PanelEjecucion orden={orden} firmantesOptions={tecnicosOptions} receptoresOptions={receptoresOptions} />
+                    <PanelEjecucion
+                        orden={orden}
+                        firmantesOptions={tecnicosOptions}
+                        receptoresOptions={receptoresOptions}
+                        puedeEditar={tieneRolEscritura}
+                    />
                 )}
                 {etapaActual === 'retroalimentacion' && (
-                    <PanelRetroalimentacion orden={orden} />
+                    <PanelRetroalimentacion orden={orden} puedeEditar={tieneRolEscritura} />
                 )}
                 {etapaActual === 'por_facturar' && (
                     <PanelPorFacturar orden={orden} />

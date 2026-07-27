@@ -37,6 +37,7 @@ interface IProps {
     receptoresOptions: TSelectOption[];
     bodegasOptions: TSelectOption[];
     onTareaClick?: (tarea: ITareaOTV3) => void;
+    puedeEditar: boolean;
 }
 
 const ESTADO_TAREA_COLOR: Record<string, string> = {
@@ -46,7 +47,7 @@ const ESTADO_TAREA_COLOR: Record<string, string> = {
     no_realizada: 'red',
 };
 
-const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOptions, onTareaClick }: IProps) => {
+const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOptions, onTareaClick, puedeEditar }: IProps) => {
     const [deleteAsignacion] = useDeleteAsignacionV3Mutation();
     const [deleteTarea] = useDeleteTareaV3Mutation();
     const [desvincularCotizacion] = useDesvincularCotizacionV3Mutation();
@@ -197,13 +198,15 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                 <CardHeader>
                     <CardHeaderChild>Equipo de Trabajo</CardHeaderChild>
                     <CardHeaderChild>
-                        <Button
-                            icon='HeroPlus'
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setModalTecnico(true)}>
-                            Asignar técnico
-                        </Button>
+                        {puedeEditar && (
+                            <Button
+                                icon='HeroPlus'
+                                size='sm'
+                                variant='outline'
+                                onClick={() => setModalTecnico(true)}>
+                                Asignar técnico
+                            </Button>
+                        )}
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
@@ -224,14 +227,16 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                             <Badge color='blue'>{a.rol_display}</Badge>
                                         </Td>
                                         <Td>
-                                            <Tooltip text='Remover'>
-                                                <Button
-                                                    icon='HeroTrash'
-                                                    size='sm'
-                                                    color='red'
-                                                    onClick={() => handleRemoveAsignacion(a)}
-                                                />
-                                            </Tooltip>
+                                            {puedeEditar && (
+                                                <Tooltip text='Remover'>
+                                                    <Button
+                                                        icon='HeroTrash'
+                                                        size='sm'
+                                                        color='red'
+                                                        onClick={() => handleRemoveAsignacion(a)}
+                                                    />
+                                                </Tooltip>
+                                            )}
                                         </Td>
                                     </Tr>
                                 ))}
@@ -250,7 +255,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                 <CardHeader>
                     <CardHeaderChild>Descripcion de trabajo</CardHeaderChild>
                     <CardHeaderChild>
-                        {descripcionEditing ? (
+                        {puedeEditar && (descripcionEditing ? (
                             <div className='flex gap-2'>
                                 <Button
                                     size='sm'
@@ -278,7 +283,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                 onClick={() => setDescripcionEditing(true)}>
                                 {descripcionDraft.trim() ? 'Editar' : 'Agregar'}
                             </Button>
-                        )}
+                        ))}
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
@@ -316,13 +321,15 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                         </span>
                     </CardHeaderChild>
                     <CardHeaderChild>
-                        <Button
-                            icon='HeroPlus'
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setModalTarea(true)}>
-                            Agregar tarea
-                        </Button>
+                        {puedeEditar && (
+                            <Button
+                                icon='HeroPlus'
+                                size='sm'
+                                variant='outline'
+                                onClick={() => setModalTarea(true)}>
+                                Agregar tarea
+                            </Button>
+                        )}
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
@@ -364,14 +371,16 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                             )}
                                         </Td>
                                         <Td onClick={(e) => e.stopPropagation()}>
-                                            <Tooltip text='Eliminar tarea'>
-                                                <Button
-                                                    icon='HeroTrash'
-                                                    size='sm'
-                                                    color='red'
-                                                    onClick={() => handleRemoveTarea(t.id)}
-                                                />
-                                            </Tooltip>
+                                            {puedeEditar && (
+                                                <Tooltip text='Eliminar tarea'>
+                                                    <Button
+                                                        icon='HeroTrash'
+                                                        size='sm'
+                                                        color='red'
+                                                        onClick={() => handleRemoveTarea(t.id)}
+                                                    />
+                                                </Tooltip>
+                                            )}
                                         </Td>
                                     </Tr>
                                 ))}
@@ -397,13 +406,15 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                         )}
                     </CardHeaderChild>
                     <CardHeaderChild>
-                        <Button
-                            icon='HeroLink'
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setModalCotizacion(true)}>
-                            {cotizaciones.length > 0 ? 'Gestionar' : 'Vincular cotización'}
-                        </Button>
+                        {puedeEditar && (
+                            <Button
+                                icon='HeroLink'
+                                size='sm'
+                                variant='outline'
+                                onClick={() => setModalCotizacion(true)}>
+                                {cotizaciones.length > 0 ? 'Gestionar' : 'Vincular cotización'}
+                            </Button>
+                        )}
                     </CardHeaderChild>
                 </CardHeader>
                 <CardBody>
@@ -447,18 +458,20 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                                     )}
                                                 </div>
                                             </div>
-                                            <Tooltip text='Desvincular cotizacion'>
-                                                <Button
-                                                    size='sm'
-                                                    color='red'
-                                                    icon='HeroXMark'
-                                                    onClick={() =>
-                                                        void handleDesvincularCotizacion(
-                                                            cotizacion.id,
-                                                        )
-                                                    }
-                                                />
-                                            </Tooltip>
+                                            {puedeEditar && (
+                                                <Tooltip text='Desvincular cotizacion'>
+                                                    <Button
+                                                        size='sm'
+                                                        color='red'
+                                                        icon='HeroXMark'
+                                                        onClick={() =>
+                                                            void handleDesvincularCotizacion(
+                                                                cotizacion.id,
+                                                            )
+                                                        }
+                                                    />
+                                                </Tooltip>
+                                            )}
                                         </div>
 
                                         {/* Items — siempre visibles */}
@@ -554,15 +567,17 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                                         <p className='text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
                                                             Guias de Salida
                                                         </p>
-                                                        <Button
-                                                            size='sm'
-                                                            icon='HeroDocumentArrowDown'
-                                                            variant='outline'
-                                                            onClick={() =>
-                                                                handleCrearGuiaRapida(cotizacion)
-                                                            }>
-                                                            Crear guia
-                                                        </Button>
+                                                        {puedeEditar && (
+                                                            <Button
+                                                                size='sm'
+                                                                icon='HeroDocumentArrowDown'
+                                                                variant='outline'
+                                                                onClick={() =>
+                                                                    handleCrearGuiaRapida(cotizacion)
+                                                                }>
+                                                                Crear guia
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                     {guiasDeEstaCot.length === 0 ? (
                                                         <p className='text-sm text-gray-400'>
@@ -588,18 +603,20 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
                                                                             {g.descripcion_items}
                                                                         </p>
                                                                     </div>
-                                                                    <Tooltip text='Desvincular guia'>
-                                                                        <Button
-                                                                            size='sm'
-                                                                            icon='HeroXMark'
-                                                                            color='red'
-                                                                            onClick={() =>
-                                                                                void handleDesvincularGuia(
-                                                                                    g.id,
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                    </Tooltip>
+                                                                    {puedeEditar && (
+                                                                        <Tooltip text='Desvincular guia'>
+                                                                            <Button
+                                                                                size='sm'
+                                                                                icon='HeroXMark'
+                                                                                color='red'
+                                                                                onClick={() =>
+                                                                                    void handleDesvincularGuia(
+                                                                                        g.id,
+                                                                                    )
+                                                                                }
+                                                                            />
+                                                                        </Tooltip>
+                                                                    )}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -616,7 +633,7 @@ const PanelPreparacion = ({ orden, tecnicosOptions, receptoresOptions, bodegasOp
             </Card>
 
             {/* Asignacion de equipos desde guias */}
-            {itemsConEntrega.length > 0 && (
+            {itemsConEntrega.length > 0 && puedeEditar && (
                 <Card className='lg:col-span-2'>
                     <CardHeader>
                         <CardHeaderChild>Asignacion de Equipos a Usuarios</CardHeaderChild>

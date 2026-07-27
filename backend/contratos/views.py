@@ -69,6 +69,7 @@ from .serializers import (
 )
 from cuentas.functions import obtener_usuario_empresa
 from rest_framework import permissions
+from core.permissions import requiere_roles
 from rest_framework.decorators import action, api_view, permission_classes as drf_permission_classes
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -200,7 +201,35 @@ def _asignar_slots_desde_orden(qs, plantilla, orden_por_id):
 class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
     queryset = ContratoEmpresaCliente.objects.all()
     serializer_class = ContratoEmpresaClienteSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
+
+    def get_permissions(self):
+        # Widget de resumen del dashboard, visible a cualquier usuario autenticado
+        # (no es una vista de administracion de contratos).
+        if self.action == "metricas_dashboard":
+            return [permissions.IsAuthenticated()]
+        # Contratos vinculados a un trabajador: los usa la Ficha del Trabajador
+        # (RRHH), no es administracion de contratos B2B.
+        if self.action == "por_usuario_empresa":
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "rrhh")()]
+        # finanzas necesita ver contratos para facturar, no administrarlos.
+        # (filtrar_por_empresa_cliente es la lista de contratos que usa el tab
+        # "Contratos" de DetalleCliente.tsx; secciones_generadas_action es la accion
+        # que resuelve /api/contratos/<id>/secciones-generadas/ — esta URL queda
+        # registrada por router.urls ANTES que el router anidado de
+        # SeccionContratoGeneradaViewSet, asi que esta accion es la que realmente
+        # sirve esa ruta. Misma naturaleza de solo-lectura que list/retrieve.)
+        if self.action in (
+            "list",
+            "retrieve",
+            "filtrar_por_empresa_cliente",
+            "secciones_generadas_action",
+            "historial",
+            "preview_firma",
+            "preview_firma_pdf",
+        ):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "finanzas")()]
+        return super().get_permissions()
 
     def _validar_contrato_editable(self, contrato):
         if contrato.puede_editar_contenido:
@@ -2429,7 +2458,7 @@ class ContratoEmpresaClienteViewSet(viewsets.ModelViewSet):
 
 class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
     serializer_class = UsuarioVinculadoContratoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
@@ -2453,6 +2482,7 @@ class UsuarioVinculadoContratoViewSet(viewsets.ModelViewSet):
 
 class ContratoServicioViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoServicioSerializer
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
@@ -2472,6 +2502,7 @@ class ContratoServicioViewSet(viewsets.ModelViewSet):
 
 class ContratoVisitaViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoVisitaSerializer
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
@@ -2491,7 +2522,18 @@ class ContratoVisitaViewSet(viewsets.ModelViewSet):
 
 class ContratoLicenciaViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoLicenciaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
+
+    def get_permissions(self):
+        # Lectura de licencias vinculadas a un trabajador: la usa la Ficha del
+        # Trabajador (RRHH), no es administracion de contratos de licencia.
+        if self.action == "por_usuario_empresa":
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "rrhh")()]
+        # finanzas necesita ver licencias para facturar, no administrarlas.
+        # (lista_vinculos es la lista que usa el tab "Licencias" de DetalleCliente.tsx)
+        if self.action in ("list", "retrieve", "lista_vinculos"):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "finanzas")()]
+        return super().get_permissions()
 
     @staticmethod
     def _history_label(history_type):
@@ -2757,6 +2799,7 @@ class ContratoLicenciaViewSet(viewsets.ModelViewSet):
 
 class ContratoCondicionEspecialViewSet(viewsets.ModelViewSet):
     serializer_class = ContratoCondicionEspecialSerializer
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
@@ -2776,6 +2819,7 @@ class ContratoCondicionEspecialViewSet(viewsets.ModelViewSet):
 
 class AcuerdoConfidencialidadContratoViewSet(viewsets.ModelViewSet):
     serializer_class = AcuerdoConfidencialidadContratoSerializer
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         contrato_pk = self.kwargs.get('contrato_pk')
@@ -2801,7 +2845,7 @@ class AcuerdoConfidencialidadContratoViewSet(viewsets.ModelViewSet):
 class ServicioViewSet(viewsets.ModelViewSet):
     queryset = Servicio.objects.all()
     serializer_class = ServicioSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -2897,7 +2941,7 @@ class ServicioViewSet(viewsets.ModelViewSet):
 class PlanServicioViewSet(viewsets.ModelViewSet):
     queryset = PlanServicio.objects.all()
     serializer_class = PlanServicioSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -2987,7 +3031,7 @@ class PlanServicioViewSet(viewsets.ModelViewSet):
 class CaracteristicaServicioViewSet(viewsets.ModelViewSet):
     queryset = CaracteristicaServicio.objects.all()
     serializer_class = CaracteristicaServicioSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -3012,11 +3056,28 @@ class CaracteristicaServicioViewSet(viewsets.ModelViewSet):
 class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all()
     serializer_class = VisitaSerializer
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
+
+    def get_permissions(self):
+        # Catalogo usado (solo lectura) por DetalleContrato.tsx para poblar
+        # selects; finanzas necesita ver el detalle del contrato sin poder
+        # administrar el catalogo de visitas.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "finanzas")()]
+        return super().get_permissions()
 
 class LicenciaViewSet(viewsets.ModelViewSet):
     queryset = Licencia.objects.all()
     serializer_class = LicenciaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff")]
+
+    def get_permissions(self):
+        # Catalogo usado (solo lectura) por DetalleContrato.tsx para poblar
+        # selects; finanzas necesita ver el detalle del contrato sin poder
+        # administrar el catalogo de licencias.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "finanzas")()]
+        return super().get_permissions()
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -3032,10 +3093,11 @@ class LicenciaViewSet(viewsets.ModelViewSet):
 class CondicionEspecialViewSet(viewsets.ModelViewSet):
     queryset = CondicionEspecial.objects.all()
     serializer_class = CondicionEspecialSerializer
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff")]
 
 class PersonaLicenciatariaViewSet(viewsets.ModelViewSet):
     serializer_class = PersonaLicenciatariaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -3069,7 +3131,7 @@ class PersonaLicenciatariaViewSet(viewsets.ModelViewSet):
 
 class CorreoPersonaLicenciatariaViewSet(viewsets.ModelViewSet):
     serializer_class = CorreoPersonaLicenciatariaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -3090,7 +3152,7 @@ class CorreoPersonaLicenciatariaViewSet(viewsets.ModelViewSet):
 class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
     queryset = UsuarioVinculadoLicencia.objects.all()
     serializer_class = UsuarioVinculadoLicenciaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def get_queryset(self):
         contrato_licencia_pk = self.kwargs.get('licencia_pk')
@@ -3204,7 +3266,7 @@ class UsuarioVinculadoLicenciaViewSet(viewsets.ModelViewSet):
 class EnvioContratoFirmaUsuarioViewSet(viewsets.ModelViewSet):
     queryset = EnvioContratoFirmaUsuario.objects.all()
     serializer_class = EnvioContratoFirmaUsuarioSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
 
     def create(self, request, *args, **kwargs):
         try:
@@ -3488,7 +3550,7 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
 
     queryset = FacturaContrato.objects.all()
     serializer_class = FacturaContratoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "finanzas")]
 
     def list(self, request, *args, **kwargs):
         try:
@@ -3721,7 +3783,21 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
 
 class PlantillaContratoViewSet(viewsets.ModelViewSet):
     serializer_class = PlantillaContratoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
+
+    def get_permissions(self):
+        # DetalleContrato.tsx carga la plantilla para renderizar cualquier
+        # contrato — cualquier rol que pueda ver un contrato (contratos,
+        # representante_legal, finanzas de solo lectura) necesita leerla,
+        # aunque solo rrhh/staff/superadmin la administren.
+        if self.action in ("list", "retrieve"):
+            return [
+                permissions.IsAuthenticated(),
+                requiere_roles(
+                    "superadmin", "staff", "rrhh", "contratos", "representante_legal", "finanzas",
+                )(),
+            ]
+        return super().get_permissions()
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -3823,7 +3899,7 @@ class PlantillaContratoViewSet(viewsets.ModelViewSet):
 
 class SeccionPlantillaViewSet(viewsets.ModelViewSet):
     serializer_class = SeccionPlantillaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def get_queryset(self):
         plantilla_id = self.kwargs.get("plantilla_pk")
@@ -3953,7 +4029,7 @@ class SeccionPlantillaViewSet(viewsets.ModelViewSet):
 
 class EtiquetaPlantillaViewSet(viewsets.ModelViewSet):
     serializer_class = EtiquetaPlantillaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -3971,8 +4047,14 @@ class EtiquetaPlantillaViewSet(viewsets.ModelViewSet):
 
 class SeccionContratoGeneradaViewSet(viewsets.ModelViewSet):
     serializer_class = SeccionContratoGeneradaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "contratos", "representante_legal")]
     http_method_names = ['get', 'patch', 'head']
+
+    def get_permissions(self):
+        # finanzas necesita ver el contenido del contrato para facturar, no editarlo.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "contratos", "representante_legal", "finanzas")()]
+        return super().get_permissions()
 
     def get_queryset(self):
         contrato_id = self.kwargs.get("contrato_pk")
@@ -4009,7 +4091,7 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
     primero, luego globales). Sin scope, devuelve todas las plantillas
     de la empresa prestadora.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -4221,7 +4303,7 @@ class BloqueTransversalContratoV2ViewSet(viewsets.ReadOnlyModelViewSet):
     Soporta ?tipo_contrato=servicios para filtrar.
     """
     serializer_class = BloqueTransversalContratoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh", "contratos")]
 
     def get_queryset(self):
         qs = BloqueTransversalContrato.objects.filter(activo=True)
@@ -4237,7 +4319,7 @@ class EtiquetaPlantillaV2ViewSet(viewsets.ReadOnlyModelViewSet):
     Soporta ?tipo_contrato=servicios para filtrar las etiquetas relevantes.
     """
     serializer_class = EtiquetaPlantillaSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh", "contratos")]
 
     def get_queryset(self):
         empresa = _empresa_del_usuario(self.request.user)
@@ -4261,7 +4343,7 @@ class EtiquetaPlantillaV2ViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @api_view(["GET"])
-@drf_permission_classes([permissions.IsAuthenticated])
+@drf_permission_classes([permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh", "contratos")])
 def etiquetas_disponibles(request):
     """Catálogo de etiquetas del adaptador para el editor v2.9.
 
@@ -4296,7 +4378,7 @@ class SeccionPlantillaV2ViewSet(viewsets.ModelViewSet):
     Anidado bajo plantillas-contrato-v2/<plantilla_pk>/secciones-v2/
     """
     serializer_class = SeccionPlantillaV2Serializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "rrhh")]
 
     def get_queryset(self):
         plantilla_id = self.kwargs.get("plantilla_pk")

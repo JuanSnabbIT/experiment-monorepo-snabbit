@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import Group
 from django.test import TestCase
 
+from core.factories import crear_usuario_en_rol
 from cuentas.models import User
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
 from notificaciones.models import ConfiguracionNotificacionEmpresa, Notificacion, TipoEventoNotificacion
@@ -85,10 +86,7 @@ class NotificacionesTestBase(TestCase):
 
     @classmethod
     def _crear_usuario_en_rol(cls, sufijo: str, grupo_nombre: str) -> tuple[User, UsuarioEmpresa]:
-        user = User.objects.create_user(email=f"{sufijo}@test.com", password="x", is_active=True)
-        ue = UsuarioEmpresa.objects.create(usuario=user, sucursal=cls.sucursal)
-        ue.grupos.add(cls.grupos[grupo_nombre])
-        return user, ue
+        return crear_usuario_en_rol(cls.sucursal, grupo_nombre, sufijo)
 
     def _deshabilitar_tipo(self, tipo: str):
         """Inserta registro de gating desactivado para la empresa del test."""

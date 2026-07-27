@@ -1,22 +1,12 @@
-import useAuthority from '@/hooks/useAuthority';
 import { PropsWithChildren } from 'react';
+import AuthorityGuard from '@/components/layouts/AuthorityGuard/AuthorityGuard';
 
-type AuthorityGuardProps = PropsWithChildren<{
+type AuthorityCheckNavProps = PropsWithChildren<{
     userAuthority?: string[];
     authority?: string[];
 }>;
 
-const AuthorityCheckNav = (props: AuthorityGuardProps) => {
-    const { userAuthority = [], authority = [], children } = props;
-
-    // Si `authority` es vacío o `undefined`, la vista es sin protección
-    if (!authority || authority.length === 0) {
-        return <>{children}</>;
-    }
-
-    const roleMatched = useAuthority(userAuthority, authority, true);
-
-    return <>{roleMatched ? children : null}</>;
-};
+/** Guard de menu/seccion: sin el rol requerido, no renderiza nada (no redirige). */
+const AuthorityCheckNav = (props: AuthorityCheckNavProps) => <AuthorityGuard mode="hide" {...props} />;
 
 export default AuthorityCheckNav;

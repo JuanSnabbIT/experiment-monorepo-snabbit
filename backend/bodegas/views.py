@@ -29,6 +29,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import requiere_roles
 from rest_framework.response import Response
 
 from .estados_modelo import ESTADOS_OC
@@ -145,6 +146,7 @@ def _run_dolar_update(orden_id, fecha_compra, dolar_actual):
 class BodegaViewSet(viewsets.ModelViewSet):
     queryset = Bodega.objects.all()
     serializer_class = BodegaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
     def get_queryset(self):
         user = self.request.user
@@ -283,6 +285,7 @@ class TomaInventarioViewSet(viewsets.ModelViewSet):
         "bodegas", "creado_por__usuario"
     )
     serializer_class = TomaInventarioSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
     filter_backends = [DjangoFilterBackend]
     filterset_class = TomaInventarioFilter
 
@@ -470,6 +473,7 @@ class ItemEnTomaInventarioViewSet(viewsets.ModelViewSet):
         "stock_item__item", "stock_item__bodega", "toma_inventario"
     )
     serializer_class = ItemEnTomaInventarioSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
     @action(
         detail=False,
@@ -546,17 +550,26 @@ class ItemEnTomaInventarioViewSet(viewsets.ModelViewSet):
 class EstadoTomaInventarioViewSet(viewsets.ModelViewSet):
     queryset = EstadoTomaInventario.objects.all()
     serializer_class = EstadoTomaInventarioSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
 
 class ImagenDeItemEnTomaInventarioViewSet(viewsets.ModelViewSet):
     queryset = ImagenDeItemEnTomaInventario.objects.all()
     serializer_class = ImagenDeItemEnTomaInventarioSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
 
 class OrdenCompraViewSet(viewsets.ModelViewSet):
     queryset = OrdenCompra.objects.all()
     serializer_class = OrdenCompraSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        # Widget de resumen del dashboard, visible a cualquier usuario autenticado.
+        if self.action == "metricas_dashboard":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         # Usa un serializador diferente al crear
@@ -1480,6 +1493,7 @@ class OrdenCompraViewSet(viewsets.ModelViewSet):
 class ItemEnOrdenCompraViewSet(viewsets.ModelViewSet):
     queryset = ItemEnOrdenCompra.objects.all()
     serializer_class = ItemEnOrdenCompraSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
 
     def get_queryset(self):
         return ItemEnOrdenCompra.objects.filter(
@@ -1490,6 +1504,7 @@ class ItemEnOrdenCompraViewSet(viewsets.ModelViewSet):
 class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
     queryset = StockItemEnBodega.objects.all()
     serializer_class = StockItemEnBodegaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
     def get_queryset(self):
         # Fase 1f: Validar que la bodega pertenece a la empresa del usuario
@@ -1614,6 +1629,7 @@ class StockItemEnBodegaViewSet(viewsets.ModelViewSet):
 class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
     queryset = ItemOrdenCompraEnStock.objects.all()
     serializer_class = ItemOrdenCompraEnStockSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
 
     def get_queryset(self):
         # Filtrar por empresa del usuario para multi-tenancy.
@@ -1747,7 +1763,13 @@ class ItemOrdenCompraEnStockViewSet(viewsets.ModelViewSet):
 class GuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = GuiaSalida.objects.all()
     serializer_class = GuiaSalidaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
+
+    def get_permissions(self):
+        # tecnico necesita ver la guia de salida en terreno, no administrarla.
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticated(), requiere_roles("superadmin", "staff", "bodega", "tecnico")()]
+        return super().get_permissions()
 
     def _empresa_activa(self):
         personalizacion = PersonalizacionUsuario.objects.filter(
@@ -2928,6 +2950,7 @@ class GuiaSalidaViewSet(viewsets.ModelViewSet):
 class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
     queryset = ItemsGuiaSalida.objects.all()
     serializer_class = ItemsGuiaSalidaSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
     def get_queryset(self):
         personalizacion = PersonalizacionUsuario.objects.filter(
@@ -3253,7 +3276,7 @@ class ItemsGuiaSalidaViewSet(viewsets.ModelViewSet):
 class CompraViewSet(viewsets.ModelViewSet):
     queryset = Compra.objects.all()
     serializer_class = CompraSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
 
     def get_serializer_class(self):
         # Usa un serializador diferente al crear
@@ -3486,6 +3509,7 @@ class CompraViewSet(viewsets.ModelViewSet):
 class ItemEnCompraViewSet(viewsets.ModelViewSet):
     queryset = ItemEnCompra.objects.all()
     serializer_class = ItemEnCompraSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
 
     def get_queryset(self):
         user = self.request.user
@@ -3647,6 +3671,7 @@ class ItemEnCompraViewSet(viewsets.ModelViewSet):
 class ArchivoCompraViewSet(viewsets.ModelViewSet):
     queryset = ArchivoCompra.objects.all()
     serializer_class = ArchivoCompraSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @action(detail=False, methods=["post"], url_path="subir-imagenes")
@@ -3731,6 +3756,7 @@ class ArchivoCompraViewSet(viewsets.ModelViewSet):
 class MovimientoStockViewSet(viewsets.ModelViewSet):
     queryset = MovimientoStock.objects.all()
     serializer_class = MovimientoStockSerializer
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "bodega")]
 
     @action(detail=False, methods=["post"], url_path="crear-inicial")
     @transaction.atomic
@@ -3846,7 +3872,7 @@ class VoucherDevolucionViewSet(viewsets.ModelViewSet):
     )
     serializer_class = VoucherDevolucionSerializer
     pagination_class = VoucherDevolucionPagination
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["orden_trabajo"]
     search_fields = ["numero", "orden_trabajo__id"]
@@ -4031,7 +4057,7 @@ class OrdenCompraAgrupadaViewSet(viewsets.ModelViewSet):
         "cotizaciones",
     ).select_related("oc_empresa", "oc_cliente", "creado_por")
     serializer_class = OrdenCompraAgrupadaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff", "comprador", "bodega")]
 
     def get_queryset(self):
         user = self.request.user

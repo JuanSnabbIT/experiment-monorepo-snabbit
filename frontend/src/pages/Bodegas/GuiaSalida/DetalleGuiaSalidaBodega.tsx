@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Card';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
+import useAuthority from '@/hooks/useAuthority';
 import { IItemGuiaSalida, IStockItemEnBodega } from '@/interface/bodega.interface';
 import ApiService from '@/services/ApiService';
 import { listaUsuariosTodaLaEmpresaThunk, useAppDispatch, useAppSelector } from '@/store';
@@ -77,7 +78,11 @@ function DetalleGuiaSalidaBodega() {
     const [devolverABodegaMutation] = useDevolverABodegaMutation();
 
     const { listaUsuariosTodaLaEmpresa } = useAppSelector((state) => state.empresa);
-    const { personalizacionUsuario } = useAppSelector((state) => state.auth);
+    const { personalizacionUsuario, listaGrupos } = useAppSelector((state) => state.auth);
+    // `tecnico` solo tiene acceso de lectura (list/retrieve) a Guias de Salida en
+    // el backend (ver GuiaSalidaViewSet.get_permissions()) — los botones de
+    // escritura no deben mostrarse para ese rol.
+    const puedeEditar = useAuthority(listaGrupos?.grupos, ['staff', 'superadmin', 'bodega']);
     const [isEditting, setIsEditting] = useState<boolean>(false);
     const [stockSorting, setStockSorting] = useState<SortingState>([]);
     const [stockGlobalFilter, setStockGlobalFilter] = useState<string>('');
@@ -248,6 +253,7 @@ function DetalleGuiaSalidaBodega() {
             id: 'acciones',
             cell: (info) => {
                 const inputRef = useRef<HTMLInputElement>(null);
+                if (!puedeEditar) return null;
                 return (
                     <div>
                         {!isCreating && itemStockSelected === info.row.original ? (
@@ -463,7 +469,7 @@ function DetalleGuiaSalidaBodega() {
                         ) : (
                             <>
                                 <div>{info.getValue()}</div>
-                                {!info.row.original.individualizado && (
+                                {!info.row.original.individualizado && puedeEditar && (
                                     <Button
                                         className='m-2'
                                         variant='solid'
@@ -489,7 +495,7 @@ function DetalleGuiaSalidaBodega() {
                                 {info.row.original.numero_serie.serie
                                     ? info.row.original.numero_serie.serie
                                     : 'Sin Numero'}
-                                {isPendiente && (
+                                {isPendiente && puedeEditar && (
                                     <div className='flex gap-1'>
                                         <Button
                                             variant='solid'
@@ -524,7 +530,7 @@ function DetalleGuiaSalidaBodega() {
                         ) : (
                             <div className='flex flex-col gap-1'>
                                 <span>No</span>
-                                {isPendiente && (
+                                {isPendiente && puedeEditar && (
                                     <Button
                                         variant='outline'
                                         color='blue'
@@ -553,39 +559,40 @@ function DetalleGuiaSalidaBodega() {
         }),
         columnHelperItem.display({
             id: 'acciones',
-            cell: (info) => (
-                <div>
-                    <Button
-                        className='m-2'
-                        variant='solid'
-                        color='red'
-                        onClick={async () => {
-                            if (!id) return;
-                            const result = await Swal.fire({
-                                title: '¿Eliminar item de la guía?',
-                                text: '¿Está seguro(a) de querer eliminar el item de la guía?',
-                                icon: 'warning',
-                                showCancelButton: true,
-                                confirmButtonText: 'Eliminar',
-                                cancelButtonText: 'Cancelar',
-                                confirmButtonColor: '#dc2626',
-                            });
-                            if (result.isConfirmed) {
-                                try {
-                                    await eliminarItem({
-                                        id_guia: id,
-                                        item_id: info.row.original.id,
-                                    }).unwrap();
-                                    toast.success('Item eliminado de la guia', { autoClose: 1000 });
-                                } catch (error: any) {
-                                    toast.error(error.data || 'Error al eliminar el item');
+            cell: (info) =>
+                puedeEditar && (
+                    <div>
+                        <Button
+                            className='m-2'
+                            variant='solid'
+                            color='red'
+                            onClick={async () => {
+                                if (!id) return;
+                                const result = await Swal.fire({
+                                    title: '¿Eliminar item de la guía?',
+                                    text: '¿Está seguro(a) de querer eliminar el item de la guía?',
+                                    icon: 'warning',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Eliminar',
+                                    cancelButtonText: 'Cancelar',
+                                    confirmButtonColor: '#dc2626',
+                                });
+                                if (result.isConfirmed) {
+                                    try {
+                                        await eliminarItem({
+                                            id_guia: id,
+                                            item_id: info.row.original.id,
+                                        }).unwrap();
+                                        toast.success('Item eliminado de la guia', { autoClose: 1000 });
+                                    } catch (error: any) {
+                                        toast.error(error.data || 'Error al eliminar el item');
+                                    }
                                 }
-                            }
-                        }}>
-                        Eliminar
-                    </Button>
-                </div>
-            ),
+                            }}>
+                            Eliminar
+                        </Button>
+                    </div>
+                ),
         }),
     ];
 
@@ -655,7 +662,7 @@ function DetalleGuiaSalidaBodega() {
                                 </Button>
                             </Tooltip>
                         )}
-                        {isPendiente && (
+                        {isPendiente && puedeEditar && (
                             <Tooltip text='Eliminar Guía'>
                                 <Button
                                     variant='solid'
@@ -690,6 +697,7 @@ function DetalleGuiaSalidaBodega() {
                             </Tooltip>
                         )}
                         {detalleGuiaSalidaBodega?.estado === 'ER' &&
+                            puedeEditar &&
                             (() => {
                                 const soporte = detalleGuiaSalidaBodega?.soporte_tecnico;
                                 const faltaDatosSoporte =
@@ -720,14 +728,15 @@ function DetalleGuiaSalidaBodega() {
                                     </Tooltip>
                                 );
                             })()}
-                        {detalleGuiaSalidaBodega?.estado === 'ER' && (
+                        {detalleGuiaSalidaBodega?.estado === 'ER' && puedeEditar && (
                             <VolverAPendienteGuiaSalida guia_salida={detalleGuiaSalidaBodega} onSuccess={() => {
                                 refetchDetalleGuia();
                             }} />
                         )}
                         {(detalleGuiaSalidaBodega?.estado === 'ET' ||
                             detalleGuiaSalidaBodega?.estado === 'C' ||
-                            detalleGuiaSalidaBodega?.estado === 'T') && (
+                            detalleGuiaSalidaBodega?.estado === 'T') &&
+                            puedeEditar && (
                             <>
                                 <Tooltip text='Devolución Parcial'>
                                     <Button
@@ -775,7 +784,7 @@ function DetalleGuiaSalidaBodega() {
                                 </Tooltip>
                             </>
                         )}
-                        {detalleGuiaSalidaBodega?.estado === 'ET' && (
+                        {detalleGuiaSalidaBodega?.estado === 'ET' && puedeEditar && (
                             <>
                                 <Tooltip text='Firmar para Entregar'>
                                     <Button
@@ -868,7 +877,7 @@ function DetalleGuiaSalidaBodega() {
                                     <Badge className='text-xl'>Datos</Badge>
                                 </CardHeaderChild>
                                 <CardHeaderChild>
-                                    {isEditting ? (
+                                    {puedeEditar && (isEditting ? (
                                         <div className='flex gap-4'>
                                             <Button
                                                 variant='solid'
@@ -895,7 +904,7 @@ function DetalleGuiaSalidaBodega() {
                                                 setIsEditting(true);
                                             }}
                                             icon='HeroPencil'></Button>
-                                    )}
+                                    ))}
                                 </CardHeaderChild>
                             </CardHeader>
                             <CardBody>
@@ -1112,15 +1121,17 @@ function DetalleGuiaSalidaBodega() {
                                             </Badge>
                                         </CardHeaderChild>
                                         <CardHeaderChild>
-                                            <div className='flex gap-4'>
-                                                <Button
-                                                    variant='solid'
-                                                    color='emerald'
-                                                    isDisable={completando}
-                                                    onClick={completarGuia}>
-                                                    Completar Guia de Salida
-                                                </Button>
-                                            </div>
+                                            {puedeEditar && (
+                                                <div className='flex gap-4'>
+                                                    <Button
+                                                        variant='solid'
+                                                        color='emerald'
+                                                        isDisable={completando}
+                                                        onClick={completarGuia}>
+                                                        Completar Guia de Salida
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </CardHeaderChild>
                                     </CardHeader>
                                     <CardBody className='z-0'>

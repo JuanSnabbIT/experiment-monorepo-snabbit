@@ -11,6 +11,7 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import permissions, serializers, status, viewsets
+from core.permissions import requiere_roles
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.views import APIView
@@ -283,7 +284,7 @@ def guardar_firma_subtrabajo_en_ot(
 
 
 class BaseWriteViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
 
 from core.models import PersonalizacionUsuario
 from .cierre_validaciones import validar_requisitos_cierre_ot
@@ -291,6 +292,15 @@ from .cierre_validaciones import validar_requisitos_cierre_ot
 class OrdenDeTrabajoViewSet(BaseWriteViewSet):
     queryset = OrdenDeTrabajo.objects.all().order_by("-fecha_creacion")
     serializer_class = OrdenDeTrabajoSerializer
+
+    def get_permissions(self):
+        # Widget de resumen del dashboard, visible a cualquier usuario autenticado.
+        if self.action == "metricas_dashboard":
+            return [permissions.IsAuthenticated()]
+        # finanzas necesita ver OTs para facturar, no administrarlas.
+        if self.action in ("list", "retrieve"):
+            return [permissions.IsAuthenticated(), requiere_roles("superadmin", "staff", "tecnico", "operaciones", "finanzas")()]
+        return super().get_permissions()
 
     def get_queryset(self):
         """
@@ -1904,6 +1914,8 @@ class UsuariosVinculadosOrdenAPIView(APIView):
     Ruta: /ordenes-de-trabajo/<orden_pk>/usuarios-vinculados/
     """
 
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
+
     def get(self, request, orden_pk=None):
         if orden_pk is None:
             return Response([], status=status.HTTP_200_OK)
@@ -1919,6 +1931,8 @@ class RetroalimentacionesOrdenAPIView(APIView):
     Endpoint de compatibilidad: devuelve retroalimentaciones asociadas a una OT.
     Ruta: /ordenes-de-trabajo/<orden_pk>/retroalimentaciones/
     """
+
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
 
     def get(self, request, orden_pk=None):
         if orden_pk is None:
@@ -2252,7 +2266,7 @@ class ServicioEnOTViewSet(BaseWriteViewSet):
 
 
 class HistorialCambiosOrdenViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
     queryset = (
         HistorialCambiosOrden.objects.select_related("orden")
         .all()
@@ -2354,7 +2368,7 @@ class CierreAdministrativoOTViewSet(viewsets.ModelViewSet):
     - POST /cierres-administrativos/{id}/finalizar/ → Cambiar a aprobado
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "finanzas")]
     serializer_class = CierreAdministrativoOTSerializer
     http_method_names = ["get", "post", "patch", "head", "options", "delete"]
 
@@ -2762,7 +2776,7 @@ class InsumoViewSet(viewsets.ViewSet):
     ViewSet para manejar insumos (guías directas, servicios, soportes).
     Solo implementa la acción de desasociar guía.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "tecnico", "operaciones")]
 
     def get_orden_trabajo(self):
         """Obtiene la orden de trabajo desde los kwargs de la URL"""

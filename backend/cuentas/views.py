@@ -14,7 +14,8 @@ from empresas.models import SucursalEmpresa, UsuarioEmpresa
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from core.permissions import requiere_roles
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -30,6 +31,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff")]
 
 
 # async def get_grupos_user(request):
@@ -83,6 +85,19 @@ async def get_grupos_user(request):
     return JsonResponse(response_data)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def roles_disponibles(request):
+    """Catalogo unico de roles del sistema (Group + DescripcionGrupo), fuente
+    de verdad para backend y frontend en vez de listas de strings hardcodeadas."""
+    from core.models import DescripcionGrupo
+
+    from .serializers import DescripcionGrupoSerializer
+
+    qs = DescripcionGrupo.objects.filter(activo=True).select_related("group").order_by("group__name")
+    return Response(DescripcionGrupoSerializer(qs, many=True).data)
+
+
 class InvitacionEmpresaFilter(filters.FilterSet):
     estado = filters.CharFilter(method="filter_by_estado")
 
@@ -112,6 +127,7 @@ class InvitacionEmpresaViewSet(viewsets.ModelViewSet):
     serializer_class = InvitacionEmpresaSerializer
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = InvitacionEmpresaFilter
+    permission_classes = [IsAuthenticated, requiere_roles("superadmin", "staff")]
 
     def create(self, request, *args, **kwargs):
         email = request.data.get("email")

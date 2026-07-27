@@ -17,9 +17,10 @@ interface IProps {
     orden: IOrdenDeTrabajoV3;
     tecnicosOptions: TSelectOption[];
     solicitantesOptions: TSelectOption[];
+    puedeEditar: boolean;
 }
 
-const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) => {
+const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions, puedeEditar }: IProps) => {
     const [updateOrden, { isLoading }] = useUpdateOrdenV3Mutation();
     const [crearSolicitanteOpen, setCrearSolicitanteOpen] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -70,7 +71,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
             return;
         }
 
-        if (!formik.dirty) {
+        if (!puedeEditar || !formik.dirty) {
             return;
         }
 
@@ -87,7 +88,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                 clearTimeout(saveTimeout.current);
             }
         };
-    }, [formik.values, formik.dirty, formik.submitForm]);
+    }, [formik.values, formik.dirty, formik.submitForm, puedeEditar]);
 
     useEffect(() => {
         if (saveStatus === 'saved') {
@@ -137,6 +138,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             type='date'
                             value={formik.values.fecha_programada}
                             onChange={formik.handleChange}
+                            disabled={!puedeEditar}
                         />
                     </div>
 
@@ -151,6 +153,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             type='date'
                             value={formik.values.fecha_fin_estimada}
                             onChange={formik.handleChange}
+                            disabled={!puedeEditar}
                         />
                     </div>
 
@@ -164,6 +167,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             name='tecnico_responsable'
                             options={tecnicosOptions}
                             isClearable
+                            disabled={!puedeEditar}
                             placeholder='Seleccionar responsable...'
                             value={
                                 tecnicosOptions.find(
@@ -189,6 +193,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             name='cliente_solicitante'
                             options={solicitantesOptions}
                             isClearable
+                            disabled={!puedeEditar}
                             placeholder={
                                 orden.cliente_es_prospecto && solicitantesOptions.length === 0
                                     ? 'No hay solicitantes, crea uno'
@@ -206,7 +211,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                                 )
                             }
                         />
-                        {puedeCrearSolicitante && (
+                        {puedeCrearSolicitante && puedeEditar && (
                             <div className='mt-2'>
                                 <Button
                                     size='sm'
@@ -232,6 +237,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             onChange={formik.handleChange}
                             rows={3}
                             placeholder='Descripcion del trabajo a realizar...'
+                            disabled={!puedeEditar}
                         />
                     </div>
 
@@ -247,6 +253,7 @@ const PanelBorrador = ({ orden, tecnicosOptions, solicitantesOptions }: IProps) 
                             onChange={formik.handleChange}
                             rows={3}
                             placeholder='Notas visibles solo para el equipo...'
+                            disabled={!puedeEditar}
                         />
                     </div>
                 </div>

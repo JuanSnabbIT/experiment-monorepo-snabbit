@@ -26,6 +26,7 @@ interface IProps {
     orden: IOrdenDeTrabajoV3;
     firmantesOptions?: TSelectOption[];
     receptoresOptions?: TSelectOption[];
+    puedeEditar: boolean;
 }
 
 const ESTADO_TAREA_COLOR: Record<string, string> = {
@@ -35,7 +36,7 @@ const ESTADO_TAREA_COLOR: Record<string, string> = {
     no_realizada: 'red',
 };
 
-const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }: IProps) => {
+const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [], puedeEditar }: IProps) => {
     const [deleteGasto] = useDeleteGastoV3Mutation();
     const [deleteAdjunto] = useDeleteAdjuntoV3Mutation();
     const [createSeguimiento, { isLoading: loadingSeguimiento }] = useCreateSeguimientoV3Mutation();
@@ -127,13 +128,15 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                             {t.tecnico_asignado_nombre && (
                                                 <p className='text-xs text-zinc-400'>{t.tecnico_asignado_nombre}</p>
                                             )}
-                                            <Button
-                                                size='sm'
-                                                icon='HeroPlay'
-                                                className='mt-2 w-full'
-                                                onClick={() => handleIniciarTarea(t)}>
-                                                Iniciar
-                                            </Button>
+                                            {puedeEditar && (
+                                                <Button
+                                                    size='sm'
+                                                    icon='HeroPlay'
+                                                    className='mt-2 w-full'
+                                                    onClick={() => handleIniciarTarea(t)}>
+                                                    Iniciar
+                                                </Button>
+                                            )}
                                         </div>
                                     ))}
                                 {!orden.tareas?.filter((t) => t.estado === 'pendiente').length && (
@@ -163,14 +166,16 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                                     Requiere firma
                                                 </Badge>
                                             )}
-                                            <Button
-                                                size='sm'
-                                                icon='HeroCheck'
-                                                color='emerald'
-                                                className='mt-2 w-full'
-                                                onClick={() => handleAbrirCompletar(t)}>
-                                                Completar
-                                            </Button>
+                                            {puedeEditar && (
+                                                <Button
+                                                    size='sm'
+                                                    icon='HeroCheck'
+                                                    color='emerald'
+                                                    className='mt-2 w-full'
+                                                    onClick={() => handleAbrirCompletar(t)}>
+                                                    Completar
+                                                </Button>
+                                            )}
                                         </div>
                                     ))}
                                 {!orden.tareas?.filter((t) => t.estado === 'en_proceso').length && (
@@ -226,13 +231,15 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                             Total: ${orden.total_gastos?.toLocaleString('es-CL') ?? '0'}
                         </span>
                     </CardHeaderChild>
-                    <Button
-                        icon='HeroPlus'
-                        size='sm'
-                        variant='outline'
-                        onClick={() => setModalGasto(true)}>
-                        Agregar
-                    </Button>
+                    {puedeEditar && (
+                        <Button
+                            icon='HeroPlus'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setModalGasto(true)}>
+                            Agregar
+                        </Button>
+                    )}
                 </CardHeader>
                 <CardBody>
                     {orden.gastos && orden.gastos.length > 0 ? (
@@ -250,12 +257,14 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                             </span>
                                         </p>
                                     </div>
-                                    <Button
-                                        icon='HeroTrash'
-                                        size='sm'
-                                        color='red'
-                                        onClick={() => handleEliminarGasto(g)}
-                                    />
+                                    {puedeEditar && (
+                                        <Button
+                                            icon='HeroTrash'
+                                            size='sm'
+                                            color='red'
+                                            onClick={() => handleEliminarGasto(g)}
+                                        />
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -269,13 +278,15 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
             <Card>
                 <CardHeader>
                     <CardHeaderChild>Adjuntos y Fotos</CardHeaderChild>
-                    <Button
-                        icon='HeroPlus'
-                        size='sm'
-                        variant='outline'
-                        onClick={() => setModalAdjunto(true)}>
-                        Agregar
-                    </Button>
+                    {puedeEditar && (
+                        <Button
+                            icon='HeroPlus'
+                            size='sm'
+                            variant='outline'
+                            onClick={() => setModalAdjunto(true)}>
+                            Agregar
+                        </Button>
+                    )}
                 </CardHeader>
                 <CardBody>
                     {orden.adjuntos && orden.adjuntos.length > 0 ? (
@@ -299,12 +310,14 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                         <span className='truncate text-xs text-white'>
                                             {a.descripcion || a.tipo}
                                         </span>
-                                        <Button
-                                            icon='HeroTrash'
-                                            size='sm'
-                                            color='red'
-                                            onClick={() => handleEliminarAdjunto(a)}
-                                        />
+                                        {puedeEditar && (
+                                            <Button
+                                                icon='HeroTrash'
+                                                size='sm'
+                                                color='red'
+                                                onClick={() => handleEliminarAdjunto(a)}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -345,23 +358,25 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                         )}
                     </div>
                     {/* Input nuevo comentario */}
-                    <div className='flex gap-2'>
-                        <Textarea
-                            value={comentario}
-                            onChange={(e) => setComentario(e.target.value)}
-                            placeholder='Agregar comentario...'
-                            rows={2}
-                            className='flex-1'
-                        />
-                        <Button
-                            icon='HeroPaperAirplane'
-                            variant='solid'
-                            className='self-end'
-                            isLoading={loadingSeguimiento}
-                            onClick={handleEnviarComentario}>
-                            Enviar
-                        </Button>
-                    </div>
+                    {puedeEditar && (
+                        <div className='flex gap-2'>
+                            <Textarea
+                                value={comentario}
+                                onChange={(e) => setComentario(e.target.value)}
+                                placeholder='Agregar comentario...'
+                                rows={2}
+                                className='flex-1'
+                            />
+                            <Button
+                                icon='HeroPaperAirplane'
+                                variant='solid'
+                                className='self-end'
+                                isLoading={loadingSeguimiento}
+                                onClick={handleEnviarComentario}>
+                                Enviar
+                            </Button>
+                        </div>
+                    )}
                 </CardBody>
             </Card>
 
@@ -532,7 +547,7 @@ const PanelEjecucion = ({ orden, firmantesOptions = [], receptoresOptions = [] }
                                                                             {g.descripcion_items}
                                                                         </p>
                                                                     </div>
-                                                                    {g.estado === 'P' && (
+                                                                    {g.estado === 'P' && puedeEditar && (
                                                                         <Tooltip text='Firmar guia de salida'>
                                                                             <Button
                                                                                 size='sm'
