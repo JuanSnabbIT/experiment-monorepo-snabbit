@@ -846,7 +846,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 usuario=request.user,
                 **extra_data
             )
-            return Response(ContratoTrabajadorSerializer(contrato).data)
+            return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
         except ConflictoVigenteError as e:
             return Response(
                 {
@@ -890,7 +890,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 usuario=request.user,
                 accion=accion,
             )
-            return Response(ContratoTrabajadorSerializer(contrato).data)
+            return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
         except ConflictoVigenteError as e:
             return Response(
                 {
@@ -948,7 +948,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response(ContratoTrabajadorSerializer(contrato).data)
+        return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
 
     @action(
         detail=True,
@@ -977,7 +977,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
             except Exception:
                 pass
         contrato.archivo_pdf.save(archivo.name, archivo, save=True)
-        return Response(ContratoTrabajadorSerializer(contrato).data)
+        return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
 
     @action(detail=True, methods=["patch"], url_path="actualizar-datos-relacionados")
     def actualizar_datos_relacionados(self, request, pk=None):
@@ -1059,7 +1059,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
             )
 
         contrato.refresh_from_db()
-        return Response(ContratoTrabajadorSerializer(contrato).data)
+        return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
 
     @action(detail=False, methods=["post"], url_path="crear-con-trabajador")
     def crear_con_trabajador(self, request):
@@ -1186,7 +1186,7 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
 
         return Response(
             {
-                "contrato": ContratoTrabajadorSerializer(contrato).data,
+                "contrato": ContratoTrabajadorSerializer(contrato, context={"request": request}).data,
                 "usuario_empresa_id": ue.id if ue else None,
                 "invitacion_enviada": invitacion_enviada,
             },
@@ -1962,7 +1962,7 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
             )
         except DjangoValidationError as e:
             return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(FiniquitoContratoSerializer(finiquito).data, status=status.HTTP_201_CREATED)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch"], url_path="conceptos")
     def actualizar_conceptos(self, request, pk=None):
@@ -1976,7 +1976,7 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
             finiquito = FiniquitoService.actualizar_conceptos(finiquito.pk, conceptos, request.user)
         except DjangoValidationError as e:
             return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(FiniquitoContratoSerializer(finiquito).data)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data)
 
     @action(detail=True, methods=["post"], url_path="generar-pdf")
     def generar_pdf(self, request, pk=None):
@@ -2001,7 +2001,7 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
                 finiquito = FiniquitoService.avanzar_estado(finiquito.pk, "calculado", request.user)
             except DjangoValidationError as e:
                 return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(FiniquitoContratoSerializer(finiquito).data)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data)
 
     @action(detail=True, methods=["post"], url_path="regenerar-pdf")
     def regenerar_pdf(self, request, pk=None):
@@ -2024,7 +2024,7 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
                 {"detail": "Error al generar el PDF del finiquito. Contacta al administrador."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        return Response(FiniquitoContratoSerializer(finiquito).data)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data)
 
     @action(detail=True, methods=["post"], url_path="marcar-firmado")
     def marcar_firmado(self, request, pk=None):
@@ -2040,7 +2040,7 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
             )
         except DjangoValidationError as e:
             return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(FiniquitoContratoSerializer(finiquito).data)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data)
 
     @action(detail=True, methods=["post"], url_path="marcar-pagado")
     def marcar_pagado(self, request, pk=None):
@@ -2053,7 +2053,7 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
             finiquito = FiniquitoService.avanzar_estado(finiquito.pk, "pagado", request.user)
         except DjangoValidationError as e:
             return Response({"detail": e.message}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(FiniquitoContratoSerializer(finiquito).data)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data)
 
     @action(
         detail=True,
@@ -2087,4 +2087,4 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
                 nombre = f"finiquito_firmado_{finiquito.contrato_id}.pdf"
                 finiquito.archivo_pdf.save(nombre, archivo, save=True)
 
-        return Response(FiniquitoContratoSerializer(finiquito).data)
+        return Response(FiniquitoContratoSerializer(finiquito, context={"request": request}).data)

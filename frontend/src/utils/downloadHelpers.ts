@@ -4,21 +4,26 @@ import ApiService from '@/services/ApiService';
 /**
  * Descarga un archivo PDF desde una URL y lo guarda con el nombre especificado.
  *
- * Las URLs absolutas (archivos ya generados en /media/, servidos con
- * Access-Control-Allow-Origin: * pero sin soporte de preflight OPTIONS)
- * se piden con axios plano para no adjuntar el header Authorization —
- * ApiService lo agrega siempre vía BaseService y eso fuerza un preflight
- * que el storage de medios no sabe responder, rompiendo la descarga por CORS.
- * Las URLs relativas (endpoints de la API que generan el PDF) sí requieren
- * el JWT y siguen usando ApiService.
+ * Los archivos servidos desde /media/ (Access-Control-Allow-Origin: * pero
+ * sin soporte de preflight OPTIONS) se piden con axios plano para no
+ * adjuntar el header Authorization — ApiService lo agrega siempre vía
+ * BaseService y eso fuerza un preflight que el storage de medios no sabe
+ * responder, rompiendo la descarga por CORS. Esto aplica sin importar si
+ * el backend serializó la ruta como absoluta o relativa (relativa ocurre
+ * cuando el serializer se instancia sin context={'request': request}).
+ * Los demás endpoints (que generan el PDF vía API) sí requieren el JWT y
+ * siguen usando ApiService.
  */
 export async function downloadPdfFromUrl(
     url: string,
     filename: string,
 ): Promise<{ success: boolean }> {
-    const esUrlAbsoluta = /^https?:\/\//i.test(url);
-    const response = esUrlAbsoluta
-        ? await axios.get<Blob>(url, { responseType: 'blob' })
+    const esArchivoMedia = /\/media\//.test(url);
+    const urlAbsoluta = /^https?:\/\//i.test(url)
+        ? url
+        : `${import.meta.env.VITE_API_URL}${url}`;
+    const response = esArchivoMedia
+        ? await axios.get<Blob>(urlAbsoluta, { responseType: 'blob' })
         : await ApiService.fetchData<Blob>({
               url,
               method: 'get',
