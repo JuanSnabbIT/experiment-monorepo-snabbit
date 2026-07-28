@@ -473,5 +473,3 @@ $RECYCLE.BIN/
 #package-lock.json
 
 # End of https://www.toptal.com/developers/gitignore/api/storybookjs,windows,macos,webstorm+all,visualstudiocode,openframeworks+visualstudio,intellij+all,git,yarn,node
-
-package-lock.json

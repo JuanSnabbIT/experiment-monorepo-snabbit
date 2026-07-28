@@ -1,0 +1,10 @@
+node_modules
+dist
+.env.development
+*.log
+.DS_Store
+Dockerfile
+Dockerfile.optimized
+.dockerignore
+test-results
+playwright-report
