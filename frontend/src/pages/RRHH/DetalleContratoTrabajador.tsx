@@ -13,7 +13,6 @@ import Card, { CardBody } from '@/components/ui/Card';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import { COLOR_ESTADO } from '@/constants/contrato.constant';
 import { TMotivoTerminoContrato } from '@/interface/rrhh.interface';
-import ApiService from '@/services/ApiService';
 import {
     useAprobarContratoTrabajadorMutation,
     useCambiarEstadoContratoTrabajadorMutation,
@@ -23,6 +22,7 @@ import {
     useGetContratoTrabajadorDetalleQuery,
     useGetEstadoAprobacionEmpleadorQuery,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import { downloadPdfFromUrl } from '@/utils/downloadHelpers';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { confirmAlert } from '@/utils/sweetAlert';
 import dayjs from 'dayjs';
@@ -159,22 +159,7 @@ const DetalleContratoTrabajador = () => {
 
             if (!pdfUrl) return;
 
-            const response = await ApiService.fetchData<Blob>({
-                url: pdfUrl,
-                method: 'get',
-                responseType: 'blob',
-            });
-
-            const blobUrl = window.URL.createObjectURL(
-                new Blob([response.data], { type: 'application/pdf' }),
-            );
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = `contrato_${contrato.id}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
+            await downloadPdfFromUrl(pdfUrl, `contrato_${contrato.id}.pdf`);
         } catch (err) {
             toast.error(getErrorMessage(err));
         }

@@ -1,18 +1,29 @@
+import axios from 'axios';
 import ApiService from '@/services/ApiService';
 
 /**
  * Descarga un archivo PDF desde una URL y lo guarda con el nombre especificado.
- * Usa ApiService para mantener la consistencia con el patrón del proyecto.
+ *
+ * Las URLs absolutas (archivos ya generados en /media/, servidos con
+ * Access-Control-Allow-Origin: * pero sin soporte de preflight OPTIONS)
+ * se piden con axios plano para no adjuntar el header Authorization —
+ * ApiService lo agrega siempre vía BaseService y eso fuerza un preflight
+ * que el storage de medios no sabe responder, rompiendo la descarga por CORS.
+ * Las URLs relativas (endpoints de la API que generan el PDF) sí requieren
+ * el JWT y siguen usando ApiService.
  */
 export async function downloadPdfFromUrl(
     url: string,
     filename: string,
 ): Promise<{ success: boolean }> {
-    const response = await ApiService.fetchData<Blob>({
-        url,
-        method: 'get',
-        responseType: 'blob',
-    });
+    const esUrlAbsoluta = /^https?:\/\//i.test(url);
+    const response = esUrlAbsoluta
+        ? await axios.get<Blob>(url, { responseType: 'blob' })
+        : await ApiService.fetchData<Blob>({
+              url,
+              method: 'get',
+              responseType: 'blob',
+          });
 
     const blob = response.data;
     const blobUrl = window.URL.createObjectURL(blob);

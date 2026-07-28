@@ -10,7 +10,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { COLOR_ESTADO_FINIQUITO } from '@/constants/contrato.constant';
 import type { IConceptoFiniquito, IContratoTrabajador, IFiniquitoContrato } from '@/interface/rrhh.interface';
-import ApiService from '@/services/ApiService';
+import { downloadPdfFromUrl } from '@/utils/downloadHelpers';
 import {
     useActualizarConceptosMutation,
     useAprobarFiniquitoMutation,
@@ -466,19 +466,7 @@ const TabFiniquitoTrabajador = ({ contrato }: IProps) => {
     const handleDescargarPdfFiniquito = async () => {
         if (!finiquito?.archivo_pdf) return;
         try {
-            const response = await ApiService.fetchData<Blob>({
-                url: finiquito.archivo_pdf,
-                method: 'get',
-                responseType: 'blob',
-            });
-            const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = `finiquito_${finiquito.contrato}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
+            await downloadPdfFromUrl(finiquito.archivo_pdf, `finiquito_${finiquito.contrato}.pdf`);
         } catch (err) { toast.error(getErrorMessage(err)); }
     };
 
@@ -854,12 +842,7 @@ const TabFiniquitoTrabajador = ({ contrato }: IProps) => {
                                                 try {
                                                     const result = await generarPdf(finiquito.id).unwrap();
                                                     if (result.archivo_pdf) {
-                                                        const response = await ApiService.fetchData<Blob>({ url: result.archivo_pdf, method: 'get', responseType: 'blob' });
-                                                        const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-                                                        const link = document.createElement('a');
-                                                        link.href = blobUrl; link.download = `finiquito_${finiquito.contrato}.pdf`;
-                                                        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                                                        window.URL.revokeObjectURL(blobUrl);
+                                                        await downloadPdfFromUrl(result.archivo_pdf, `finiquito_${finiquito.contrato}.pdf`);
                                                     }
                                                 } catch (err) { toast.error(getErrorMessage(err)); }
                                             }}>

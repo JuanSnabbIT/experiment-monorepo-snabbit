@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import type { IAnexoContrato, IContratoTrabajador } from '@/interface/rrhh.interface';
 import type { TIcons } from '@/types/icons.type';
-import ApiService from '@/services/ApiService';
+import { downloadPdfFromUrl } from '@/utils/downloadHelpers';
 import {
     useActivarAnexoContratoMutation,
     useCrearAnexoContratoMutation,
@@ -310,21 +310,7 @@ const TabAnexosTrabajador = ({ contrato }: IProps) => {
     // ── Descarga PDF ───────────────────────────────────────────────────────────
     const handleDescargarPdf = async (url: string, id: number) => {
         try {
-            const response = await ApiService.fetchData<Blob>({
-                url,
-                method: 'get',
-                responseType: 'blob',
-            });
-            const blobUrl = window.URL.createObjectURL(
-                new Blob([response.data], { type: 'application/pdf' }),
-            );
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = `anexo_${id}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
+            await downloadPdfFromUrl(url, `anexo_${id}.pdf`);
         } catch (err) {
             toast.error(getErrorMessage(err));
         }
