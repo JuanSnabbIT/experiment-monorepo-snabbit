@@ -7,6 +7,7 @@ from .public_views import (
     PublicAprobarCotizacionView,
     PublicRechazarCotizacionView,
 )
+from .agente_views import CrearCotizacionCompletaView
 
 router = routers.DefaultRouter()
 router.register(r'cotizaciones', CotizacionViewSet)
@@ -46,4 +47,10 @@ public_urlpatterns = [
     path('public/cotizacion/<uuid:token>/rechazar/', PublicRechazarCotizacionView.as_view(), name='public-cotizacion-rechazar'),
 ]
 
-urlpatterns = router.urls + cotizaciones_router.urls + public_urlpatterns
+# Endpoint agente-facing (creación atómica). Debe ir ANTES de las rutas del
+# router para que "crear-completa" no se interprete como un pk de cotización.
+agente_urlpatterns = [
+    path('cotizaciones/crear-completa/', CrearCotizacionCompletaView.as_view(), name='cotizacion-crear-completa'),
+]
+
+urlpatterns = agente_urlpatterns + router.urls + cotizaciones_router.urls + public_urlpatterns
