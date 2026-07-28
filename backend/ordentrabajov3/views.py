@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import permissions, serializers, status, viewsets
-from core.permissions import requiere_roles
+from core.permissions import requiere_roles, TienePermisoPorAccion
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -1567,7 +1567,8 @@ class PrefacturaOTV3ViewSet(viewsets.ModelViewSet):
     - POST /api/v3/prefacturas-otv3/comparativa/
     """
 
-    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "finanzas")]
+    permission_classes = [permissions.IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "ordentrabajov3.prefactura_otv3"
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):

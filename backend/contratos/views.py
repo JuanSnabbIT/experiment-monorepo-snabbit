@@ -69,7 +69,7 @@ from .serializers import (
 )
 from cuentas.functions import obtener_usuario_empresa
 from rest_framework import permissions
-from core.permissions import requiere_roles
+from core.permissions import requiere_roles, TienePermisoPorAccion
 from rest_framework.decorators import action, api_view, permission_classes as drf_permission_classes
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -3091,9 +3091,12 @@ class LicenciaViewSet(viewsets.ModelViewSet):
         serializer.save(empresa_prestadora=_empresa_del_usuario(self.request.user))
 
 class CondicionEspecialViewSet(viewsets.ModelViewSet):
+    # Piloto del motor de permisos por acción gestionable desde BD (Fase 7):
+    # ver core.permissions.TienePermisoPorAccion y el modelo core.models.RecursoAccion.
     queryset = CondicionEspecial.objects.all()
     serializer_class = CondicionEspecialSerializer
-    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff")]
+    permission_classes = [permissions.IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "contratos.condicion_especial"
 
 class PersonaLicenciatariaViewSet(viewsets.ModelViewSet):
     serializer_class = PersonaLicenciatariaSerializer
@@ -3550,7 +3553,8 @@ class FacturaContratoViewSet(viewsets.ModelViewSet):
 
     queryset = FacturaContrato.objects.all()
     serializer_class = FacturaContratoSerializer
-    permission_classes = [permissions.IsAuthenticated, requiere_roles("superadmin", "staff", "finanzas")]
+    permission_classes = [permissions.IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "contratos.factura_contrato"
 
     def list(self, request, *args, **kwargs):
         try:
@@ -4382,8 +4386,26 @@ class SeccionPlantillaV2ViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         plantilla_id = self.kwargs.get("plantilla_pk")
+        empresa = _empresa_del_usuario(self.request.user)
+        if not empresa:
+            raise Http404
+        plantilla_valida = PlantillaContrato.objects.filter(
+            id=plantilla_id,
+        ).filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
+        ).exists()
+        if not plantilla_valida:
+            raise Http404
         return SeccionPlantilla.objects.filter(plantilla_id=plantilla_id).order_by("orden")
 
     def perform_create(self, serializer):
         plantilla_id = self.kwargs.get("plantilla_pk")
+        empresa = _empresa_del_usuario(self.request.user)
+        plantilla_valida = PlantillaContrato.objects.filter(
+            id=plantilla_id,
+        ).filter(
+            models.Q(empresa_prestadora=empresa) | models.Q(empresa_prestadora__isnull=True)
+        ).exists()
+        if not plantilla_valida:
+            raise Http404
         serializer.save(plantilla_id=plantilla_id)

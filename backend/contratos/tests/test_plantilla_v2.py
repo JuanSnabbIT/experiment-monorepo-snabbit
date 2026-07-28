@@ -58,7 +58,7 @@ class PlantillaV2TestBase(APITestCase):
             tipo_contrato="servicios",
         )
 
-    BASE_URL = "/api/contratos/plantillas-contrato-v2/"
+    BASE_URL = "/api/plantillas-contrato-v2/"
 
 
 class PlantillaV2MultiTenancyTest(PlantillaV2TestBase):
@@ -192,7 +192,7 @@ class SeccionV2InjeccionTest(PlantillaV2TestBase):
     def setUp(self):
         super().setUp()
         self.base_url = (
-            f"/api/contratos/plantillas-contrato-v2/{self.plantilla_a.id}/secciones-v2/"
+            f"/api/plantillas-contrato-v2/{self.plantilla_a.id}/secciones-v2/"
         )
 
     def test_crear_seccion_inyecta_plantilla_desde_url(self):
@@ -210,7 +210,7 @@ class SeccionV2InjeccionTest(PlantillaV2TestBase):
 
     def test_acceso_secciones_plantilla_otra_empresa_retorna_404(self):
         self.client.force_authenticate(user=self.user_a)
-        url = f"/api/contratos/plantillas-contrato-v2/{self.plantilla_b.id}/secciones-v2/"
+        url = f"/api/plantillas-contrato-v2/{self.plantilla_b.id}/secciones-v2/"
         response = self.client.get(url)
         # El ViewSet filtra por empresa, por lo que la plantilla no existe en el queryset
         self.assertIn(

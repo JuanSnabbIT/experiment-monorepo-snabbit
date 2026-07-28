@@ -74,7 +74,31 @@ class DescripcionGrupo(ModeloBaseHistorico):
  
     def __str__(self):
         return f"Descripcion de {self.group.name}"
-    
+
+
+class RecursoAccion(ModeloBase):
+    """Una acción otorgable de un ViewSet (ej: contratos.condicion_especial / list).
+
+    Catálogo curado a mano — no se auto-genera por introspección de código,
+    para que cada acción tenga una descripción legible antes de ser otorgable.
+    Motor de autorización asociado: core.permissions.TienePermisoPorAccion.
+    Coexiste con el motor de roles hardcodeados (TienePermisoDeRol) — un
+    ViewSet usa uno u otro, no ambos.
+    """
+    recurso = models.CharField(max_length=100, help_text="Ej: contratos.condicion_especial")
+    accion = models.CharField(max_length=100, help_text="Ej: list, destroy, cambiar_estado")
+    descripcion = models.CharField(max_length=255, blank=True)
+    grupos = models.ManyToManyField(Group, blank=True, related_name="acciones_permitidas")
+
+    class Meta:
+        unique_together = ("recurso", "accion")
+        verbose_name = "Acción de recurso"
+        verbose_name_plural = "Acciones de recursos (permisos)"
+
+    def __str__(self):
+        return f"{self.recurso}.{self.accion}"
+
+
 class PreguntaEnRetroalimentacion(ModeloBase):
     texto = models.TextField("Pregunta de retroalimentación")
     content_type = models.ForeignKey(

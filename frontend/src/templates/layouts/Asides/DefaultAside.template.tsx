@@ -106,7 +106,7 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico', 'rrhh']} userAuthority={listaGrupos?.grupos}>
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico', 'rrhh', 'bodega']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Gestión Operativa</NavTitle>
                     </AuthorityCheckNav>
@@ -288,7 +288,7 @@ const DefaultAsideTemplate = () => {
                             id={Pages.listaDiasCalendario.id}></NavItem>
                     </AuthorityCheckNav>
 
-                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico']} userAuthority={listaGrupos?.grupos}>
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico', 'ventas', 'comprador', 'bodega', 'operaciones', 'finanzas']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Ventas & Compras</NavTitle>
                     </AuthorityCheckNav>
@@ -381,7 +381,7 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    <AuthorityCheckNav authority={['staff', 'superadmin']} userAuthority={listaGrupos?.grupos}>
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'tecnico', 'operaciones', 'finanzas']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Gestión Financiera</NavTitle>
                     </AuthorityCheckNav>
@@ -454,7 +454,7 @@ const DefaultAsideTemplate = () => {
                         </NavCollapse>
                     </AuthorityCheckNav>
 
-                    <AuthorityCheckNav authority={['staff', 'superadmin', 'rrhh']} userAuthority={listaGrupos?.grupos}>
+                    <AuthorityCheckNav authority={['staff', 'superadmin', 'rrhh', 'tecnico']} userAuthority={listaGrupos?.grupos}>
                     <NavSeparator />
                     <NavTitle>Recursos Humanos</NavTitle>
                     </AuthorityCheckNav>

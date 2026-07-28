@@ -135,3 +135,110 @@ class SoftwareViewSetPermisosTest(TestCase):
         response = self.client.get("/api/softwares/")
 
         self.assertEqual(response.status_code, 200)
+
+
+class TienePermisoPorAccionTest(TestCase):
+    """Fase 7: motor de permisos por acción gestionable desde BD (RecursoAccion)."""
+
+    def setUp(self):
+        from django.contrib.auth.models import Group
+        from empresas.models import Empresa, SucursalEmpresa
+        from core.models import RecursoAccion
+
+        self.empresa = Empresa.objects.create(nombre="Empresa Fase7", direccion_principal="Dir")
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Casa Matriz", empresa=self.empresa)
+        self.grupo_permitido, _ = Group.objects.get_or_create(name="rol-con-permiso")
+        self.recurso_accion = RecursoAccion.objects.create(
+            recurso="core.recurso_de_prueba", accion="list", descripcion="test"
+        )
+        self.recurso_accion.grupos.add(self.grupo_permitido)
+
+    def _fake_view(self, recurso="core.recurso_de_prueba", accion="list"):
+        class FakeView:
+            recurso_permiso = recurso
+            action = accion
+
+        return FakeView()
+
+    def _fake_request(self, user):
+        class FakeRequest:
+            pass
+
+        req = FakeRequest()
+        req.user = user
+        return req
+
+    def test_usuario_con_rol_permitido_pasa(self):
+        from core.permissions import TienePermisoPorAccion
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "rol-con-permiso", sufijo="fase7-con-rol")
+        permiso = TienePermisoPorAccion()
+
+        self.assertTrue(permiso.has_permission(self._fake_request(user), self._fake_view()))
+
+    def test_usuario_sin_rol_permitido_no_pasa(self):
+        from core.permissions import TienePermisoPorAccion
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "otro-rol", sufijo="fase7-sin-rol")
+        permiso = TienePermisoPorAccion()
+
+        self.assertFalse(permiso.has_permission(self._fake_request(user), self._fake_view()))
+
+    def test_accion_no_catalogada_falla_cerrado(self):
+        """Una acción sin fila RecursoAccion se deniega (fail-closed), no se asume acceso."""
+        from core.permissions import TienePermisoPorAccion
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "rol-con-permiso", sufijo="fase7-accion-no-cat")
+        permiso = TienePermisoPorAccion()
+
+        self.assertFalse(
+            permiso.has_permission(self._fake_request(user), self._fake_view(accion="destroy"))
+        )
+
+    def test_sin_recurso_permiso_declarado_no_pasa(self):
+        from core.permissions import TienePermisoPorAccion
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "rol-con-permiso", sufijo="fase7-sin-recurso")
+        permiso = TienePermisoPorAccion()
+
+        self.assertFalse(
+            permiso.has_permission(self._fake_request(user), self._fake_view(recurso=None))
+        )
+
+
+class CondicionEspecialViewSetPilotoFase7Test(TestCase):
+    """Regresión end-to-end del piloto de migración: CondicionEspecialViewSet
+    debe comportarse igual que antes (solo superadmin/staff) tras pasar de
+    requiere_roles(...) a TienePermisoPorAccion + RecursoAccion sembrada."""
+
+    def setUp(self):
+        from empresas.models import Empresa, SucursalEmpresa
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.empresa = Empresa.objects.create(nombre="Empresa Piloto Fase7", direccion_principal="Dir")
+        self.sucursal = SucursalEmpresa.objects.create(nombre="Casa Matriz", empresa=self.empresa)
+
+    def test_staff_puede_listar_condiciones_especiales(self):
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "staff", sufijo="piloto-staff")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/condiciones-especiales/")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_rol_sin_permiso_recibe_403(self):
+        from core.factories import crear_usuario_en_rol
+
+        user, _ = crear_usuario_en_rol(self.sucursal, "tecnico", sufijo="piloto-sin-permiso")
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get("/api/condiciones-especiales/")
+
+        self.assertEqual(response.status_code, 403)

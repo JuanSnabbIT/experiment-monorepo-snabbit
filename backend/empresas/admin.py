@@ -476,8 +476,14 @@ class SucursalAdmin(ImportExportModelAdmin):
 @admin.register(UsuarioEmpresa)
 class UsuarioEmpresaAdmin(ImportExportModelAdmin):
     resource_class = UsuarioEmpresaResource
-    list_display = ("usuario", "id", "estado")
+    list_display = ("usuario", "id", "estado", "lista_roles")
     search_fields = ["usuario__first_name", "usuario__last_name", "usuario__email"]
+    list_filter = ("grupos", "estado")
+    filter_horizontal = ("grupos",)
+
+    def lista_roles(self, obj):
+        return ", ".join(obj.grupos.values_list("name", flat=True)) or "—"
+    lista_roles.short_description = "Roles"
 
 
 @admin.register(RelacionEmpresa)

@@ -15,7 +15,7 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from core.permissions import IsAdminOrRRHH
+from core.permissions import TienePermisoPorAccion
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
@@ -134,7 +134,8 @@ class CargoCatalogoViewSet(viewsets.ModelViewSet):
     """CRUD para el catalogo de cargos de la empresa."""
 
     serializer_class = CargoCatalogoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.cargo_catalogo"
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -155,7 +156,8 @@ class AfpCatalogoViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = AfpCatalogoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.afp_catalogo"
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -202,7 +204,8 @@ class BancoCatalogoViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = BancoCatalogoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.banco_catalogo"
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -249,7 +252,8 @@ class NacionalidadCatalogoViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = NacionalidadCatalogoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.nacionalidad_catalogo"
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -296,7 +300,8 @@ class ConfiguracionLaboralViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = ConfiguracionLaboralSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.configuracion_laboral"
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
@@ -333,7 +338,8 @@ class TurnoLaboralViewSet(viewsets.ModelViewSet):
     """Catalogo de turnos laborales: globales (empresa=null) + por empresa."""
 
     serializer_class = TurnoLaboralSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.turno_laboral"
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -396,7 +402,8 @@ class GrupoTurnoViewSet(viewsets.ModelViewSet):
     """CRUD de grupos de turnos rotativos por empresa."""
 
     serializer_class = GrupoTurnoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.grupo_turno"
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
@@ -485,7 +492,8 @@ class AnexoContratoViewSet(viewsets.ModelViewSet):
     """CRUD de anexos / modificaciones contractuales."""
 
     serializer_class = AnexoContratoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.anexo_contrato"
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
@@ -616,7 +624,8 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
     """CRUD + transiciones para contratos laborales."""
 
     queryset = ContratoTrabajador.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.contrato_trabajador"
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_serializer_class(self):
@@ -1911,7 +1920,8 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
     """ViewSet para gestión de finiquitos laborales."""
 
     serializer_class = FiniquitoContratoSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrRRHH]
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.finiquito_contrato"
 
     def get_queryset(self):
         empresa = _empresa_actual(self.request)
