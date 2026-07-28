@@ -203,9 +203,21 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
                     'opacity-50 pointer-events-none': state?.data?.isDisabled,
                 }),
         } as ClassNamesConfig<TSelectOption, boolean, GroupBase<TSelectOption>>,
+        // react-select fija zIndex:1 como estilo INLINE en el menuPortal por
+        // defecto — una clase Tailwind nunca le gana a un estilo inline, asi
+        // que el override tiene que ir por la prop `styles`, no `classNames`.
+        // Sin esto, el menu queda detras del modal (z-[1055] en Modal.tsx).
+        styles: {
+            menuPortal: (base: React.CSSProperties) => ({ ...base, zIndex: 2000 }),
+        },
         isDisabled: disabled || rest?.isDisabled,
         isMulti,
         onChange: handleChange,
+        // El menu se porta a document.body para no quedar recortado por el
+        // overflow-hidden de contenedores como Modal/Content — sin esto,
+        // el dropdown se corta dentro de cualquier modal.
+        menuPortalTarget: typeof document !== 'undefined' ? document.body : undefined,
+        menuPosition: 'fixed' as const,
         ...rest,
     };
 

@@ -2,6 +2,7 @@ import Breadcrumb from '@/components/layouts/Breadcrumb/Breadcrumb';
 import Container from '@/components/layouts/Container/Container';
 import PageWrapper from '@/components/layouts/PageWrapper/PageWrapper';
 import Subheader, { SubheaderLeft, SubheaderRight } from '@/components/layouts/Subheader/Subheader';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, {
@@ -336,6 +337,27 @@ const DetalleContrato = () => {
                     currentPage={`Contrato #${contrato.id}`}
                 />
             </Container>
+
+            {pendientes.some((p) => !p.cumplido) && (
+                <Container className='pb-0 pt-2'>
+                    <Alert variant='outline' color='amber' icon='HeroExclamationTriangle'>
+                        <strong>Requisitos pendientes para avanzar</strong>
+                        <ul className='mt-1 list-inside list-disc text-sm'>
+                            {pendientes
+                                .filter((p) => !p.cumplido)
+                                .map((p) => (
+                                    <li key={p.label}>{p.label}</li>
+                                ))}
+                        </ul>
+                        {contrato.estado === 'aprobado_cliente' && !firmaPrestadoraDisponible && (
+                            <p className='mt-1 text-sm'>
+                                Registra la firma de la empresa prestadora en su ficha (Empresa /
+                                Empresas) para habilitar el envío a firma.
+                            </p>
+                        )}
+                    </Alert>
+                </Container>
+            )}
 
             {/* ── Resumen operativo + acciones ── */}
             <Container className='pb-0 pt-2'>

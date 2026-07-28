@@ -153,8 +153,21 @@ def promover_prospecto_al_completar_oc_agrupada(sender, instance, **kwargs):
         return
 
     from empresas.models import RelacionEmpresa
-    RelacionEmpresa.objects.filter(
+    prospecto_qs = RelacionEmpresa.objects.filter(
         prestador_servicios=oc_agrupada.oc_empresa,
         cliente=oc_agrupada.oc_cliente,
         tipo_relacion="prospecto",
-    ).update(tipo_relacion="prestador-cliente")
+    )
+    ya_es_cliente = RelacionEmpresa.objects.filter(
+        prestador_servicios=oc_agrupada.oc_empresa,
+        cliente=oc_agrupada.oc_cliente,
+        tipo_relacion="prestador-cliente",
+    ).exists()
+    # Si ya existe la relacion 'prestador-cliente' (dato duplicado o promocion
+    # previa que no limpio el prospecto), actualizar violaria la restriccion
+    # de unicidad (prestador_servicios, cliente, tipo_relacion) — en ese caso
+    # el prospecto quedo obsoleto y solo hay que eliminarlo.
+    if ya_es_cliente:
+        prospecto_qs.delete()
+    else:
+        prospecto_qs.update(tipo_relacion="prestador-cliente")

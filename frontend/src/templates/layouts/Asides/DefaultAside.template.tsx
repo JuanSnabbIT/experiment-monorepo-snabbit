@@ -25,7 +25,10 @@ const DefaultAsideTemplate = () => {
     const esRolRrhhPuro =
         grupos.includes('rrhh') &&
         !grupos.includes('staff') &&
-        !grupos.includes('superadmin');
+        !grupos.includes('superadmin') &&
+        !grupos.includes('contratos') &&
+        !grupos.includes('representante_legal') &&
+        !grupos.includes('finanzas');
     const listaClientesActiva = esRolRrhhPuro ? listaMisClientesRrhh : listaMisClientes;
 
 

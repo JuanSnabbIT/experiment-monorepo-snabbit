@@ -4150,6 +4150,22 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
         empresa = _empresa_del_usuario(self.request.user)
         serializer.save(empresa_prestadora=empresa)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.empresa_prestadora_id is None:
+            es_superadmin = request.user.is_superuser or request.user.groups.filter(
+                name="superadmin"
+            ).exists()
+            if not es_superadmin:
+                return Response(
+                    {
+                        "detail": "Esta plantilla es global del sistema (usada por todas las "
+                        "empresas). Solo un superadministrador puede eliminarla."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=["post"], url_path="duplicar")
     def duplicar(self, request, pk=None):
         """Duplica una plantilla con todas sus secciones y ordenes de bloque."""

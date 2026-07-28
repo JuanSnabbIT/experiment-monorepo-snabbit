@@ -36,9 +36,17 @@ const DetalleCliente = () => {
 
     const { listaGrupos } = useAppSelector((state) => state.auth);
     const grupos = listaGrupos?.grupos ?? [];
-    // Solo 'rrhh' sin 'staff' ni 'superadmin' → vista restringida
+    // 'rrhh' sin ningun rol que tambien de acceso a contratos comerciales
+    // (staff/superadmin ven todo; contratos, representante_legal y finanzas
+    // tienen acceso real en el backend a Contratos/Asignaciones de licencias,
+    // ver ContratoEmpresaClienteViewSet.get_permissions()) → vista restringida
     const esRRHHRestringido =
-        grupos.includes('rrhh') && !grupos.includes('staff') && !grupos.includes('superadmin');
+        grupos.includes('rrhh') &&
+        !grupos.includes('staff') &&
+        !grupos.includes('superadmin') &&
+        !grupos.includes('contratos') &&
+        !grupos.includes('representante_legal') &&
+        !grupos.includes('finanzas');
     const {
         data: detalleCliente,
         isLoading: loadingCliente,

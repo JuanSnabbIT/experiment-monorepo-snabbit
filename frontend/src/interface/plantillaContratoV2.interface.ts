@@ -111,6 +111,7 @@ export interface IPlantillaContratoV2List {
     tipo_contrato_label: string;
     subtipo_trabajador: string | null;
     subtipo_trabajador_label: string | null;
+    empresa_prestadora: number | null;
     empresa_cliente: number | null;
     empresa_cliente_nombre: string | null;
     es_default: boolean;

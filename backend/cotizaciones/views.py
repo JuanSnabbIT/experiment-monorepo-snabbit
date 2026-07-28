@@ -198,14 +198,12 @@ class CotizacionViewSet(viewsets.ModelViewSet):
         usuario = request.user
         try:
             personalizacion = PersonalizacionUsuario.objects.get(usuario=usuario)
-            empresa = personalizacion.sucursal_principal
-            if not empresa:
+            sucursal_principal = personalizacion.sucursal_principal
+            if not sucursal_principal:
                 return Response(
                     {"detail": "Empresa principal no seleccionada."}, status=400
                 )
-            empresa = get_object_or_404(
-                Empresa, pk=empresa.pk
-            )  # Asegúrate de que sea una instancia de Empresa
+            empresa = sucursal_principal.empresa
         except PersonalizacionUsuario.DoesNotExist:
             return Response(
                 {"detail": "Personalización del usuario no encontrada."}, status=404

@@ -11,6 +11,7 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { TIPO_CONTRATO } from '@/constants/contrato.constant';
+import { useAppSelector } from '@/store';
 import {
     useDeletePlantillaV2Mutation,
     useGetPlantillasV2Query,
@@ -27,6 +28,8 @@ const ListaPlantillasV2 = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [filtroTipo, setFiltroTipo] = useState('');
     const [busqueda, setBusqueda] = useState('');
+    const { listaGrupos } = useAppSelector((state) => state.auth);
+    const esSuperadmin = !!listaGrupos?.grupos?.includes('superadmin');
 
     const {
         data: plantillasRaw,
@@ -196,14 +199,27 @@ const ListaPlantillasV2 = () => {
                                                                 onClick={() => handleGestionar(plantilla.id)}
                                                             />
                                                         </Tooltip>
-                                                        <ConfirmarEliminar
-                                                            peticionUrl={`/api/v2/plantillas-contrato-v2/${plantilla.id}/`}
-                                                            nombre={plantilla.titulo}
-                                                            onDispatch={() =>
-                                                                deletePlantilla(plantilla.id)
-                                                            }
-                                                            buttonSize='sm'
-                                                        />
+                                                        {plantilla.empresa_prestadora === null &&
+                                                        !esSuperadmin ? (
+                                                            <Tooltip text='Plantilla global del sistema — solo un superadministrador puede eliminarla'>
+                                                                <Button
+                                                                    size='sm'
+                                                                    color='red'
+                                                                    variant='solid'
+                                                                    icon='HeroTrash'
+                                                                    isDisable
+                                                                />
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <ConfirmarEliminar
+                                                                peticionUrl={`/api/plantillas-contrato-v2/${plantilla.id}/`}
+                                                                nombre={plantilla.titulo}
+                                                                onDispatch={() =>
+                                                                    deletePlantilla(plantilla.id)
+                                                                }
+                                                                buttonSize='sm'
+                                                            />
+                                                        )}
                                                     </div>
                                                 </Td>
                                             </Tr>

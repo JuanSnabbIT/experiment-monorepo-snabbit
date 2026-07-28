@@ -126,7 +126,7 @@ export const Pages = {
                 to: '/empresa/detalle-cliente/:id',
                 text: 'Clientes',
                 icon: 'HeroUserCircle',
-                authority: ['staff', 'superadmin', 'rrhh', 'finanzas'],
+                authority: ['staff', 'superadmin', 'rrhh', 'finanzas', 'contratos', 'representante_legal'],
             },
             listaEmpresas: {
                 id: 'listaEmpresas',

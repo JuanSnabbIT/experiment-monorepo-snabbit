@@ -2074,6 +2074,7 @@ class PlantillaContratoV2ListSerializer(serializers.ModelSerializer):
             "id", "titulo", "descripcion", "version", "activa",
             "tipo_contrato", "tipo_contrato_label",
             "subtipo_trabajador", "subtipo_trabajador_label",
+            "empresa_prestadora",
             "empresa_cliente", "empresa_cliente_nombre",
             "es_default", "requiere_nda",
             "version_editor",

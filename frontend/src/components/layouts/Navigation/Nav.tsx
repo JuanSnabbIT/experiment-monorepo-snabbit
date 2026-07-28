@@ -25,8 +25,9 @@ const navItemClasses = {
         themeConfig.transition,
     ),
     inactive: 'border-transparent',
-    active: 'border-zinc-300 text-zinc-950 dark:border-zinc-800 dark:text-zinc-100',
-    here: 'text-zinc-950 dark:text-zinc-100 border-transparent',
+    active: 'border-zinc-300 font-bold text-zinc-950 dark:border-zinc-800 dark:text-zinc-100',
+    here: 'font-bold text-zinc-950 dark:text-zinc-100 border-transparent',
+    open: 'text-zinc-950 dark:text-zinc-100 border-transparent',
 };
 
 const navItemChildCheck = (
@@ -312,9 +313,11 @@ export const NavCollapse: FC<INavCollapseProps> = (props) => {
     
     const here = isRouteActive(to, location.pathname);
 
+    // Al navegar, sincronizar con la ruta: se abre el collapse del módulo activo
+    // y se cierran los demás. El usuario puede seguir abriéndolos manualmente.
     useEffect(() => {
-        if (here) setIsActive(true);
-    }, [here]);
+        setIsActive(here);
+    }, [here, location.pathname]);
 
     return (
         <li
@@ -325,9 +328,11 @@ export const NavCollapse: FC<INavCollapseProps> = (props) => {
                 <div
                     role='presentation'
                     className={
-                        isActive || here
+                        here
                             ? classNames(navItemClasses.default, navItemClasses.here)
-                            : classNames(navItemClasses.default, navItemClasses.inactive)
+                            : isActive
+                              ? classNames(navItemClasses.default, navItemClasses.open)
+                              : classNames(navItemClasses.default, navItemClasses.inactive)
                     }
                     onClick={() => setIsActive(!isActive)}>
                     <NavIcon icon={icon} />
