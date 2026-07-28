@@ -1,9 +1,29 @@
 import os
 
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 from core.tasks import send_email_task
+
+
+class SecureProxySslHeaderTest(SimpleTestCase):
+    """Causa raíz del bug de Mixed Content en los PDF de contratos (gestion.snabbit.cl):
+    detrás del ingress, Django recibe la petición por HTTP interno tras la
+    terminación TLS. Sin SECURE_PROXY_SSL_HEADER, request.is_secure() ignora el
+    X-Forwarded-Proto del proxy y siempre es False, por lo que
+    request.build_absolute_uri() (usado en empresas/serializers.py,
+    ordentrabajov3/serializers.py y por los FileField de DRF como
+    ContratoTrabajador.archivo_pdf) arma URLs http:// en vez de https://."""
+
+    def test_build_absolute_uri_detras_de_proxy_https_usa_esquema_https(self):
+        factory = RequestFactory()
+        request = factory.get(
+            '/media/rrhh/contratos/582/contrato_trabajador_71.pdf',
+            HTTP_X_FORWARDED_PROTO='https',
+        )
+
+        self.assertTrue(request.is_secure())
+        self.assertTrue(request.build_absolute_uri().startswith('https://'))
 
 
 class SendEmailTaskTest(TestCase):
