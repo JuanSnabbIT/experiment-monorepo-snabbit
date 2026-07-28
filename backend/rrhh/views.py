@@ -941,6 +941,12 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
             _generar_pdf(contrato, persistir=True)
         except PlantillaNoDisponibleError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Error generando PDF de contrato trabajador %s", contrato.pk)
+            return Response(
+                {"detail": "Error al generar el PDF del contrato. Contacta al administrador."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         return Response(ContratoTrabajadorSerializer(contrato).data)
 
@@ -1985,6 +1991,12 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
                 generar_pdf_finiquito(finiquito, persistir=True)
             except PlantillaNoDisponibleError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            except Exception:
+                logger.exception("Error generando PDF de finiquito %s", finiquito.pk)
+                return Response(
+                    {"detail": "Error al generar el PDF del finiquito. Contacta al administrador."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
             try:
                 finiquito = FiniquitoService.avanzar_estado(finiquito.pk, "calculado", request.user)
             except DjangoValidationError as e:
@@ -2006,6 +2018,12 @@ class FiniquitoContratoViewSet(viewsets.ModelViewSet):
             generar_pdf_finiquito(finiquito, persistir=True)
         except PlantillaNoDisponibleError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Error regenerando PDF de finiquito %s", finiquito.pk)
+            return Response(
+                {"detail": "Error al generar el PDF del finiquito. Contacta al administrador."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         return Response(FiniquitoContratoSerializer(finiquito).data)
 
     @action(detail=True, methods=["post"], url_path="marcar-firmado")
