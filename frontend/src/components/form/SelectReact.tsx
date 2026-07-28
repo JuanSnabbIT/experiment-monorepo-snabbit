@@ -3,6 +3,7 @@ import React, { FC } from 'react';
 import ReactSelect, {
     ClassNamesConfig,
     ControlProps,
+    CSSObjectWithLabel,
     GroupBase,
     MultiValue,
     MultiValueProps,
@@ -208,7 +209,7 @@ const SelectReact: FC<ISelectReactProps> = (props) => {
         // que el override tiene que ir por la prop `styles`, no `classNames`.
         // Sin esto, el menu queda detras del modal (z-[1055] en Modal.tsx).
         styles: {
-            menuPortal: (base: React.CSSProperties) => ({ ...base, zIndex: 2000 }),
+            menuPortal: (base: CSSObjectWithLabel) => ({ ...base, zIndex: 2000 }),
         },
         isDisabled: disabled || rest?.isDisabled,
         isMulti,
