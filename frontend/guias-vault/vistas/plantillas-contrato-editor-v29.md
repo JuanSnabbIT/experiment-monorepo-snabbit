@@ -12,9 +12,7 @@ Esta guía explica cómo usar el editor de plantillas para crear y mantener los 
 
 ## Qué es una plantilla
 
-Una plantilla es un documento reutilizable: define el texto, el formato y los datos variables de un contrato. Cuando se crea un contrato real, el sistema toma la plantilla y reemplaza automáticamente las etiquetas por los datos del cliente, del trabajador o de la empresa según corresponda. Una misma plantilla puede usarse para muchos contratos.
-
-Las plantillas se administran desde el menú lateral, en **Registros → Plantillas de Contrato**. Aunque los contratos se gestionan en el módulo Contratos, las plantillas viven en Registros porque son un catálogo de configuración, no un documento firmable.
+![[fragmentos/que-es-una-plantilla]]
 
 ## La pantalla del editor
 

@@ -4282,8 +4282,8 @@ class PlantillaContratoV2ViewSet(viewsets.ModelViewSet):
 
         try:
             adaptador = construir_adaptador_preview(plantilla)
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=400)
+        except Exception as exc:
+            return Response({"detail": f"No se pudo preparar la vista previa: {exc}"}, status=400)
 
         try:
             contrato = adaptador.instancia
