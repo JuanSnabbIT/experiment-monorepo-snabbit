@@ -4,7 +4,9 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "predev": "node scripts/build-guias.mjs",
         "dev": "vite",
+        "prebuild": "node scripts/build-guias.mjs",
         "build": "tsc && vite build",
         "preview": "vite preview",
         "lint": "eslint . --ext .js,.jsx,.ts,.tsx",

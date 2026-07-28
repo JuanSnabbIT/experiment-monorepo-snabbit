@@ -9,6 +9,9 @@
 # Ignorar carpetas de migraciones de Django (por si acaso en frontend)
 **/migrations/
 **/migrations/**
+
+# Guías de usuario: contenido derivado del vault (generado por scripts/build-guias.mjs)
+public/guias/
 ### Git ###
 # Created by git for backups. To disable backups in Git:
 # $ git config --global mergetool.keepBackup false
