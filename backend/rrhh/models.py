@@ -171,6 +171,19 @@ class ContratoTrabajador(ModeloBaseHistorico):
     fecha_termino_real = models.DateField(blank=True, null=True)
     observaciones_termino = models.TextField(blank=True, null=True)
     motivo_anulacion = models.TextField(blank=True, null=True)
+    aviso_vencimiento_enviado = models.BooleanField(
+        default=False,
+        help_text="Evita reenviar el aviso de vencimiento proximo mas de una vez.",
+    )
+
+    # Overrides "solo para este contrato" de campos obligatorios que
+    # normalmente viven en Empresa/Usuario (compartidos entre contratos).
+    # El adaptador los revisa antes de caer al dato compartido — ver
+    # FIX #8 en dev/docs/rrhh_plan_correcciones.md.
+    rut_empresa_override = models.CharField(max_length=20, blank=True, null=True)
+    representante_legal_override = models.CharField(max_length=200, blank=True, null=True)
+    rut_representante_override = models.CharField(max_length=20, blank=True, null=True)
+    rut_trabajador_override = models.CharField(max_length=20, blank=True, null=True)
 
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -239,6 +252,29 @@ class AnexoContrato(ModeloBaseHistorico):
         return f"Anexo {self.tipo} ({self.fecha_efectiva}) - {self.contrato_id}"
 
 
+class IsapreCatalogo(ModeloBase):
+    """Catalogo de Isapres disponibles. Registros globales (empresa=null) + por empresa."""
+
+    nombre = models.CharField(max_length=100)
+    empresa = models.ForeignKey(
+        "empresas.Empresa",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="isapre_catalogo",
+    )
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("nombre", "empresa")]
+        verbose_name = "Isapre"
+        verbose_name_plural = "Isapres"
+        ordering = ["nombre"]
+
+    def __str__(self):
+        return self.nombre
+
+
 class CargoCatalogo(ModeloBase):
     """Catalogo de cargos por empresa para el asistente de contratos laborales."""
 
@@ -249,6 +285,7 @@ class CargoCatalogo(ModeloBase):
     )
     nombre = models.CharField(max_length=150)
     activo = models.BooleanField(default=True)
+    funciones_default = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = [("empresa", "nombre")]

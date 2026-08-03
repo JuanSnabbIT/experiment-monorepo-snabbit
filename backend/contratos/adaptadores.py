@@ -16,11 +16,14 @@ adaptador, manteniendo el motor v1 intacto (no se modifica).
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 from django.db.models import QuerySet
 from django.utils.html import escape
+
+_logger = logging.getLogger(__name__)
 
 
 # Sentinel para distinguir "ruta no manejada por el adaptador" de
@@ -94,9 +97,32 @@ class IContratoBase(ABC):
         """
         Retorna las etiquetas disponibles para el editor v2.9.
         Shape compatible con IEtiquetaPlantilla del frontend.
-        Default vacío; los adaptadores concretos lo sobreescriben.
+        Default vacío; los adaptadores concretos lo sobreescriven.
         """
         return []
+
+    # ----- Campos obligatorios (validacion de completitud pre-export) -----
+    def es_campo_obligatorio(self, clave: str) -> bool:
+        """
+        Indica si ``clave`` es un dato que un contrato valido nunca deberia
+        exportar en blanco (identidad de las partes, cargo, etc.), a
+        diferencia de campos legitimamente vacios por diseno (bonos no
+        activos, seccion de reemplazo cuando no aplica, etc.).
+
+        Default False; los adaptadores concretos declaran su propio set.
+        """
+        return False
+
+    # ----- Datos del firmante (nombre/RUT bajo la linea de firma) -----
+    def datos_firmante(self, rol: str) -> tuple[str, str] | None:
+        """
+        Retorna ``(nombre, rut)`` de quien firma en representacion de ``rol``
+        (ej. "Empleador", "Trabajador", "Proveedor", "Cliente"), o ``None``
+        si el rol no es reconocido por este adaptador.
+
+        Default None; los adaptadores concretos declaran su propio mapeo.
+        """
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +399,31 @@ class AdaptadorContratoB2B(IContratoBase):
         "licenciatarios_tabla":               {"nombre_display": "Tabla de Licenciatarios", "categoria": "licencia"},
     }
 
+    # Rol del firmante (texto usado en el nodo 'firma' de la plantilla) →
+    # alias de nombre/RUT de quien firma en su representacion. El "proveedor"
+    # (servicios/venta/licencia) y el "cliente" firman a traves de su
+    # representante legal, no como la empresa misma.
+    _ROL_A_ALIAS_FIRMANTE: dict[str, tuple[str, str]] = {
+        "Proveedor":     ("representante_proveedor", "rut_representante_proveedor"),
+        "Vendedor":      ("representante_proveedor", "rut_representante_proveedor"),
+        "Licenciante":   ("representante_proveedor", "rut_representante_proveedor"),
+        "Cliente":       ("representante_cliente", "rut_representante_cliente"),
+        "Comprador":     ("representante_cliente", "rut_representante_cliente"),
+        "Licenciatario": ("representante_cliente", "rut_representante_cliente"),
+    }
+
+    def datos_firmante(self, rol: str) -> tuple[str, str] | None:
+        alias = self._ROL_A_ALIAS_FIRMANTE.get(rol)
+        if not alias:
+            return None
+        nombre_clave, rut_clave = alias
+        nombre = self.resolver_ruta_extendida(nombre_clave)
+        rut = self.resolver_ruta_extendida(rut_clave)
+        return (
+            nombre if isinstance(nombre, str) else "",
+            rut if isinstance(rut, str) else "",
+        )
+
     @classmethod
     def catalogo_etiquetas(cls, tipo_contrato: str = "servicios") -> list[dict]:
         catalogo = []
@@ -508,14 +559,35 @@ class AdaptadorContratoTrabajador(IContratoBase):
         "L": "Lunes", "M": "Martes", "X": "Miércoles",
         "J": "Jueves", "V": "Viernes", "S": "Sábado", "D": "Domingo",
     }
+    _DIAS_SEMANA_ORDEN = ["L", "M", "X", "J", "V", "S", "D"]
 
     def _build_dias_semana_texto(self) -> str:
+        """Nombres completos de los dias trabajados; si forman un rango
+        contiguo (ej. L-V), lo expresa como "de Lunes a Viernes" en vez de
+        listar cada dia."""
         dias = self._c.dias_semana or []
+        if not dias:
+            return ""
+
+        orden = self._DIAS_SEMANA_ORDEN
+        # Posiciones ordenadas segun la semana, ignorando codigos desconocidos.
+        posiciones = sorted(orden.index(d) for d in dias if d in orden)
+        es_rango_contiguo = (
+            len(posiciones) > 1
+            and posiciones == list(range(posiciones[0], posiciones[-1] + 1))
+        )
+        if es_rango_contiguo:
+            inicio = self._DIAS_SEMANA_MAP[orden[posiciones[0]]]
+            fin = self._DIAS_SEMANA_MAP[orden[posiciones[-1]]]
+            return f"de {inicio} a {fin}"
+
         nombres = [self._DIAS_SEMANA_MAP.get(d, d) for d in dias]
-        return ", ".join(nombres) if nombres else ""
+        if len(nombres) == 1:
+            return nombres[0]
+        return ", ".join(nombres[:-1]) + f" y {nombres[-1]}"
 
     def _sueldo_en_palabras(self, value) -> str:
-        """Convierte un monto a palabras (CLP). Falla silenciosa si num2words falta."""
+        """Convierte un monto a palabras (CLP)."""
         if value in (None, ""):
             return ""
         try:
@@ -525,9 +597,17 @@ class AdaptadorContratoTrabajador(IContratoBase):
         if num <= 0:
             return ""
         try:
-            from num2words import num2words  # type: ignore
+            from num2words import num2words
+        except ImportError:
+            _logger.error(
+                "num2words no esta instalado: el monto en palabras del contrato "
+                "quedara vacio en la clausula de remuneracion. Agregar num2words a req.txt."
+            )
+            return ""
+        try:
             return num2words(num, lang="es") + " pesos"
         except Exception:
+            _logger.exception("num2words fallo al convertir el monto %s a palabras", num)
             return ""
 
     def _calcular_sueldo_liquido_num(self):
@@ -590,7 +670,7 @@ class AdaptadorContratoTrabajador(IContratoBase):
         horas = self._c.horas_semanales
         hora_inicio = self._c.hora_inicio.strftime("%H:%M") if self._c.hora_inicio else ""
         hora_fin = self._c.hora_fin.strftime("%H:%M") if self._c.hora_fin else ""
-        dias = ", ".join(self._c.dias_semana) if self._c.dias_semana else ""
+        dias = self._build_dias_semana_texto()
         partes = []
         if jornada == "completa":
             partes.append("Jornada laboral completa")
@@ -599,7 +679,9 @@ class AdaptadorContratoTrabajador(IContratoBase):
         if horas:
             partes.append(f"de {horas} horas semanales")
         if dias:
-            partes.append(f"los días {dias}")
+            # dias ya viene como "de Lunes a Viernes" (rango) o
+            # "Lunes, Martes y Miércoles" (lista) segun _build_dias_semana_texto.
+            partes.append(dias if dias.startswith("de ") else f"los días {dias}")
         if hora_inicio and hora_fin:
             partes.append(f"de {hora_inicio} a {hora_fin} horas")
         colacion = self._c.tiempo_colacion
@@ -646,13 +728,14 @@ class AdaptadorContratoTrabajador(IContratoBase):
         "profesion_u_oficio":       "contrato.profesion_u_oficio",
         # empresa / empleador
         "nombre_empresa":           "empresa.nombre",
-        "rut_empresa":              "empresa.rut",
+        "rut_empresa":              "empresa.rut_empresa",
         "domicilio_empresa":        "empresa.direccion_principal",
         "representante_legal":      "empresa.representante_legal",
-        "rut_representante":        "empresa.rut_representante_legal",
+        "rut_representante":        "empresa.rut_representante",
         # contrato
         "nombre_cargo":             "contrato.cargo",
         "funciones_cargo":          "contrato.funciones",
+        "lugar_trabajo":            "contrato.lugar_trabajo",
         "fecha_inicio":             "contrato.fecha_inicio",
         "fecha_termino":            "contrato.fecha_termino",
         "tipo_contrato":            "contrato.tipo_contrato",
@@ -684,6 +767,26 @@ class AdaptadorContratoTrabajador(IContratoBase):
         "fecha_firma":              "firma.fecha_firma",
     }
 
+    # Identidad de las partes y objeto del contrato: nunca deberian exportarse
+    # en blanco. No incluye bonos/cuenta bancaria/reemplazo, que son
+    # legitimamente vacios cuando no aplican. Tampoco incluye lugar_firma/
+    # fecha_firma: se llenan al momento de firmar, no al crear el contrato.
+    #
+    # "ubicacion" indica donde se resuelve cada campo, para que el frontend
+    # pueda ofrecer "volver al paso" (wizard) o avisar que hay que ir a otra
+    # pantalla (empresa/trabajador) — ver FIX #8 en dev/docs/rrhh_plan_correcciones.md.
+    _CAMPOS_OBLIGATORIOS: dict[str, dict] = {
+        "rut_trabajador":      {"label": "RUT del trabajador", "ubicacion": "trabajador"},
+        "nombre_trabajador":   {"label": "Nombre del trabajador", "ubicacion": "trabajador"},
+        "estado_civil":        {"label": "Estado civil", "ubicacion": "wizard", "paso": 2},
+        "rut_empresa":         {"label": "RUT de la empresa", "ubicacion": "empresa"},
+        "nombre_empresa":      {"label": "Nombre de la empresa", "ubicacion": "empresa"},
+        "representante_legal": {"label": "Representante legal", "ubicacion": "empresa"},
+        "rut_representante":   {"label": "RUT del representante legal", "ubicacion": "empresa"},
+        "nombre_cargo":        {"label": "Cargo", "ubicacion": "wizard", "paso": 3},
+        "funciones_cargo":     {"label": "Funciones del cargo", "ubicacion": "wizard", "paso": 3},
+    }
+
     _PREFIJO_A_CATEGORIA: dict[str, str] = {
         "trabajador":   "trabajador",
         "empresa":      "empleador",
@@ -694,6 +797,74 @@ class AdaptadorContratoTrabajador(IContratoBase):
         "empleador":    "empleador",
         "finiquito":    "contrato",
     }
+
+    def es_campo_obligatorio(self, clave: str) -> bool:
+        return clave in self._CAMPOS_OBLIGATORIOS
+
+    def campos_faltantes(self) -> list[dict]:
+        """Campos obligatorios cuyo valor resuelto esta vacio, con su
+        metadata de ubicacion — usado por el endpoint de pre-validacion
+        antes de crear el contrato (FIX #8)."""
+        faltantes = []
+        for clave, meta in self._CAMPOS_OBLIGATORIOS.items():
+            valor = self.resolver_ruta_extendida(clave)
+            if not valor or valor is NOT_HANDLED:
+                faltantes.append({"clave": clave, **meta})
+        return faltantes
+
+    @classmethod
+    def campos_faltantes_previos(cls, empresa, usuario_empresa=None) -> list[dict]:
+        """Igual que ``campos_faltantes`` pero sin requerir un contrato ya
+        guardado — solo evalua los campos de "empresa" (siempre, dependen
+        unicamente de la empresa prestadora) y "trabajador" (solo si se pasa
+        un ``usuario_empresa`` existente). Los campos "wizard" (estado
+        civil, funciones del cargo) no se evaluan aqui: el propio wizard ya
+        tiene esos valores en memoria antes de enviarlos.
+
+        Usado por el precheck que se corre ANTES de crear el contrato, para
+        pedir los datos faltantes antes de que el contrato exista (ver FIX
+        #9 en dev/docs/rrhh_plan_correcciones.md).
+        """
+        faltantes = []
+        for clave, meta in cls._CAMPOS_OBLIGATORIOS.items():
+            if meta["ubicacion"] == "empresa":
+                valor = getattr(empresa, {
+                    "rut_empresa": "rut_empresa",
+                    "nombre_empresa": "nombre",
+                    "representante_legal": "representante_legal",
+                    "rut_representante": "rut_representante",
+                }.get(clave, clave), None)
+            elif meta["ubicacion"] == "trabajador" and usuario_empresa is not None:
+                if clave == "rut_trabajador":
+                    valor = usuario_empresa.rut or getattr(usuario_empresa.usuario, "rut", None)
+                elif clave == "nombre_trabajador":
+                    valor = usuario_empresa.usuario.get_nombre_completo()
+                else:
+                    continue
+            else:
+                continue
+            if not valor:
+                faltantes.append({"clave": clave, **meta})
+        return faltantes
+
+    # El "Empleador" firma a traves de su representante legal, no como la
+    # empresa misma; el "Trabajador" firma a nombre propio.
+    _ROL_A_ALIAS_FIRMANTE: dict[str, tuple[str, str]] = {
+        "Empleador": ("representante_legal", "rut_representante"),
+        "Trabajador": ("nombre_trabajador", "rut_trabajador"),
+    }
+
+    def datos_firmante(self, rol: str) -> tuple[str, str] | None:
+        alias = self._ROL_A_ALIAS_FIRMANTE.get(rol)
+        if not alias:
+            return None
+        nombre_clave, rut_clave = alias
+        nombre = self.resolver_ruta_extendida(nombre_clave)
+        rut = self.resolver_ruta_extendida(rut_clave)
+        return (
+            nombre if isinstance(nombre, str) else "",
+            rut if isinstance(rut, str) else "",
+        )
 
     @classmethod
     def catalogo_etiquetas(cls, tipo_contrato: str = "trabajador") -> list[dict]:
@@ -717,9 +888,26 @@ class AdaptadorContratoTrabajador(IContratoBase):
         return sorted(catalogo, key=lambda x: (x["categoria"], x["clave"]))
 
     # ----- Resolucion de rutas -----
+    # Clave corta -> campo override en ContratoTrabajador. Permite que FIX #8
+    # ("guardar solo para este contrato") sobrescriba un dato que normalmente
+    # vive en Empresa/Usuario (compartido entre contratos) sin tocar el
+    # registro compartido. Se revisa antes que la resolucion normal.
+    _CLAVE_A_OVERRIDE: dict[str, str] = {
+        "rut_empresa": "rut_empresa_override",
+        "representante_legal": "representante_legal_override",
+        "rut_representante": "rut_representante_override",
+        "rut_trabajador": "rut_trabajador_override",
+    }
+
     def resolver_ruta_extendida(self, ruta, default=None):
         if not ruta or not isinstance(ruta, str):
             return NOT_HANDLED
+
+        override_field = self._CLAVE_A_OVERRIDE.get(ruta)
+        if override_field:
+            valor_override = getattr(self._c, override_field, None)
+            if valor_override:
+                return valor_override
 
         # Expandir alias cortos antes de parsear prefijos.
         # Solo se expande si la clave no contiene punto (ya es ruta completa).
@@ -746,7 +934,10 @@ class AdaptadorContratoTrabajador(IContratoBase):
                 "last_name": self._user.last_name or "",
                 "second_last_name": self._user.second_last_name or "" if hasattr(self._user, "second_last_name") else "",
                 "nombre_apellido": f"{self._user.first_name} {self._user.last_name}",
-                "rut": getattr(self._user, "rut", "") or "",
+                # El wizard de creacion guarda el RUT en UsuarioEmpresa.rut (no en
+                # User.rut); se prioriza esa fuente y se cae a User.rut solo por
+                # compatibilidad con datos antiguos que lo hayan tenido ahi.
+                "rut": (getattr(self._ue, "rut", "") or getattr(self._user, "rut", "") or ""),
                 "email": self._user.email or "",
                 "direccion": getattr(self._user, "direccion", "") or "",
                 "telefono": getattr(self._user, "celular", "") or "",

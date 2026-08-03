@@ -37,6 +37,7 @@ from .models import (
     EnvioAprobacionEmpleador,
     FiniquitoContrato,
     GrupoTurno,
+    IsapreCatalogo,
     NacionalidadCatalogo,
     SlotTurno,
     TurnoLaboral,
@@ -55,6 +56,7 @@ from .serializers import (
     EnvioAprobacionEmpleadorSerializer,
     FiniquitoContratoSerializer,
     GrupoTurnoSerializer,
+    IsapreCatalogoSerializer,
     NacionalidadCatalogoSerializer,
     SnapshotGetBlockSerializer,
     SnapshotUpdateBlockSerializer,
@@ -193,6 +195,54 @@ class AfpCatalogoViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         if instance.empresa_id is None:
             raise serializers.ValidationError("Las AFP globales no pueden eliminarse.")
+        instance.delete()
+
+
+class IsapreCatalogoViewSet(viewsets.ModelViewSet):
+    """Catalogo de Isapres: globales (empresa=null) + por empresa.
+
+    Los registros globales son de solo lectura. PATCH/DELETE solo aplican a
+    registros de empresa.
+    """
+
+    serializer_class = IsapreCatalogoSerializer
+    permission_classes = [IsAuthenticated, TienePermisoPorAccion]
+    recurso_permiso = "rrhh.isapre_catalogo"
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        empresa = _empresa_actual(self.request)
+        empresa_id_validado = _validar_empresa_id_param(self.request, empresa)
+        search = self.request.query_params.get("search", "").strip()
+        empresa_filtro = empresa_id_validado or (empresa.id if empresa else None)
+        qs = IsapreCatalogo.objects.filter(
+            Q(empresa__isnull=True) | Q(empresa_id=empresa_filtro),
+            activo=True,
+        )
+        if search:
+            qs = qs.filter(nombre__icontains=search)
+        return qs.order_by("nombre")
+
+    def perform_create(self, serializer):
+        prestadora = _empresa_actual(self.request)
+        empresa = _resolver_empresa_destino(self.request, prestadora)
+        nombre = serializer.validated_data.get("nombre", "").strip()
+        existe = IsapreCatalogo.objects.filter(
+            Q(empresa__isnull=True) | Q(empresa=empresa),
+            nombre__iexact=nombre,
+        ).first()
+        if existe:
+            raise serializers.ValidationError({"nombre": "Ya existe una Isapre con ese nombre."})
+        serializer.save(empresa=empresa)
+
+    def perform_update(self, serializer):
+        if serializer.instance.empresa_id is None:
+            raise serializers.ValidationError("Las Isapres globales no pueden modificarse.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.empresa_id is None:
+            raise serializers.ValidationError("Las Isapres globales no pueden eliminarse.")
         instance.delete()
 
 
@@ -696,6 +746,224 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(creado_por=self.request.user)
+
+    # Colores por estado, mismo criterio semantico que COLOR_ESTADO
+    # (frontend/src/constants/contrato.constant.ts) traducido a hex ARGB.
+    _COLOR_ESTADO_XLSX = {
+        "vigente": "10B981",    # emerald
+        "vencido": "EF4444",    # red
+        "terminado": "8B5CF6", # violet
+        "anulado": "EF4444",   # red
+    }
+
+    @action(detail=False, methods=["get"], url_path="export-planilla")
+    def export_planilla(self, request):
+        """Exporta a Excel los contratos vigentes o en un estado posterior
+        (vigente, vencido, terminado, anulado) — excluye borrador,
+        pendiente_aprobacion y descartado, que son previos a vigente.
+
+        Columnas y estilo replican la planilla manual que RRHH usaba antes
+        (encabezado amarillo, filtros automaticos, estado coloreado).
+
+        Respeta los mismos filtros de get_queryset() (multi-tenancy +
+        ?empresa_cliente=), agregandole solo el filtro de estado.
+        """
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from openpyxl.utils import get_column_letter
+        from django.http import HttpResponse
+
+        ESTADOS_PLANILLA = ["vigente", "vencido", "terminado", "anulado"]
+        contratos = (
+            self.filter_queryset(self.get_queryset())
+            .filter(estado__in=ESTADOS_PLANILLA)
+            .select_related("usuario_empresa__usuario", "usuario_empresa__sucursal__empresa")
+            .order_by("-id")
+        )
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Contratos"
+
+        columnas = [
+            "Detalle", "RUT", "Nombre Trabajador", "Nombre Empresa",
+            "Condición Contrato", "Fecha Inicio", "Fecha Término", "Observaciones",
+        ]
+        ws.append(columnas)
+        for celda in ws[1]:
+            celda.font = Font(bold=True, color="000000")
+            celda.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            celda.alignment = Alignment(horizontal="center")
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(columnas))}1"
+        ws.freeze_panes = "A2"
+
+        fila = 2
+        for contrato in contratos:
+            usuario = contrato.usuario_empresa.usuario if contrato.usuario_empresa else None
+            try:
+                empresa = contrato.usuario_empresa.sucursal.empresa
+            except Exception:
+                empresa = None
+
+            ws.append([
+                contrato.get_estado_display().upper(),
+                (usuario.rut if usuario else "") or "—",
+                usuario.get_nombre_completo() if usuario else "—",
+                empresa.nombre if empresa else "—",
+                contrato.get_tipo_contrato_display().upper(),
+                contrato.fecha_inicio.strftime("%d-%m-%Y") if contrato.fecha_inicio else "—",
+                contrato.fecha_termino.strftime("%d-%m-%Y") if contrato.fecha_termino else "INDEFINIDO",
+                contrato.observaciones or "",
+            ])
+
+            color = self._COLOR_ESTADO_XLSX.get(contrato.estado)
+            if color:
+                celda_detalle = ws.cell(row=fila, column=1)
+                celda_detalle.font = Font(bold=True, color=color)
+
+            celda_empresa = ws.cell(row=fila, column=4)
+            celda_empresa.font = Font(bold=True)
+            fila += 1
+
+        for i, columna in enumerate(columnas, start=1):
+            letra = get_column_letter(i)
+            valores = [str(c.value) for c in ws[letra] if c.value is not None]
+            ancho = max((len(v) for v in valores), default=len(columna)) + 2
+            ws.column_dimensions[letra].width = min(ancho, 45)
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = 'attachment; filename="contratos_laborales.xlsx"'
+        wb.save(response)
+        return response
+
+    @action(detail=False, methods=["get"], url_path="precheck-campos-faltantes")
+    def precheck_campos_faltantes(self, request):
+        """Campos obligatorios de empresa/trabajador que estarian vacios si
+        se creara el contrato ahora mismo — se corre ANTES de crear el
+        contrato para pedir esos datos primero (ver FIX #9 en
+        dev/docs/rrhh_plan_correcciones.md). No incluye los campos
+        "wizard" (estado civil, funciones del cargo): esos ya estan en el
+        formulario que el usuario esta llenando.
+
+        La "empresa" para los campos rut_empresa/representante_legal/
+        rut_representante es la empleadora real del trabajador (la sucursal
+        elegida en el wizard), NO la empresa del usuario que esta creando el
+        contrato — igual que ``AdaptadorContratoTrabajador._empresa``. Se
+        resuelve desde ``usuario_empresa_id`` (modo 'existente') o desde
+        ``sucursal_id`` (modo 'nuevo').
+        """
+        from contratos.adaptadores import AdaptadorContratoTrabajador
+
+        usuario_empresa = None
+        ue_id = request.query_params.get("usuario_empresa_id")
+        if ue_id:
+            usuario_empresa = (
+                UsuarioEmpresa.objects.select_related("usuario", "sucursal__empresa")
+                .filter(pk=ue_id)
+                .first()
+            )
+
+        empresa = usuario_empresa.sucursal.empresa if usuario_empresa and usuario_empresa.sucursal_id else None
+        if not empresa:
+            sucursal_id = request.query_params.get("sucursal_id")
+            if sucursal_id:
+                sucursal = SucursalEmpresa.objects.select_related("empresa").filter(pk=sucursal_id).first()
+                empresa = sucursal.empresa if sucursal else None
+        if not empresa:
+            empresa = _empresa_actual(request)
+        if not empresa:
+            return Response({"campos_faltantes": []})
+
+        campos = AdaptadorContratoTrabajador.campos_faltantes_previos(empresa, usuario_empresa)
+        return Response({"campos_faltantes": campos})
+
+    @action(detail=True, methods=["get"], url_path="campos-faltantes")
+    def campos_faltantes(self, request, pk=None):
+        """Campos obligatorios (Art. 10 CT + identidad de las partes) que el
+        contrato ya creado tiene vacios — usado justo despues de crear el
+        contrato para avisar a RRHH sin bloquear (FIX #8, ver
+        dev/docs/rrhh_plan_correcciones.md)."""
+        from contratos.adaptadores import AdaptadorContratoTrabajador
+
+        contrato = self.get_object()
+        adaptador = AdaptadorContratoTrabajador(contrato)
+        return Response({"campos_faltantes": adaptador.campos_faltantes()})
+
+    @action(detail=True, methods=["patch"], url_path="completar-campos-faltantes")
+    @transaction.atomic
+    def completar_campos_faltantes(self, request, pk=None):
+        """Completa campos obligatorios faltantes tras crear el contrato
+        (FIX #8, ver dev/docs/rrhh_plan_correcciones.md).
+
+        - estado_civil, nombre_cargo, funciones_cargo: viven en el contrato,
+          se actualizan directo (no hay eleccion "guardar siempre").
+        - rut_trabajador, rut_empresa, representante_legal, rut_representante:
+          llegan como {"valor": ..., "guardar_siempre": bool}. Si
+          guardar_siempre=True actualiza el registro compartido
+          (Usuario/Empresa, afecta a todos los contratos); si False, guarda
+          el valor solo en el override de ESTE contrato.
+        """
+        contrato = self.get_object()
+        data = request.data
+
+        CAMPOS_WIZARD = {
+            "estado_civil": "estado_civil",
+            "nombre_cargo": "cargo",
+            "funciones_cargo": "funciones",
+        }
+        update_fields = []
+        for clave, campo_modelo in CAMPOS_WIZARD.items():
+            if clave in data:
+                setattr(contrato, campo_modelo, data[clave])
+                update_fields.append(campo_modelo)
+        if update_fields:
+            contrato.save(update_fields=update_fields)
+
+        if "rut_trabajador" in data:
+            item = data["rut_trabajador"] or {}
+            valor = item.get("valor")
+            if item.get("guardar_siempre"):
+                if contrato.datos_trabajador_nuevo is not None:
+                    nuevo = dict(contrato.datos_trabajador_nuevo)
+                    nuevo["rut"] = valor
+                    contrato.datos_trabajador_nuevo = nuevo
+                    contrato.save(update_fields=["datos_trabajador_nuevo"])
+                elif contrato.usuario_empresa_id:
+                    ue = contrato.usuario_empresa
+                    ue.rut = valor
+                    ue.save(update_fields=["rut"])
+            else:
+                contrato.rut_trabajador_override = valor
+                contrato.save(update_fields=["rut_trabajador_override"])
+
+        CAMPOS_EMPRESA = {
+            "rut_empresa": ("rut_empresa", "rut_empresa_override"),
+            "representante_legal": ("representante_legal", "representante_legal_override"),
+            "rut_representante": ("rut_representante", "rut_representante_override"),
+        }
+        empresa = None
+        try:
+            empresa = contrato.usuario_empresa.sucursal.empresa
+        except Exception:
+            pass
+
+        for clave, (campo_empresa, campo_override) in CAMPOS_EMPRESA.items():
+            if clave not in data:
+                continue
+            item = data[clave] or {}
+            valor = item.get("valor")
+            if item.get("guardar_siempre"):
+                if empresa is not None:
+                    setattr(empresa, campo_empresa, valor)
+                    empresa.save(update_fields=[campo_empresa])
+            else:
+                setattr(contrato, campo_override, valor)
+                contrato.save(update_fields=[campo_override])
+
+        contrato.refresh_from_db()
+        return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
 
     @action(detail=False, methods=["post", "get"], url_path="consultar-afp")
     def consultar_afp(self, request):

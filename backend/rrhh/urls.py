@@ -13,6 +13,7 @@ from .views import (
     ContratoTrabajadorViewSet,
     FiniquitoContratoViewSet,
     GrupoTurnoViewSet,
+    IsapreCatalogoViewSet,
     NacionalidadCatalogoViewSet,
     TurnoLaboralViewSet,
 )
@@ -37,6 +38,11 @@ router.register(
     r"rrhh/banco-catalogo",
     BancoCatalogoViewSet,
     basename="banco-catalogo",
+)
+router.register(
+    r"rrhh/isapre-catalogo",
+    IsapreCatalogoViewSet,
+    basename="isapre-catalogo",
 )
 router.register(
     r"rrhh/nacionalidad-catalogo",

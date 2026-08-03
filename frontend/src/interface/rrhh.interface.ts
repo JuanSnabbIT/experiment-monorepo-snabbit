@@ -398,6 +398,29 @@ export interface IContratoTrabajadorHistorialEvento {
     contrato_tipo_label?: string;
 }
 
+export interface ICampoFaltante {
+    clave: string;
+    label: string;
+    ubicacion: 'wizard' | 'trabajador' | 'empresa';
+    paso?: number;
+}
+
+export interface ICampoConAlcance {
+    valor: string;
+    guardar_siempre: boolean;
+}
+
+export interface ICompletarCamposFaltantesPayload {
+    id: number | string;
+    estado_civil?: string;
+    nombre_cargo?: string;
+    funciones_cargo?: string;
+    rut_trabajador?: ICampoConAlcance;
+    rut_empresa?: ICampoConAlcance;
+    representante_legal?: ICampoConAlcance;
+    rut_representante?: ICampoConAlcance;
+}
+
 export interface IEnvioAprobacionEmpleador {
     id: number;
     uuid: string;

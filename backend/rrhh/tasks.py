@@ -1,7 +1,7 @@
 import logging
 import re
 import unicodedata
-from datetime import date
+from datetime import date, timedelta
 
 from celery import shared_task
 from django.core.cache import cache
@@ -92,3 +92,110 @@ def verificar_contratos_vencidos():
         contrato.save(update_fields=["estado", "fecha_modificacion"])
         count += 1
     return f"{count} contratos transitados a vencido"
+
+
+DIAS_AVISO_VENCIMIENTO = 7
+
+
+@shared_task
+def avisar_contratos_proximos_a_vencer():
+    """Avisa (correo a RRHH + notificacion in-app) los contratos plazo_fijo
+    que vencen dentro de DIAS_AVISO_VENCIMIENTO dias.
+
+    Se ejecuta diariamente. `aviso_vencimiento_enviado` evita reenviar el
+    aviso mas de una vez por contrato (no se resetea si luego se prorroga
+    con una fecha_termino distinta a la que ya fue avisada, ya que un
+    cambio real de fecha amerita revisar el contrato de todas formas).
+    """
+    from django.conf import settings
+    from django.contrib.auth import get_user_model
+
+    from core.tasks import send_email_task
+    from notificaciones.services import notificar_contrato_proximo_a_vencer
+
+    from .models import ContratoTrabajador
+
+    User = get_user_model()
+    limite = date.today() + timedelta(days=DIAS_AVISO_VENCIMIENTO)
+
+    contratos = ContratoTrabajador.objects.filter(
+        estado="vigente",
+        tipo_contrato="plazo_fijo",
+        fecha_termino__gte=date.today(),
+        fecha_termino__lte=limite,
+        aviso_vencimiento_enviado=False,
+    ).select_related("usuario_empresa__usuario", "usuario_empresa__sucursal__empresa")
+
+    count = 0
+    for contrato in contratos:
+        try:
+            empresa = contrato.usuario_empresa.sucursal.empresa
+        except Exception:
+            empresa = None
+        if empresa is None:
+            continue
+
+        emails_rrhh = list(
+            User.objects.filter(
+                usuarioempresa__sucursal__empresa=empresa,
+                usuarioempresa__grupos__name="rrhh",
+                is_active=True,
+            )
+            .exclude(email="")
+            .values_list("email", flat=True)
+            .distinct()
+        )
+        if not emails_rrhh:
+            logger.warning(
+                "Sin usuarios RRHH con email en empresa %s; aviso de vencimiento "
+                "omitido para contrato %s.", empresa.id, contrato.id,
+            )
+            continue
+
+        usuario = contrato.usuario_empresa.usuario if contrato.usuario_empresa else None
+        nombre_trabajador = usuario.get_nombre_completo() if usuario else "el trabajador"
+        rut_trabajador = (usuario.rut if usuario else "") or "—"
+
+        html_body = (
+            f"<p>El siguiente contrato a plazo fijo vence el "
+            f"<strong>{contrato.fecha_termino}</strong>. Confirma si se renueva o "
+            f"se debe realizar el finiquito.</p>"
+            "<table style=\"border-collapse:collapse;\">"
+            f"<tr><td style=\"padding:4px 8px;\">Trabajador</td>"
+            f"<td style=\"padding:4px 8px;\">{nombre_trabajador}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">RUT</td>"
+            f"<td style=\"padding:4px 8px;\">{rut_trabajador}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">Empresa</td>"
+            f"<td style=\"padding:4px 8px;\">{empresa.nombre}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">Fecha inicio</td>"
+            f"<td style=\"padding:4px 8px;\">{contrato.fecha_inicio}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">Fecha término</td>"
+            f"<td style=\"padding:4px 8px;\">{contrato.fecha_termino}</td></tr>"
+            "</table>"
+        )
+
+        frontend_url = settings.FRONTEND_URL.rstrip("/")
+        link_contrato = f"{frontend_url}/rrhh/contratos/{contrato.id}"
+
+        send_email_task.delay(
+            subject=f"Contrato próximo a vencer — {nombre_trabajador}",
+            recipient_list=emails_rrhh,
+            html_body=html_body,
+            titulo="Aviso de Vencimiento de Contrato",
+            url_boton=link_contrato,
+            text_boton="Ver contrato",
+        )
+
+        try:
+            notificar_contrato_proximo_a_vencer(contrato)
+        except Exception:
+            logger.exception(
+                "Notificacion in-app de vencimiento fallo (silencioso) para contrato %s.",
+                contrato.id,
+            )
+
+        contrato.aviso_vencimiento_enviado = True
+        contrato.save(update_fields=["aviso_vencimiento_enviado", "fecha_modificacion"])
+        count += 1
+
+    return f"{count} avisos de vencimiento enviados"

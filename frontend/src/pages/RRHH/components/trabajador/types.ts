@@ -27,7 +27,6 @@ export interface IFormValuesContratoTrabajador {
     trab_direccion: string;
     // Datos legales Art. 10 CT (solo modo nuevo)
     trab_estado_civil: string;
-    trab_profesion_u_oficio: string;
 
     // Step 3 - Terminos laborales
     tipo_contrato: TTipoContrato | '';

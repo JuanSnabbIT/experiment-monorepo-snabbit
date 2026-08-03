@@ -5,8 +5,10 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import {
     useCrearBancoInlineMutation,
+    useCrearIsapreInlineMutation,
     useGetAfpCatalogoQuery,
     useGetBancoCatalogoQuery,
+    useGetIsapreCatalogoQuery,
 } from '@/store/slices/rrhh/catalogosRrhhApi';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
@@ -39,7 +41,11 @@ const StepPrevisionBanco = ({ formik }: Props) => {
 
     const { data: afpList = [] } = useGetAfpCatalogoQuery();
     const { data: bancoList = [] } = useGetBancoCatalogoQuery();
+    const { data: isapreList = [] } = useGetIsapreCatalogoQuery(undefined, {
+        skip: values.sistema_salud !== 'isapre',
+    });
     const [crearBanco] = useCrearBancoInlineMutation();
+    const [crearIsapre] = useCrearIsapreInlineMutation();
 
     const afpOptions = useMemo<TSelectOption[]>(
         () => afpList.map((a) => ({ value: String(a.id), label: a.nombre })),
@@ -49,11 +55,24 @@ const StepPrevisionBanco = ({ formik }: Props) => {
         () => bancoList.map((b) => ({ value: b.nombre, label: b.nombre })),
         [bancoList],
     );
+    const isapreOptions = useMemo<TSelectOption[]>(
+        () => isapreList.map((i) => ({ value: i.nombre, label: i.nombre })),
+        [isapreList],
+    );
 
     const handleCrearBanco = async (inputValue: string) => {
         try {
             const nuevo = await crearBanco({ nombre: inputValue }).unwrap();
             setFieldValue('banco', nuevo.nombre);
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
+
+    const handleCrearIsapre = async (inputValue: string) => {
+        try {
+            const nueva = await crearIsapre({ nombre: inputValue }).unwrap();
+            setFieldValue('nombre_isapre', nueva.nombre);
         } catch (err) {
             toast.error(getErrorMessage(err));
         }
@@ -209,12 +228,24 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                                     isValid={!errors.nombre_isapre}
                                     isTouched={!!touched.nombre_isapre}
                                     invalidFeedback={errors.nombre_isapre || ''}>
-                                    <Input
-                                        id='nombre_isapre'
+                                    <SelectReact
                                         name='nombre_isapre'
-                                        value={values.nombre_isapre}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
+                                        options={isapreOptions}
+                                        value={
+                                            isapreOptions.find((o) => o.value === values.nombre_isapre) ||
+                                            null
+                                        }
+                                        onChange={(opt) =>
+                                            setFieldValue(
+                                                'nombre_isapre',
+                                                (opt as TSelectOption)?.value || '',
+                                            )
+                                        }
+                                        isClearable
+                                        isCreatable
+                                        onCreateOption={handleCrearIsapre}
+                                        formatCreateLabel={(v) => `Agregar Isapre: "${v}"`}
+                                        placeholder='Seleccionar o crear...'
                                     />
                                 </Validation>
                             </div>

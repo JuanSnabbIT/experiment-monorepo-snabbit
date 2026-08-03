@@ -3,7 +3,13 @@ import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
-import { useCreateCargoCatalogoMutation, useGetCargosCatalogoQuery } from '@/store/slices/rrhh/cargoCatalogoApi';
+import Button from '@/components/ui/Button';
+import Tooltip from '@/components/ui/Tooltip';
+import {
+    useCreateCargoCatalogoMutation,
+    useGetCargosCatalogoQuery,
+    useUpdateCargoCatalogoMutation,
+} from '@/store/slices/rrhh/cargoCatalogoApi';
 import { useAppSelector } from '@/store';
 import { FormikProps } from 'formik';
 import { useEffect } from 'react';
@@ -44,11 +50,14 @@ const StepTerminosLaborales = ({ formik, sucursalDireccion, usuariosCliente = []
 
     const { data: cargos = [] } = useGetCargosCatalogoQuery();
     const [crearCargo] = useCreateCargoCatalogoMutation();
+    const [actualizarCargo, { isLoading: guardandoDefault }] = useUpdateCargoCatalogoMutation();
 
     const cargosOpts: TSelectOption[] = cargos.map((c) => ({
         value: c.nombre,
         label: c.nombre,
     }));
+
+    const cargoActual = cargos.find((c) => c.nombre === values.cargo);
 
     // Auto-rellenar lugar_trabajo desde la direccion de la sucursal seleccionada
     useEffect(() => {
@@ -103,15 +112,28 @@ const StepTerminosLaborales = ({ formik, sucursalDireccion, usuariosCliente = []
                     placeholder='Selecciona o escribe un cargo...'
                     value={values.cargo ? { value: values.cargo, label: values.cargo } : null}
                     onChange={(opt) => {
-                        setFieldValue('cargo', opt ? (opt as TSelectOption).value : '');
+                        const nombreCargo = opt ? (opt as TSelectOption).value : '';
+                        setFieldValue('cargo', nombreCargo);
                         setFieldTouched('cargo', true, false);
                         formik.setFieldError('cargo', undefined);
+                        // Al elegir un cargo con funciones por defecto, siempre se
+                        // sincroniza el textarea con esas funciones (sobrescribe lo que
+                        // hubiera antes, incluidas ediciones manuales). Si el cargo no
+                        // tiene funciones_default, se deja el texto actual intacto.
+                        const seleccionado = cargos.find((c) => c.nombre === nombreCargo);
+                        if (seleccionado?.funciones_default) {
+                            setFieldValue('funciones', seleccionado.funciones_default, false);
+                        }
                     }}
                     onCreateOption={async (inputValue) => {
                         const nombre = inputValue.trim();
                         if (!nombre) return;
                         try {
-                            const creado = await crearCargo({ nombre, empresa: empresaId }).unwrap();
+                            const creado = await crearCargo({
+                                nombre,
+                                empresa: empresaId,
+                                funciones_default: values.funciones || '',
+                            }).unwrap();
                             setFieldValue('cargo', creado.nombre, false);
                             setFieldTouched('cargo', true, false);
                             formik.setFieldError('cargo', undefined);
@@ -213,7 +235,51 @@ const StepTerminosLaborales = ({ formik, sucursalDireccion, usuariosCliente = []
             )}
             {/* Funciones — siempre a ancho completo */}
             <div>
-                <Label htmlFor='funciones'>Funciones / Descripcion del cargo</Label>
+                <div className='mb-1 flex items-center justify-between gap-2'>
+                    <Label htmlFor='funciones' className='mb-0'>
+                        Funciones / Descripcion del cargo
+                    </Label>
+                    {cargoActual && (
+                        <div className='flex gap-1'>
+                            {cargoActual.funciones_default && (
+                                <Tooltip text='Restaurar funciones por defecto de este cargo'>
+                                    <Button
+                                        type='button'
+                                        size='xs'
+                                        variant='outline'
+                                        color='zinc'
+                                        icon='HeroArrowPath'
+                                        onClick={() =>
+                                            setFieldValue('funciones', cargoActual.funciones_default, false)
+                                        }
+                                    />
+                                </Tooltip>
+                            )}
+                            <Tooltip text='Guardar el texto actual como funciones por defecto de este cargo'>
+                                <Button
+                                    type='button'
+                                    size='xs'
+                                    variant='outline'
+                                    color='zinc'
+                                    icon='HeroBookmark'
+                                    isDisable={guardandoDefault}
+                                    isLoading={guardandoDefault}
+                                    onClick={async () => {
+                                        try {
+                                            await actualizarCargo({
+                                                id: cargoActual.id,
+                                                funciones_default: values.funciones,
+                                            }).unwrap();
+                                            toast.success('Funciones por defecto actualizadas para este cargo.');
+                                        } catch (err) {
+                                            toast.error(getErrorMessage(err));
+                                        }
+                                    }}
+                                />
+                            </Tooltip>
+                        </div>
+                    )}
+                </div>
                 <Textarea
                     id='funciones'
                     name='funciones'

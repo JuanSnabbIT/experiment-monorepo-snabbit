@@ -28,6 +28,7 @@ channels_redis
 holidays
 reportlab
 weasyprint
+num2words
 django-prometheus
 Twisted[http2,tls]
 firebase-admin

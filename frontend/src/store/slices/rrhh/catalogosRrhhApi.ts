@@ -22,9 +22,17 @@ export interface INacionalidadCatalogo {
     activo: boolean;
 }
 
+export interface IIsapreCatalogo {
+    id: number;
+    nombre: string;
+    empresa: number | null;
+    activo: boolean;
+}
+
 const AFP_BASE = '/api/rrhh/afp-catalogo';
 const BANCO_BASE = '/api/rrhh/banco-catalogo';
 const NACIONALIDAD_BASE = '/api/rrhh/nacionalidad-catalogo';
+const ISAPRE_BASE = '/api/rrhh/isapre-catalogo';
 
 const buildCatalogoUrl = (
     base: string,
@@ -137,6 +145,28 @@ export const catalogosRrhhApi = RtkQueryService.injectEndpoints({
             query: (data) => ({ url: `${NACIONALIDAD_BASE}/`, method: 'post', data }),
             invalidatesTags: [{ type: 'NacionalidadCatalogo' as const, id: 'LIST' }],
         }),
+
+        getIsapreCatalogo: builder.query<
+            IIsapreCatalogo[],
+            { search?: string; empresa_id?: string | number } | void
+        >({
+            query: (params) => ({
+                url: buildCatalogoUrl(ISAPRE_BASE, params || undefined),
+                method: 'get',
+            }),
+            providesTags: (result) =>
+                result
+                    ? [
+                          { type: 'IsapreCatalogo' as const, id: 'LIST' },
+                          ...result.map((i) => ({ type: 'IsapreCatalogo' as const, id: i.id })),
+                      ]
+                    : [{ type: 'IsapreCatalogo' as const, id: 'LIST' }],
+        }),
+
+        crearIsapreInline: builder.mutation<IIsapreCatalogo, { nombre: string; empresa_id?: number }>({
+            query: (data) => ({ url: `${ISAPRE_BASE}/`, method: 'post', data }),
+            invalidatesTags: [{ type: 'IsapreCatalogo' as const, id: 'LIST' }],
+        }),
     }),
 });
 
@@ -151,4 +181,6 @@ export const {
     useEliminarBancoMutation,
     useGetNacionalidadCatalogoQuery,
     useCrearNacionalidadInlineMutation,
+    useGetIsapreCatalogoQuery,
+    useCrearIsapreInlineMutation,
 } = catalogosRrhhApi;

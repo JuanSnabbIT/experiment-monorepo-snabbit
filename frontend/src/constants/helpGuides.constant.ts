@@ -20,6 +20,18 @@ export const HELP_GUIDES: IHelpGuideEntry[] = [
         guiaPath: '/guias/plantillas-contrato-editor-v29.md',
         titulo: 'Editor de Plantillas de Contrato',
     },
+    {
+        viewId: 'rrhh-contrato-trabajador-detalle',
+        ruta: '/rrhh/contratos/:contratoId',
+        guiaPath: '/guias/rrhh-contrato-trabajador-detalle.md',
+        titulo: 'Contrato de Trabajador',
+    },
+    {
+        viewId: 'rrhh-configuracion',
+        ruta: '/rrhh/configuracion',
+        guiaPath: '/guias/rrhh-configuracion.md',
+        titulo: 'Configuración RRHH',
+    },
 ];
 
 export const resolveHelpGuide = (pathname: string): IHelpGuideEntry | undefined =>

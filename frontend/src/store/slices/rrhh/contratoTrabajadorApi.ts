@@ -1,5 +1,7 @@
 import type {
     IAnexoContrato,
+    ICampoFaltante,
+    ICompletarCamposFaltantesPayload,
     IConsultaAfpResponse,
     IContratoTrabajador,
     IContratoTrabajadorHistorialEvento,
@@ -159,6 +161,44 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
                 method: 'post',
             }),
             invalidatesTags: (_r, _e, id) => [{ type: 'ContratoTrabajador', id }],
+        }),
+
+        getCamposFaltantesContratoTrabajador: builder.query<
+            { campos_faltantes: ICampoFaltante[] },
+            number | string
+        >({
+            query: (id) => ({
+                url: `${BASE}/${id}/campos-faltantes/`,
+                method: 'get',
+            }),
+        }),
+
+        precheckCamposFaltantesContratoTrabajador: builder.query<
+            { campos_faltantes: ICampoFaltante[] },
+            { usuarioEmpresaId?: number | string; sucursalId?: number | string } | void
+        >({
+            query: (params) => {
+                const search = new URLSearchParams();
+                if (params?.usuarioEmpresaId) search.set('usuario_empresa_id', String(params.usuarioEmpresaId));
+                if (params?.sucursalId) search.set('sucursal_id', String(params.sucursalId));
+                const qs = search.toString();
+                return {
+                    url: `${BASE}/precheck-campos-faltantes/${qs ? `?${qs}` : ''}`,
+                    method: 'get',
+                };
+            },
+        }),
+
+        completarCamposFaltantesContratoTrabajador: builder.mutation<
+            IContratoTrabajador,
+            ICompletarCamposFaltantesPayload
+        >({
+            query: ({ id, ...data }) => ({
+                url: `${BASE}/${id}/completar-campos-faltantes/`,
+                method: 'patch',
+                data,
+            }),
+            invalidatesTags: (_r, _e, { id }) => [{ type: 'ContratoTrabajador', id }],
         }),
 
         subirPdfContratoTrabajador: builder.mutation<IContratoTrabajador, { id: number | string; archivo: File }>({
@@ -353,7 +393,10 @@ export const {
     useUpdateContratoTrabajadorMutation,
     useCambiarEstadoContratoTrabajadorMutation,
     useCrearContratoConTrabajadorMutation,
+    useCompletarCamposFaltantesContratoTrabajadorMutation,
     useGenerarPdfContratoTrabajadorMutation,
+    useLazyGetCamposFaltantesContratoTrabajadorQuery,
+    useLazyPrecheckCamposFaltantesContratoTrabajadorQuery,
     useSubirPdfContratoTrabajadorMutation,
     useGetAnexosContratoQuery,
     useCrearAnexoContratoMutation,

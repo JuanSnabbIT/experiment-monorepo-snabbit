@@ -798,6 +798,207 @@ def test_aceptar_aprobado_ok(self):
 
 ---
 
+## FIX #6: EDITOR DE TEXTO DEL DOCUMENTO GENERADO (v2.9) EN BORRADOR (FUTURO)
+**Severidad:** 🟡 MEJORA (no bloquea firma, no es un bug)
+**Esfuerzo:** 4-6 horas (backend + frontend nuevo, no es un fix puntual)
+**Archivo:** `backend/rrhh/views.py` (endpoint nuevo) + `backend/rrhh/serializers.py` + componente frontend nuevo
+
+### CONTEXTO
+
+Ya existe el modelo `DocumentoContratoGeneradoV29` (`backend/contratos/models.py:2286-2332`) que congela el HTML ya interpolado por contrato específico (`html_generado`) y tiene un flag `fue_editado_manualmente` que el motor (`backend/contratos/motor_v29.py:658,687`) ya respeta — si está en `True`, el documento nunca se regenera automáticamente. El modelo soporta tanto `ContratoEmpresaCliente` como `ContratoTrabajador` vía FK.
+
+**El modelo está huérfano**: no hay ningún endpoint ni componente frontend que lea o escriba `html_generado`. Lo único similar que existe (`TabDocumento.tsx` + `SeccionContratoGeneradaViewSet`, `contratos/views.py:4052-4068`) es del motor v2 legacy (`SeccionContratoGenerada`, edición por sección con `Textarea` plano, solo para contratos B2B) — un sistema distinto al que efectivamente genera el PDF de contratos de trabajador hoy.
+
+### OBJETIVO
+
+Permitir editar a mano, desde el detalle de un contrato de trabajador en estado `borrador`, el texto ya generado del documento (no la plantilla compartida, no los campos del formulario), sin afectar otros contratos que usan la misma plantilla.
+
+### DECISIÓN PENDIENTE (bloquea el diseño final, no solo la implementación)
+
+El flag `fue_editado_manualmente` congela el documento para siempre — ni el fix del FIX visual de campos obligatorios (placeholder rojo, ya implementado en `motor_v29.py`/`adaptadores.py`) ni ningún cambio posterior de datos vuelve a tocar ese HTML una vez editado a mano. Dos caminos:
+
+- **Opción simple**: aceptar el trade-off tal cual está diseñado el modelo (edición manual = control total, sin red de seguridad después). Menor esfuerzo.
+- **Opción segura**: correr la misma validación de campos obligatorios (`adaptador.es_campo_obligatorio`) sobre el HTML antes de permitir guardar la edición manual, para no dejar pasar un placeholder sin resolver congelado para siempre.
+
+### ESBOZO DE IMPLEMENTACIÓN
+
+**Backend** — acción nueva sobre `ContratoTrabajadorViewSet` (mismo patrón que `SeccionContratoGeneradaViewSet.perform_update`, `contratos/views.py:4067-4068`):
+
+```python
+# backend/rrhh/views.py
+
+@action(detail=True, methods=["get", "patch"], url_path="documento-v29")
+def documento_v29(self, request, pk=None):
+    """GET: retorna el html_generado vigente. PATCH: lo actualiza y marca
+    fue_editado_manualmente=True (el motor deja de regenerar este contrato)."""
+    contrato = self.get_object()
+    from contratos.models import DocumentoContratoGeneradoV29
+    documento = DocumentoContratoGeneradoV29.objects.filter(
+        contrato_trabajador=contrato
+    ).order_by("-fecha_creacion").first()
+
+    if request.method == "GET":
+        if not documento:
+            return Response({"detail": "Documento aun no generado."}, status=404)
+        return Response({"html_generado": documento.html_generado})
+
+    # PATCH
+    if not documento:
+        return Response({"detail": "Documento aun no generado."}, status=404)
+    documento.html_generado = request.data.get("html_generado", documento.html_generado)
+    documento.fue_editado_manualmente = True
+    documento.save(update_fields=["html_generado", "fue_editado_manualmente", "fecha_modificacion"])
+    return Response({"html_generado": documento.html_generado})
+```
+
+**Frontend** — componente nuevo (NO reusar `EditorDocumentoV29.tsx`, que edita la plantilla compartida — mezclar ambos repite el error que el modelo ya resolvió al separar `plantilla.contenido_documento_v29` de `DocumentoContratoGeneradoV29.html_generado`):
+
+- Editor de texto enriquecido sobre HTML plano (no requiere el árbol Slate de la plantilla — `html_generado` ya es HTML final).
+- Cargar vía el endpoint `GET`, guardar vía `PATCH`.
+- Visible solo en contratos `estado=borrador` (`puedeEditar` como en `TabDocumento.tsx`).
+- Si se adopta la "opción segura": validar campos obligatorios en el HTML antes de habilitar el botón guardar.
+
+### TESTING
+
+- Test que confirma que tras el PATCH, `fue_editado_manualmente=True` y el motor (`obtener_o_generar_documento_v29` en `motor_v29.py`) ya no sobreescribe `html_generado` aunque cambien los datos del contrato.
+- Test de permisos: solo con contrato en `borrador` se puede editar (mismo criterio que otros FIX de este documento — `IsRRHH` + ownership).
+
+---
+
+## FIX #7: NOMBRE Y RUT BAJO LA LÍNEA DE FIRMA (FUTURO)
+**Severidad:** 🟡 MEJORA (pedido explícito de negocio, no bloquea firma hoy)
+**Esfuerzo:** por estimar — toca código compartido entre todos los tipos de contrato (B2B + trabajador), requiere cuidado
+**Archivo:** `backend/contratos/motor_v29.py` (nodo tipo `firma`, líneas 125-143)
+
+### CONTEXTO
+
+Piden que bajo cada línea de firma aparezcan nombre y RUT de quien firma, no solo el rol genérico. Hoy `_nodo_a_html` renderiza el bloque de firma así (confirmado en `contrato_75.pdf`, página 2 — solo dice "Empleador" / "Trabajador" bajo la línea, sin nombre ni RUT):
+
+```python
+# motor_v29.py:133-139
+columnas = "".join(
+    '<div style="display:inline-block;text-align:center;margin:0 20pt;">'
+    '<div style="border-top:1px solid #000;width:180px;margin:0 auto;">&nbsp;</div>'
+    f'<div style="font-size:9pt;margin-top:4pt;">{_esc(str(f.get("rol", "")))}</div>'
+    "</div>"
+    for f in firmantes
+)
+```
+
+`f.get("rol", "")` solo trae el string del rol (`"Empleador"`, `"Trabajador"`, pero también `"Proveedor"`, `"Cliente"`, `"Vendedor"`, `"Comprador"`, `"Licenciante"`, `"Licenciatario"` para contratos B2B — este nodo es compartido entre `DOC_TRABAJADOR`, `DOC_SERVICIOS`, `DOC_VENTA` y `DOC_LICENCIA`, `seed_plantillas_v29_globales.py`).
+
+### RIESGO A RESOLVER ANTES DE IMPLEMENTAR
+
+No existe hoy un mapeo de "rol de firmante" → "de dónde saco su nombre/RUT", y ese mapeo es distinto para cada tipo de contrato (para `Trabajador` es `trabajador.nombre_completo`/`trabajador.rut`; para `Empleador` es `empresa.nombre` — pero el RUT de la empresa firmante, ¿es `empresa.rut` o el `rut_representante` de la persona que firma por ella?; para B2B, `Proveedor`/`Cliente` resuelven contra otro adaptador completamente). Hay que definir ese mapeo con quien pidió el cambio antes de tocar `motor_v29.py`, porque es código compartido — un error acá rompe la firma de los 5 tipos de contrato a la vez, no solo el de trabajador.
+
+### TESTING (cuando se implemente)
+
+- Test por cada tipo de contrato (trabajador, servicios, venta, licencia) confirmando que el nombre/RUT bajo la firma corresponde a la parte correcta.
+- Test de regresión sobre `NodoFirmaBreakInsideTest` (`test_motor_v29.py`) para no romper el `break-inside:avoid` ya existente en ese bloque.
+
+---
+
+## FIX #8: ADVERTENCIA DE DATOS FALTANTES AL CREAR CONTRATO (✅ IMPLEMENTADO)
+**Severidad:** 🟠 ALTA (previene contratos con campos legales vacíos, detectado con evidencia real en `contrato_75.pdf`)
+**Archivo:** `backend/contratos/adaptadores.py`, `backend/rrhh/views.py`, `backend/rrhh/models.py` (migraciones 0041/0042), `frontend/src/pages/RRHH/modals/CrearContratoTrabajadorWizard.tsx`, `frontend/src/pages/RRHH/modals/CamposFaltantesModal.tsx` (nuevo)
+
+### DISEÑO FINAL (evolucionó respecto al esbozo original de abajo)
+
+En vez de una alerta de solo lectura, quedó un **modal editable** que aparece justo después de crear el contrato (no bloquea, es opcional — "Omitir por ahora" cierra igual). Para cada campo faltante:
+- Campos que viven en el contrato (`estado_civil`, `nombre_cargo`, `funciones_cargo`): input simple, se guardan directo en el contrato.
+- Campos que viven en Usuario/Empresa (`rut_trabajador`, `rut_empresa`, `representante_legal`, `rut_representante`): input + checkbox "Guardar permanentemente" — marcado actualiza el registro compartido (afecta a todos los contratos de esa empresa/trabajador); sin marcar, se guarda en un campo `*_override` nuevo en `ContratoTrabajador` que el adaptador revisa antes de caer al dato compartido.
+
+**Bug encontrado y corregido de paso**: el alias `rut_empresa` en `adaptadores.py` apuntaba a `empresa.rut` (no existe) y `rut_representante` a `empresa.rut_representante_legal` (no existe) — los campos reales son `rut_empresa` y `rut_representante`. Esto hacía que el RUT de la empresa saliera como "faltante" en TODOS los PDF aunque la empresa sí lo tuviera cargado. Corregido en el mismo cambio.
+
+Verificado de punta a punta con Playwright: creación con datos incompletos → modal aparece → RUT trabajador con "guardar siempre" (actualiza `User.rut`) + RUT representante sin marcar (queda en `contrato.rut_representante_override`, no toca `Empresa`) → confirmado en base de datos que cada uno fue al lugar correcto.
+
+### ESBOZO ORIGINAL (referencia histórica, ya no vigente)
+
+### CONTEXTO
+
+El PDF ya muestra en rojo los campos obligatorios vacíos (FIX de síntoma #5, ya implementado en `motor_v29.py`/`adaptadores.py`), pero **eso solo se ve después de generar el documento**. El usuario reportó que al presionar "Crear contrato" al final del wizard no hay ningún aviso previo de que a la empresa o al trabajador le faltan datos — se entera recién al mirar el PDF.
+
+### DECISIÓN DE DISEÑO YA TOMADA (confirmar antes de programar)
+
+Los campos obligatorios caen en dos categorías que **no pueden tratarse igual en la UI**:
+
+1. **Editables en este wizard** (`estado_civil`, `nombre_cargo`/`cargo`, `funciones_cargo`/`funciones`) → el aviso debe ofrecer volver al paso correspondiente.
+2. **NO editables en este wizard** (`rut_empresa`, `representante_legal`, `rut_representante` — viven en la ficha de `Empresa`, fuera de este flujo; `rut_trabajador` si el trabajador es "existente" y no tiene RUT cargado) → el aviso debe decir explícitamente que hay que completarlo en otra pantalla (Configuración de Empresa / Ficha del Trabajador), no ofrecer un botón que no resuelve nada.
+
+Pendiente de esta sesión: agregar `lugar_firma`/`fecha_firma` al set de obligatorios (visto en blanco en `contrato_75.pdf`, no estaban en `_CAMPOS_OBLIGATORIOS` porque se asumió que se llenan al firmar — confirmar con negocio si deben avisarse ya en la creación).
+
+### ESBOZO DE IMPLEMENTACIÓN
+
+**Backend** — reusar `AdaptadorContratoTrabajador._CAMPOS_OBLIGATORIOS` (ya existe, `adaptadores.py`) como fuente única, pero enriquecerlo con metadata de ubicación:
+
+```python
+# backend/contratos/adaptadores.py — reemplaza el frozenset actual
+_CAMPOS_OBLIGATORIOS: dict[str, dict] = {
+    "rut_trabajador":      {"label": "RUT del trabajador", "ubicacion": "trabajador"},
+    "nombre_trabajador":   {"label": "Nombre del trabajador", "ubicacion": "trabajador"},
+    "estado_civil":        {"label": "Estado civil", "ubicacion": "wizard", "paso": 2},
+    "rut_empresa":         {"label": "RUT de la empresa", "ubicacion": "empresa"},
+    "nombre_empresa":      {"label": "Nombre de la empresa", "ubicacion": "empresa"},
+    "representante_legal": {"label": "Representante legal", "ubicacion": "empresa"},
+    "rut_representante":   {"label": "RUT del representante legal", "ubicacion": "empresa"},
+    "nombre_cargo":        {"label": "Cargo", "ubicacion": "wizard", "paso": 3},
+    "funciones_cargo":     {"label": "Funciones del cargo", "ubicacion": "wizard", "paso": 3},
+}
+
+def es_campo_obligatorio(self, clave: str) -> bool:
+    return clave in self._CAMPOS_OBLIGATORIOS
+
+def campos_faltantes(self) -> list[dict]:
+    """Para el endpoint de validacion pre-creacion: cada campo obligatorio
+    cuyo valor resuelto sea vacio, con su metadata de ubicacion."""
+    faltantes = []
+    for clave, meta in self._CAMPOS_OBLIGATORIOS.items():
+        valor = self.resolver_ruta_extendida(clave)
+        if not valor:
+            faltantes.append({"clave": clave, **meta})
+    return faltantes
+```
+
+Endpoint nuevo en `backend/rrhh/views.py` (mismo `ContratoTrabajadorViewSet`):
+
+```python
+@action(detail=True, methods=["get"], url_path="campos-faltantes")
+def campos_faltantes(self, request, pk=None):
+    contrato = self.get_object()
+    from contratos.adaptadores import AdaptadorContratoTrabajador
+    adaptador = AdaptadorContratoTrabajador(contrato)
+    return Response({"campos_faltantes": adaptador.campos_faltantes()})
+```
+
+**Frontend** — en el paso 7 (Revisión), antes de disparar la mutation de creación:
+
+```tsx
+const handleCrearContrato = async () => {
+    // El contrato ya existe en 'borrador' en este punto del wizard (o se crea
+    // primero y se valida despues — depende del flujo actual, confirmar).
+    const { data } = await triggerCamposFaltantes(contratoId);
+    if (data?.campos_faltantes?.length) {
+        const editables = data.campos_faltantes.filter((c) => c.ubicacion === 'wizard');
+        const externos = data.campos_faltantes.filter((c) => c.ubicacion !== 'wizard');
+        const confirmado = await confirmAlert({
+            title: 'Faltan datos en el contrato',
+            html: renderListaCamposFaltantes(editables, externos), // agrupados, con link a Configuración de Empresa si aplica
+            confirmButtonText: 'Crear de todas formas',
+            cancelButtonText: 'Revisar antes de crear',
+        });
+        if (!confirmado) return; // vuelve al wizard, no crea
+    }
+    crearContrato();
+};
+```
+
+### TESTING
+
+- Backend: test que confirma `campos_faltantes()` detecta cada campo del set y no falsos positivos en campos condicionales (bonos, cuenta bancaria) que son válidamente vacíos.
+- Frontend: test manual con el mismo trabajador/empresa demo (`contrato_75`) que ya tiene los campos vacíos confirmados — debe listar exactamente `rut_empresa`, `representante_legal`, `rut_representante`, `rut_trabajador`, `estado_civil`, `funciones_cargo`.
+
+---
+
 ## 📊 CHECKLIST DE IMPLEMENTACIÓN
 
 ```
@@ -832,6 +1033,30 @@ def test_aceptar_aprobado_ok(self):
     [ ] Mejorar mensajes de error
     [ ] Escribir tests
 
+[ ] FIX #6: Editor de texto del documento generado v2.9 (FUTURO — no priorizado aun)
+    [ ] Decidir: opcion simple vs opcion segura (validar antes de congelar)
+    [ ] Crear endpoint GET/PATCH documento-v29 en ContratoTrabajadorViewSet
+    [ ] Crear componente frontend de edicion (HTML, no Slate)
+    [ ] Restringir a contratos en estado borrador
+    [ ] Escribir tests
+
+[ ] FIX #7: Nombre y RUT bajo la firma (FUTURO — no priorizado aun)
+    [ ] Definir con negocio de donde sale el RUT del Empleador (empresa vs representante)
+    [ ] Definir mapeo rol -> datos para los 4 tipos de contrato B2B + trabajador
+    [ ] Modificar nodo 'firma' en motor_v29.py:125-143
+    [ ] Test de regresion en NodoFirmaBreakInsideTest
+
+[x] FIX #8: Advertencia de datos faltantes al crear contrato
+    [x] Enriquecer _CAMPOS_OBLIGATORIOS con metadata de ubicacion
+    [x] Agregar campos_faltantes() al adaptador
+    [x] Endpoint GET campos-faltantes en ContratoTrabajadorViewSet
+    [x] lugar_firma/fecha_firma quedan fuera del set (se llenan al firmar)
+    [x] Modal editable (CamposFaltantesModal) con guardar siempre / solo contrato
+    [x] Overrides *_override en ContratoTrabajador + adaptador los revisa primero
+    [x] Endpoint PATCH completar-campos-faltantes (transaction.atomic)
+    [x] Bug fix de paso: alias rut_empresa/rut_representante corregidos
+    [x] Verificado end-to-end con Playwright + limpieza de datos de prueba
+
 [ ] TESTING
     [ ] Ejecutar todos los tests new
     [ ] Test cases de violación (seguridad)
@@ -862,7 +1087,10 @@ def test_aceptar_aprobado_ok(self):
 | FIX #4 (motivo) | 15 min |
 | FIX #5 (aprobación) | 20 min |
 | **Testing + Code Review** | 30 min |
-| **TOTAL** | **2 horas 40 min** |
+| **TOTAL (FIX #1-5)** | **2 horas 40 min** |
+| FIX #6 (editor documento v2.9 — futuro, no priorizado) | 4-6 horas |
+| FIX #7 (nombre/RUT en firma — futuro, no priorizado, requiere definición previa de negocio) | por estimar |
+| FIX #8 (advertencia datos faltantes al crear) | ✅ implementado |
 
 ---
 

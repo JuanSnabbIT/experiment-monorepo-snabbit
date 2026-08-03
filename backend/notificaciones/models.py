@@ -41,6 +41,7 @@ class TipoEventoNotificacion(models.TextChoices):
     CONTRATO_ACTIVADO = "contrato_activado", "Contrato activado (primera prefactura generada)"
     CONTRATO_FACTURA_GENERADA = "contrato_factura_generada", "Factura mensual de contrato generada"
     RETROALIMENTACION_PLAZO_VENCIDO = "retroalimentacion_plazo_vencido", "Plazo de retroalimentación vencido"
+    CONTRATO_PROXIMO_A_VENCER = "contrato_proximo_a_vencer", "Contrato laboral próximo a vencer"
 
 
 class FCMToken(ModeloBase):

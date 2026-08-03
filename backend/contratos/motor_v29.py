@@ -68,7 +68,19 @@ def _inline_a_html(
             valor = resolver_valor_etiqueta_v2(clave, adaptador, etiquetas_map={})
         except Exception:
             valor = None
-        return _esc(str(valor)) if valor is not None else _esc(f"[{clave}]")
+
+        # Dato ausente: excepcion (valor is None) o campo obligatorio resuelto
+        # a vacio (adaptador.es_campo_obligatorio distingue esto de bonos,
+        # cuenta bancaria o reemplazo, legitimamente "" cuando no aplican).
+        faltante = valor is None or (
+            valor == "" and adaptador.es_campo_obligatorio(clave)
+        )
+        if faltante:
+            return (
+                '<span style="color:#b91c1c;background:#fee2e2;padding:0 3px;">'
+                f'[{_esc(clave)}]</span>'
+            )
+        return _esc(str(valor))
 
     return ""
 
@@ -118,13 +130,32 @@ def _nodo_a_html(
         )
         if not firmantes:
             return ""
-        columnas = "".join(
-            '<div style="display:inline-block;text-align:center;margin:0 20pt;">'
-            '<div style="border-top:1px solid #000;width:180px;margin:0 auto;">&nbsp;</div>'
-            f'<div style="font-size:9pt;margin-top:4pt;">{_esc(str(f.get("rol", "")))}</div>'
-            "</div>"
-            for f in firmantes
-        )
+
+        def _columna_firmante(f: dict) -> str:
+            rol = str(f.get("rol", ""))
+            extra = ""
+            # adaptador es None en algunos tests/previews sin contrato real
+            # (ver NodoFirmaBreakInsideTest) — en ese caso solo se muestra el rol.
+            if adaptador is not None:
+                try:
+                    datos = adaptador.datos_firmante(rol)
+                except Exception:
+                    datos = None
+                if datos:
+                    nombre, rut = datos
+                    if nombre:
+                        extra += f'<div style="font-size:9pt;">{_esc(nombre)}</div>'
+                    if rut:
+                        extra += f'<div style="font-size:9pt;">RUT {_esc(rut)}</div>'
+            return (
+                '<div style="display:inline-block;text-align:center;margin:0 20pt;">'
+                '<div style="border-top:1px solid #000;width:180px;margin:0 auto;">&nbsp;</div>'
+                f'<div style="font-size:9pt;margin-top:4pt;">{_esc(rol)}</div>'
+                f"{extra}"
+                "</div>"
+            )
+
+        columnas = "".join(_columna_firmante(f) for f in firmantes)
         return (
             '<div data-bloque="firma" style="margin:24pt 0;text-align:center;">'
             f"{columnas}</div>"
@@ -529,6 +560,7 @@ def _envolver_en_html(
         "p { margin: 0 0 6pt; }\n"
         "ul, ol { margin: 0 0 6pt; padding-left: 20pt; }\n"
         "p, li, tr, div[data-bloque=\"firma\"] { break-inside: avoid; }\n"
+        "ul, ol { break-inside: avoid; }\n"
         "</style></head>\n"
         "<body>\n"
         f"{enc_html}\n"

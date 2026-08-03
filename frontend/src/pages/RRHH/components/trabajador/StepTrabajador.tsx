@@ -2,7 +2,6 @@ import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import RadioCard from '@/components/form/RadioCard';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import Textarea from '@/components/form/Textarea';
 import Validation from '@/components/form/Validation';
 import Badge from '@/components/ui/Badge';
 import Icon from '@/components/icon/Icon';
@@ -530,30 +529,8 @@ const StepTrabajador = ({
                             isClearable
                         />
                     </div>
-                    <div>
-                        <Label htmlFor='trab_profesion_u_oficio'>Profesion u oficio</Label>
-                        <Input
-                            id='trab_profesion_u_oficio'
-                            name='trab_profesion_u_oficio'
-                            value={values.trab_profesion_u_oficio}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            placeholder='Ej: Ingeniero en Sistemas'
-                        />
-                    </div>
                 </div>
             )}
-
-            <div>
-                <Label htmlFor='observaciones'>Observaciones</Label>
-                <Textarea
-                    id='observaciones'
-                    name='observaciones'
-                    value={values.observaciones}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                />
-            </div>
         </div>
     );
 };

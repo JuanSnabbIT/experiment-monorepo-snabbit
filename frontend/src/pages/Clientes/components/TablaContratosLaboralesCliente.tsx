@@ -12,6 +12,9 @@ import { IContratoTrabajador } from '@/interface/rrhh.interface';
 import CrearContratoTrabajadorWizard from '@/pages/RRHH/modals/CrearContratoTrabajadorWizard';
 import { useGetContratosTrabajadorPorEmpresaClienteQuery } from '@/store/slices/rrhh/contratoTrabajadorApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
+import { downloadPdfFromUrl } from '@/utils/downloadHelpers';
+import { getErrorMessage } from '@/utils/errorHandlers';
+import { toast } from 'react-toastify';
 import {
     createColumnHelper,
     flexRender,
@@ -44,6 +47,22 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     const [filtroKpi, setFiltroKpi] = useState<TFiltroKpi | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [wizardOpen, setWizardOpen] = useState(false);
+    const [descargandoPlanilla, setDescargandoPlanilla] = useState(false);
+
+    const handleDescargarPlanilla = async () => {
+        if (!empresaClienteId) return;
+        setDescargandoPlanilla(true);
+        try {
+            await downloadPdfFromUrl(
+                `/api/rrhh/contratos-trabajador/export-planilla/?empresa_cliente=${empresaClienteId}`,
+                'contratos_laborales.xlsx',
+            );
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        } finally {
+            setDescargandoPlanilla(false);
+        }
+    };
 
     const handleBuscarChange = (value: string) => {
         setInputBuscar(value);
@@ -262,6 +281,17 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                             name='buscarContratoLaboralCliente'
                             className='max-w-[180px]'
                         />
+                        <Tooltip text='Descargar planilla de contratos vigentes, vencidos, terminados o anulados'>
+                            <Button
+                                variant='outline'
+                                color='zinc'
+                                icon='HeroArrowDownTray'
+                                isLoading={descargandoPlanilla}
+                                isDisable={!empresaClienteId || descargandoPlanilla}
+                                onClick={handleDescargarPlanilla}>
+                                Descargar planilla
+                            </Button>
+                        </Tooltip>
                         <Tooltip text='Crear un nuevo contrato laboral para este cliente'>
                             <Button
                                 variant='solid'

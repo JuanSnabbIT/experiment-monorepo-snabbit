@@ -132,6 +132,7 @@ const RtkQueryService = createApi({
         'AfpCatalogo',
         'BancoCatalogo',
         'NacionalidadCatalogo',
+        'IsapreCatalogo',
         'AnexoContrato',
         'TurnoLaboral',
         'ConfiguracionLaboral',

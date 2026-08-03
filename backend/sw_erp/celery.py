@@ -59,4 +59,8 @@ app.conf.beat_schedule = {
         'task': 'rrhh.tasks.verificar_contratos_vencidos',
         'schedule': crontab(hour=0, minute=30),  # Diariamente a las 00:30
     },
+    'avisar_contratos_proximos_a_vencer_rrhh': {
+        'task': 'rrhh.tasks.avisar_contratos_proximos_a_vencer',
+        'schedule': crontab(hour=9, minute=0),  # Diariamente a las 9 AM
+    },
 }

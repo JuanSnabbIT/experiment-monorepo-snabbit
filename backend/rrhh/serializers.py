@@ -3,7 +3,7 @@
 from core.validators import validate_rut_chileno
 from rest_framework import serializers
 
-from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, FiniquitoContrato, GrupoTurno, NacionalidadCatalogo, SlotTurno, TurnoLaboral
+from .models import AfpCatalogo, AnexoContrato, BancoCatalogo, CargoCatalogo, ConfiguracionLaboral, ContratoTrabajador, EnvioAprobacionEmpleador, FiniquitoContrato, GrupoTurno, IsapreCatalogo, NacionalidadCatalogo, SlotTurno, TurnoLaboral
 
 
 def _normalize_first_capitalized(value: str | None) -> str | None:
@@ -21,7 +21,7 @@ class CargoCatalogoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CargoCatalogo
-        fields = ("id", "empresa", "nombre", "activo", "fecha_creacion", "fecha_modificacion")
+        fields = ("id", "empresa", "nombre", "activo", "funciones_default", "fecha_creacion", "fecha_modificacion")
         read_only_fields = ("fecha_creacion", "fecha_modificacion")
 
 
@@ -31,6 +31,15 @@ class AfpCatalogoSerializer(serializers.ModelSerializer):
     class Meta:
         model = AfpCatalogo
         fields = ("id", "nombre", "empresa", "activo", "tasa_cotizacion")
+        read_only_fields = ("empresa",)
+
+
+class IsapreCatalogoSerializer(serializers.ModelSerializer):
+    """Serializer para el catalogo de Isapres."""
+
+    class Meta:
+        model = IsapreCatalogo
+        fields = ("id", "nombre", "empresa", "activo")
         read_only_fields = ("empresa",)
 
 

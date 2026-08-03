@@ -337,7 +337,6 @@ DOC_TRABAJADOR = [
         t(", en adelante el «Empleador»; y don/doña "), et("nombre_trabajador"),
         t(", RUT "), et("rut_trabajador"), t(", de nacionalidad "), et("nacionalidad"),
         t(", estado civil "), et("estado_civil"),
-        t(", de profesión u oficio "), et("profesion_u_oficio"),
         t(", domiciliado/a en "), et("direccion_trabajador"),
         t(", en adelante el «Trabajador», se ha convenido el siguiente Contrato Individual de Trabajo:"),
         align="justify",
@@ -361,6 +360,14 @@ DOC_TRABAJADOR = [
         t(". Sus principales funciones serán: "), et("funciones_cargo"),
         t(", sin perjuicio de otras labores inherentes al cargo que el Empleador le encomiende."),
         align="justify",
+    ),
+    cond(
+        "si_lugar_trabajo",
+        p(
+            t("El lugar de prestación de servicios será "), et("lugar_trabajo"), t("."),
+            align="justify",
+        ),
+        label="Solo si se registró lugar de trabajo",
     ),
     h(2, "Tercero: Jornada de trabajo"),
     p(et("jornada_descripcion"), align="justify"),
@@ -439,7 +446,7 @@ DOC_TRABAJADOR = [
         ),
         label="Solo plazo fijo",
     ),
-    h(2, "Final: Ejemplares"),
+    h(2, "Ejemplares"),
     p(
         t("El presente contrato se firma en dos ejemplares de igual tenor y fecha, declarando el Trabajador haber recibido un ejemplar en este acto."),
         align="justify",

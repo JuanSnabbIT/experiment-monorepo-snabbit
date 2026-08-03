@@ -114,6 +114,7 @@ _CONDICIONES_TRABAJADOR = {
     "si_isapre":            lambda c: bool(
         c.usuario_empresa and c.usuario_empresa.sistema_salud == "isapre"
     ),
+    "si_lugar_trabajo":     lambda c: bool((c.lugar_trabajo or "").strip()),
 }
 
 

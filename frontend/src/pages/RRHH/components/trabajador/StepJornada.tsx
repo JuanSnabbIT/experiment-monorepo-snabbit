@@ -3,6 +3,7 @@ import Label from '@/components/form/Label';
 import RadioCard from '@/components/form/RadioCard';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
+import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import ButtonGroup from '@/components/ui/ButtonGroup';
 import { useGetGruposTurnoQuery } from '@/store/slices/rrhh/grupoTurnoApi';
@@ -73,6 +74,29 @@ const StepJornada = ({ formik, empresaClienteId }: Props) => {
             setFieldValue('horario_detalle', detalle);
         }
     }, [values.jornada, values.dias_semana, values.hora_inicio, values.hora_fin, values.grupo_turno_id, gruposTurno]);
+
+    // Horas calculadas a partir de hora_inicio/hora_fin/dias_semana/colacion,
+    // para advertir si no coinciden con lo seleccionado en 'horas_semanales'
+    // (son inputs independientes, nada los sincroniza automaticamente). La
+    // colacion se descuenta porque no es tiempo trabajado (no cuenta para
+    // el limite legal de jornada).
+    const horasCalculadas = (() => {
+        if (values.jornada === 'turnos') return null;
+        if (values.dias_semana.length === 0 || !values.hora_inicio || !values.hora_fin) return null;
+        const [hIni, mIni] = values.hora_inicio.split(':').map(Number);
+        const [hFin, mFin] = values.hora_fin.split(':').map(Number);
+        if ([hIni, mIni, hFin, mFin].some((n) => Number.isNaN(n))) return null;
+        const colacionHoras = values.tiempo_colacion !== '' ? Number(values.tiempo_colacion) / 60 : 0;
+        const horasDia = hFin + mFin / 60 - (hIni + mIni / 60) - colacionHoras;
+        if (horasDia <= 0) return null;
+        return horasDia * values.dias_semana.length;
+    })();
+
+    const horasSemanalesNum = values.horas_semanales !== '' ? Number(values.horas_semanales) : null;
+    const horasNoCoinciden =
+        horasCalculadas !== null &&
+        horasSemanalesNum !== null &&
+        Math.abs(horasCalculadas - horasSemanalesNum) > 0.25;
 
     return (
         <div className='space-y-4'>
@@ -168,6 +192,22 @@ const StepJornada = ({ formik, empresaClienteId }: Props) => {
                         </div>
                     </div>
                     <div>
+                        <Label htmlFor='tiempo_colacion'>Tiempo de colación (minutos)</Label>
+                        <Input
+                            id='tiempo_colacion'
+                            name='tiempo_colacion'
+                            type='number'
+                            min={0}
+                            step={5}
+                            value={values.tiempo_colacion}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setFieldValue('tiempo_colacion', val === '' ? '' : Number(val));
+                            }}
+                            onBlur={handleBlur}
+                        />
+                    </div>
+                    <div>
                         <Label className='mb-2 block'>Dias trabajados</Label>
                         <ButtonGroup>
                             {DIAS_SEMANA.map((dia) => {
@@ -193,6 +233,13 @@ const StepJornada = ({ formik, empresaClienteId }: Props) => {
                             {values.horario_detalle || 'Configura los dias y la hora de inicio/finalizacion.'}
                         </div>
                     </div>
+                    {horasNoCoinciden && (
+                        <Alert variant='outline' color='amber' icon='HeroExclamationTriangle'>
+                            El horario configurado ({horasCalculadas!.toFixed(1)} hrs/semana) no coincide con
+                            las {horasSemanalesNum} horas semanales seleccionadas. El contrato usará el valor
+                            de "Horas semanales" tal cual — revisa que sea el correcto.
+                        </Alert>
+                    )}
                 </div>
             )}
 

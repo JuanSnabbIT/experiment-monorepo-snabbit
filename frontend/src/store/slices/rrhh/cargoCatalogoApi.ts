@@ -5,6 +5,7 @@ export interface ICargoCatalogo {
     empresa: number;
     nombre: string;
     activo: boolean;
+    funciones_default: string;
     fecha_creacion: string;
     fecha_modificacion: string;
 }
@@ -19,11 +20,23 @@ export const cargoCatalogoApi = RtkQueryService.injectEndpoints({
             providesTags: [{ type: 'CargoCatalogo', id: 'LIST' }],
         }),
 
-        createCargoCatalogo: builder.mutation<ICargoCatalogo, { nombre: string; empresa?: number }>({
+        createCargoCatalogo: builder.mutation<
+            ICargoCatalogo,
+            { nombre: string; empresa?: number; funciones_default?: string }
+        >({
             query: (data) => ({ url: `${BASE}/`, method: 'post', data }),
+            invalidatesTags: [{ type: 'CargoCatalogo', id: 'LIST' }],
+        }),
+
+        updateCargoCatalogo: builder.mutation<ICargoCatalogo, { id: number; funciones_default: string }>({
+            query: ({ id, ...data }) => ({ url: `${BASE}/${id}/`, method: 'patch', data }),
             invalidatesTags: [{ type: 'CargoCatalogo', id: 'LIST' }],
         }),
     }),
 });
 
-export const { useGetCargosCatalogoQuery, useCreateCargoCatalogoMutation } = cargoCatalogoApi;
+export const {
+    useGetCargosCatalogoQuery,
+    useCreateCargoCatalogoMutation,
+    useUpdateCargoCatalogoMutation,
+} = cargoCatalogoApi;

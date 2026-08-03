@@ -71,6 +71,7 @@ const CONDICIONES_LABELS: Record<string, string> = {
     si_jornada_parcial:   'Si jornada parcial',
     si_banco:             'Si pago por banco',
     si_isapre:            'Si Isapre',
+    si_lugar_trabajo:     'Si tiene lugar de trabajo',
 };
 
 // Bloques dinámicos B2B — placeholders que el backend resuelve contra datos

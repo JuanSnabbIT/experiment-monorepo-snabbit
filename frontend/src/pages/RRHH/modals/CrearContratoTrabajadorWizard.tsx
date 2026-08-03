@@ -21,18 +21,21 @@ import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresa
 import { useGetAfpCatalogoQuery } from '@/store/slices/rrhh/catalogosRrhhApi';
 import { useGetGruposTurnoQuery } from '@/store/slices/rrhh/grupoTurnoApi';
 import {
+    useCompletarCamposFaltantesContratoTrabajadorMutation,
     useCrearContratoConTrabajadorMutation,
     useGenerarPdfContratoTrabajadorMutation,
+    useLazyPrecheckCamposFaltantesContratoTrabajadorQuery,
 } from '@/store/slices/rrhh/contratoTrabajadorApi';
-import { IContratoTrabajador } from '@/interface/rrhh.interface';
+import { ICampoConAlcance, ICampoFaltante, IContratoTrabajador } from '@/interface/rrhh.interface';
 import { getErrorMessage } from '@/utils/errorHandlers';
 import { validarRut } from '@/utils/rut.util';
 import classNames from 'classnames';
 import { useFormik } from 'formik';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Yup from 'yup';
+import CamposFaltantesModal from './CamposFaltantesModal';
 import StepJornada from '../components/trabajador/StepJornada';
 import StepPrevisionBanco from '../components/trabajador/StepPrevisionBanco';
 import StepRemuneraciones from '../components/trabajador/StepRemuneraciones';
@@ -257,7 +260,6 @@ const initialValues: IFormValuesContratoTrabajador = {
     trab_fecha_nacimiento: '',
     trab_direccion: '',
     trab_estado_civil: '',
-    trab_profesion_u_oficio: '',
     enviar_al_empleador: true,
     tipo_contrato: '',
     fecha_inicio: '',
@@ -423,6 +425,16 @@ const CrearContratoTrabajadorWizard = ({
         useCrearContratoConTrabajadorMutation();
     const [generarPdf, { isLoading: generandoPdf }] =
         useGenerarPdfContratoTrabajadorMutation();
+    const [triggerPrecheckCamposFaltantes] = useLazyPrecheckCamposFaltantesContratoTrabajadorQuery();
+    const [completarCamposFaltantes] = useCompletarCamposFaltantesContratoTrabajadorMutation();
+    const [camposFaltantesState, setCamposFaltantesState] = useState<{
+        campos: ICampoFaltante[];
+    } | null>(null);
+    // Resuelve la promesa que onSubmit queda esperando mientras el usuario
+    // completa (o omite) el modal de datos faltantes, antes de crear el contrato.
+    const resolverCamposPreviosRef = useRef<
+        ((payload: Record<string, string | ICampoConAlcance> | null) => void) | null
+    >(null);
     const [contratoCreado, setContratoCreado] = useState<IContratoTrabajador | null>(null);
 
     const formik = useFormik<IFormValuesContratoTrabajador>({
@@ -465,7 +477,6 @@ const CrearContratoTrabajadorWizard = ({
                     fecha_firma: values.fecha_firma || null,
                     plantilla_contrato: values.plantilla_contrato_id || null,
                     estado_civil: values.trab_estado_civil || null,
-                    profesion_u_oficio: values.trab_profesion_u_oficio || null,
                     sistema_salud_otro: values.sistema_salud_otro || null,
                     trabajador_reemplazado: values.trab_trabajador_reemplazado_id || null,
                     causal_reemplazo: values.causal_reemplazo || null,
@@ -486,9 +497,49 @@ const CrearContratoTrabajadorWizard = ({
                     direccion: values.trab_direccion || undefined,
                 };
 
-                // Función interna: genera PDF, cierra el modal y navega al detalle del contrato
+                // Precheck de datos obligatorios ANTES de crear el contrato: si a la
+                // empresa o al trabajador (modo 'existente') le falta algun dato
+                // (RUT, representante legal, etc.), se pide aqui — el contrato recien
+                // se crea despues de que el usuario complete u omita este paso.
+                let datosPrevios: Record<string, string | ICampoConAlcance> | null = null;
+                try {
+                    const { campos_faltantes } = await triggerPrecheckCamposFaltantes({
+                        usuarioEmpresaId:
+                            values.trab_modo === 'existente'
+                                ? Number(values.trab_usuario_empresa_id)
+                                : undefined,
+                        sucursalId: values.trab_sucursal_id ? Number(values.trab_sucursal_id) : undefined,
+                    }).unwrap();
+                    if (campos_faltantes.length > 0) {
+                        datosPrevios = await new Promise<Record<string, string | ICampoConAlcance> | null>(
+                            (resolve) => {
+                                resolverCamposPreviosRef.current = resolve;
+                                setCamposFaltantesState({ campos: campos_faltantes });
+                            },
+                        );
+                    }
+                } catch {
+                    // No bloquear la creacion del contrato si el precheck falla.
+                }
+
+                // Los campos de "empresa"/"trabajador" que el usuario haya completado en
+                // el precheck se guardan una vez creado el contrato, reusando el mismo
+                // endpoint que ya maneja el guardado compartido vs. override por contrato.
+                const datosPreviosParaCompletar = datosPrevios ? { ...datosPrevios } : null;
+
+                // Función interna: aplica los datos previos, genera el PDF una sola vez
+                // (ya con los datos completos) y navega al detalle del contrato.
                 const _finalizarCreacion = async (contrato: IContratoTrabajador, mensaje: string) => {
-                    toast.success(mensaje);
+                    if (datosPreviosParaCompletar && Object.keys(datosPreviosParaCompletar).length > 0) {
+                        try {
+                            await completarCamposFaltantes({
+                                id: contrato.id,
+                                ...datosPreviosParaCompletar,
+                            } as never).unwrap();
+                        } catch {
+                            // No bloquear el cierre del wizard si el guardado falla.
+                        }
+                    }
                     if (contrato.plantilla_contrato) {
                         try {
                             await generarPdf(contrato.id).unwrap();
@@ -496,12 +547,8 @@ const CrearContratoTrabajadorWizard = ({
                             toast.warning('Contrato creado, pero no se pudo generar el PDF.');
                         }
                     }
-                    formik.resetForm();
-                    setStep(1);
-                    setStepAttempted(false);
-                    setContratoCreado(null);
-                    setIsOpen(false);
-                    navigate(`/rrhh/contratos/${contrato.id}`);
+                    toast.success(mensaje);
+                    cerrarYNavegar(contrato.id);
                 };
 
                 if (values.trab_modo === 'existente') {
@@ -551,6 +598,15 @@ const CrearContratoTrabajadorWizard = ({
             }
         },
     });
+
+    const cerrarYNavegar = (contratoId: number) => {
+        formik.resetForm();
+        setStep(1);
+        setStepAttempted(false);
+        setContratoCreado(null);
+        setIsOpen(false);
+        navigate(`/rrhh/contratos/${contratoId}`);
+    };
 
     // Pre-fill Step 2 cuando se crea un contrato para un trabajador confirmado específico
     useEffect(() => {
@@ -1178,6 +1234,17 @@ const CrearContratoTrabajadorWizard = ({
                     )}
                 </ModalFooter>
             </Modal>
+            {camposFaltantesState && (
+                <CamposFaltantesModal
+                    isOpen
+                    camposFaltantes={camposFaltantesState.campos}
+                    onGuardarPrevio={(payload) => {
+                        resolverCamposPreviosRef.current?.(payload);
+                        resolverCamposPreviosRef.current = null;
+                    }}
+                    onClose={() => setCamposFaltantesState(null)}
+                />
+            )}
         </>
     );
 };

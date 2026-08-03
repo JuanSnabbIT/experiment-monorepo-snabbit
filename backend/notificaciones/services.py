@@ -549,6 +549,37 @@ def notificar_vacaciones_resolucion(
     )
 
 
+# ----- Contratos laborales (constancia de aviso de vencimiento) -------------
+def notificar_contrato_proximo_a_vencer(contrato) -> None:
+    """Contrato laboral a plazo fijo proximo a vencer -> notifica a RRHH.
+
+    Deja constancia in-app (visible en la campana del header) de que el
+    aviso de vencimiento fue generado, independiente de si el correo
+    llega o es revisado.
+    """
+    try:
+        empresa = contrato.usuario_empresa.sucursal.empresa
+    except Exception:
+        empresa = None
+    try:
+        nombre_trabajador = contrato.usuario_empresa.usuario.get_nombre_completo()
+    except Exception:
+        nombre_trabajador = "un trabajador"
+    _disparar_a_grupo(
+        empresa=empresa,
+        grupo=GRUPO_RRHH,
+        tipo=TipoEventoNotificacion.CONTRATO_PROXIMO_A_VENCER.value,
+        titulo="Contrato laboral próximo a vencer",
+        cuerpo=(
+            f"El contrato de {nombre_trabajador} vence el {contrato.fecha_termino}. "
+            f"Se envió un aviso por correo."
+        ),
+        url_destino=f"/rrhh/contratos/{contrato.id}",
+        datos={"contrato_id": contrato.id},
+        excluir_usuario_id=None,
+    )
+
+
 # ----- Visitas (N14) --------------------------------------------------------
 def notificar_visita_asignada(
     visita,
