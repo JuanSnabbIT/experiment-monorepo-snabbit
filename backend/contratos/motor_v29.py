@@ -3,9 +3,10 @@ Motor de plantillas v2.9 — documento único Slate → HTML → WeasyPrint PDF.
 
 Lee `contenido_documento_v29` (árbol Slate en JSON) de la PlantillaContrato,
 traversa los nodos, interpola etiquetas via el adaptador y evalúa bloques
-condicionales usando _CONDICIONES_TRABAJADOR del motor v2.
+condicionales usando CONDICIONES_TRABAJADOR de contratos.resolucion_etiquetas.
 
-No modifica ni llama a generar_secciones_v2; es un pipeline independiente.
+Pipeline independiente: no depende de ningún motor legacy (v1/v2), solo del
+módulo neutral de resolución de etiquetas compartido.
 """
 
 from __future__ import annotations
@@ -17,8 +18,8 @@ from contratos.adaptadores import (
     AdaptadorContratoTrabajador,
     IContratoBase,
 )
-from contratos.motor_plantillas_v2 import (
-    _CONDICIONES_TRABAJADOR,
+from contratos.resolucion_etiquetas import (
+    CONDICIONES_TRABAJADOR as _CONDICIONES_TRABAJADOR,
     resolver_valor_etiqueta_v2,
 )
 

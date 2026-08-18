@@ -142,9 +142,6 @@ const RtkQueryService = createApi({
         // Plantillas Contrato V2 (Motor Slate)
         'PlantillaContratoV2',
         'PlantillaContratoV2List',
-        'SeccionPlantillaV2',
-        'BloqueTransversal',
-        'EtiquetaPlantillaV2',
         'EtiquetasCatalogo',
         'SolicitudVacaciones',
         'SolicitudVacacionesList',

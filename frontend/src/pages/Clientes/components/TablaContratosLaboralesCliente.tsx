@@ -1,16 +1,22 @@
 import Input from '@/components/form/Input';
+import Label from '@/components/form/Label';
 import Icon from '@/components/icon/Icon';
+import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card, { CardBody, CardHeader } from '@/components/ui/Card';
+import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import { Pages } from '@/config/pages.config';
-import { COLOR_ESTADO } from '@/constants/contrato.constant';
+import { COLOR_ESTADO, esContratoProximoAVencer } from '@/constants/contrato.constant';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { IContratoTrabajador } from '@/interface/rrhh.interface';
 import CrearContratoTrabajadorWizard from '@/pages/RRHH/modals/CrearContratoTrabajadorWizard';
-import { useGetContratosTrabajadorPorEmpresaClienteQuery } from '@/store/slices/rrhh/contratoTrabajadorApi';
+import {
+    useEnviarAvisoVencimientoContratoTrabajadorMutation,
+    useGetContratosTrabajadorPorEmpresaClienteQuery,
+} from '@/store/slices/rrhh/contratoTrabajadorApi';
 import TableCardFooterTemplateV2 from '@/templates/Table/TableFooterTemplateV2';
 import { downloadPdfFromUrl } from '@/utils/downloadHelpers';
 import { getErrorMessage } from '@/utils/errorHandlers';
@@ -48,6 +54,47 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [wizardOpen, setWizardOpen] = useState(false);
     const [descargandoPlanilla, setDescargandoPlanilla] = useState(false);
+
+    const [enviarAvisoVencimiento, { isLoading: enviandoAviso }] =
+        useEnviarAvisoVencimientoContratoTrabajadorMutation();
+
+    const [contratoAviso, setContratoAviso] = useState<IContratoTrabajador | null>(null);
+    const [emailAvisoMode, setEmailAvisoMode] = useState<'rrhh' | 'custom'>('rrhh');
+    const [emailAvisoCustom, setEmailAvisoCustom] = useState('');
+
+    const emailsRrhhAviso = contratoAviso?.emails_rrhh_empresa ?? [];
+
+    const abrirModalAviso = (contrato: IContratoTrabajador) => {
+        setContratoAviso(contrato);
+        setEmailAvisoMode((contrato.emails_rrhh_empresa?.length ?? 0) > 0 ? 'rrhh' : 'custom');
+        setEmailAvisoCustom('');
+    };
+
+    const cerrarModalAviso = () => {
+        setContratoAviso(null);
+        setEmailAvisoMode('rrhh');
+        setEmailAvisoCustom('');
+    };
+
+    const handleEnviarAvisoVencimiento = async () => {
+        if (!contratoAviso) return;
+        const emailDestino = emailAvisoMode === 'custom' ? emailAvisoCustom.trim() : undefined;
+        if (emailAvisoMode === 'custom' && !emailDestino) {
+            toast.error('Ingresa el correo de destino.');
+            return;
+        }
+        if (emailAvisoMode === 'rrhh' && emailsRrhhAviso.length === 0) {
+            toast.error('No hay correos RRHH registrados en esta empresa. Ingresa uno manualmente.');
+            return;
+        }
+        try {
+            await enviarAvisoVencimiento({ id: contratoAviso.id, email_destino: emailDestino }).unwrap();
+            toast.success('Aviso de vencimiento enviado.');
+            cerrarModalAviso();
+        } catch (err) {
+            toast.error(getErrorMessage(err));
+        }
+    };
 
     const handleDescargarPlanilla = async () => {
         if (!empresaClienteId) return;
@@ -193,6 +240,22 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                                 }}
                             />
                         </Tooltip>
+                        {esContratoProximoAVencer(info.row.original) && (
+                            <Tooltip
+                                text={
+                                    info.row.original.aviso_vencimiento_enviado
+                                        ? 'Aviso de vencimiento ya enviado — reenviar'
+                                        : 'Enviar aviso de vencimiento'
+                                }>
+                                <Button
+                                    color={info.row.original.aviso_vencimiento_enviado ? 'amber' : 'blue'}
+                                    variant='solid'
+                                    icon='HeroEnvelope'
+                                    size='sm'
+                                    onClick={() => abrirModalAviso(info.row.original)}
+                                />
+                            </Tooltip>
+                        )}
                     </div>
                 ),
             }),
@@ -360,7 +423,13 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                                 </Tr>
                             ) : (
                                 table.getRowModel().rows.map((row) => (
-                                    <Tr key={row.id}>
+                                    <Tr
+                                        key={row.id}
+                                        className={
+                                            esContratoProximoAVencer(row.original)
+                                                ? 'bg-amber-50/60 dark:bg-amber-900/15 [&>td:first-child]:border-l-4 [&>td:first-child]:border-amber-500'
+                                                : undefined
+                                        }>
                                         {row.getVisibleCells().map((cell) => (
                                             <Td key={cell.id}>
                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -382,6 +451,120 @@ const TablaContratosLaboralesCliente = ({ detalleCliente }: ITablaContratosLabor
                 externalIsOpen={wizardOpen}
                 onExternalClose={() => setWizardOpen(false)}
             />
+
+            <Modal isOpen={!!contratoAviso} setIsOpen={(v) => { if (!v) cerrarModalAviso(); }}>
+                <ModalHeader>
+                    {contratoAviso?.aviso_vencimiento_enviado
+                        ? 'Reenviar aviso de vencimiento'
+                        : 'Enviar aviso de vencimiento'}
+                </ModalHeader>
+                <ModalBody>
+                    <p className='mb-4 text-sm text-zinc-500 dark:text-zinc-400'>
+                        Se enviará un correo avisando que el contrato de{' '}
+                        <strong>{contratoAviso?.nombre_trabajador ?? 'el trabajador'}</strong> vence el{' '}
+                        <strong>
+                            {contratoAviso?.fecha_termino
+                                ? dayjs(contratoAviso.fecha_termino).format('DD/MM/YYYY')
+                                : '—'}
+                        </strong>
+                        .
+                    </p>
+
+                    {contratoAviso?.aviso_vencimiento_enviado && (
+                        <Alert variant='outline' color='amber' icon='HeroExclamationTriangle' className='mb-4'>
+                            Este aviso ya fue enviado antes — automáticamente por el sistema o
+                            manualmente. Puedes reenviarlo si es necesario.
+                        </Alert>
+                    )}
+
+                    <button
+                        type='button'
+                        disabled={emailsRrhhAviso.length === 0}
+                        onClick={() => setEmailAvisoMode('rrhh')}
+                        className={`mb-2 flex w-full items-start gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors ${
+                            emailsRrhhAviso.length === 0
+                                ? 'cursor-not-allowed border-zinc-200 opacity-50 dark:border-zinc-700'
+                                : emailAvisoMode === 'rrhh'
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                                  : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700'
+                        }`}>
+                        <span
+                            className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                                emailAvisoMode === 'rrhh' && emailsRrhhAviso.length > 0
+                                    ? 'border-blue-500'
+                                    : 'border-zinc-400 dark:border-zinc-600'
+                            }`}>
+                            {emailAvisoMode === 'rrhh' && emailsRrhhAviso.length > 0 && (
+                                <span className='h-2 w-2 rounded-full bg-blue-500' />
+                            )}
+                        </span>
+                        <div className='min-w-0'>
+                            <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+                                Correos RRHH registrados
+                            </p>
+                            {emailsRrhhAviso.length > 0 ? (
+                                <p className='mt-0.5 truncate text-xs text-blue-600 dark:text-blue-400'>
+                                    {emailsRrhhAviso.join(', ')}
+                                </p>
+                            ) : (
+                                <p className='mt-0.5 text-xs text-zinc-400'>
+                                    No hay usuarios RRHH con correo registrado en esta empresa
+                                </p>
+                            )}
+                        </div>
+                    </button>
+
+                    <button
+                        type='button'
+                        onClick={() => setEmailAvisoMode('custom')}
+                        className={`flex w-full items-start gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors ${
+                            emailAvisoMode === 'custom'
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                                : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700'
+                        }`}>
+                        <span
+                            className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                                emailAvisoMode === 'custom'
+                                    ? 'border-blue-500'
+                                    : 'border-zinc-400 dark:border-zinc-600'
+                            }`}>
+                            {emailAvisoMode === 'custom' && <span className='h-2 w-2 rounded-full bg-blue-500' />}
+                        </span>
+                        <p className='text-sm font-medium text-zinc-900 dark:text-zinc-100'>
+                            Ingresar correo manualmente
+                        </p>
+                    </button>
+
+                    {emailAvisoMode === 'custom' && (
+                        <div className='mt-3'>
+                            <Label htmlFor='email-aviso-vencimiento'>Correo de destino</Label>
+                            <Input
+                                id='email-aviso-vencimiento'
+                                name='email-aviso-vencimiento'
+                                type='email'
+                                placeholder='correo@empresa.com'
+                                value={emailAvisoCustom}
+                                onChange={(e) => setEmailAvisoCustom(e.target.value)}
+                            />
+                        </div>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <Button onClick={cerrarModalAviso}>Cancelar</Button>
+                    <Button
+                        variant='solid'
+                        color='blue'
+                        icon='HeroEnvelope'
+                        isDisable={enviandoAviso}
+                        onClick={handleEnviarAvisoVencimiento}>
+                        {enviandoAviso
+                            ? 'Enviando...'
+                            : contratoAviso?.aviso_vencimiento_enviado
+                              ? 'Reenviar'
+                              : 'Enviar'}
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </div>
     );
 };

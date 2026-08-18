@@ -18,6 +18,8 @@ export interface IEmpresa {
     email: null | string;
     clientes: number[];
     ppm: number;
+    representante_legal: null | string;
+    rut_representante: null | string;
 }
 
 export interface IRelacionEmpresa {

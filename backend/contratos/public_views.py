@@ -87,9 +87,7 @@ class PublicContratoAprobacionDetailView(APIView):
         if snapshot.get("secciones_generadas"):
             secciones_data = snapshot["secciones_generadas"]
         else:
-            secciones_qs = envio.contrato.secciones_generadas.select_related(
-                "seccion_plantilla"
-            ).order_by("orden")
+            secciones_qs = envio.contrato.secciones_generadas.order_by("orden")
             secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
 
         serializer = ContratoAprobacionPublicSerializer(
@@ -360,9 +358,7 @@ class PublicContratoFirmaDetailView(APIView):
         if snapshot.get("secciones_generadas"):
             secciones_data = snapshot["secciones_generadas"]
         else:
-            secciones_qs = contrato.secciones_generadas.select_related(
-                "seccion_plantilla"
-            ).order_by("orden")
+            secciones_qs = contrato.secciones_generadas.order_by("orden")
             secciones_data = SeccionGeneradaPublicSerializer(secciones_qs, many=True).data
 
         serializer = ContratoFirmaPublicSerializer(
@@ -527,23 +523,10 @@ class PublicContratoResumenDetailView(APIView):
             )
 
         contrato = envio.contrato
+        # Documento único v2.9: no hay secciones que generar — su contenido
+        # viaja en `contrato_payload.documento_v29_html` (ver
+        # ContratoEmpresaClienteSerializer.get_documento_v29_html).
         secciones_generadas = []
-        # Plantilla v2.9 (documento único): no tiene SeccionPlantilla que generar
-        # vía el motor viejo — su contenido viaja en `contrato_payload.documento_v29_html`
-        # (ver ContratoEmpresaClienteSerializer.get_documento_v29_html). Intentar
-        # generar secciones acá para v2.9 solo produce una lista vacía silenciosa.
-        if not (contrato.plantilla and contrato.plantilla.version_editor == "v29"):
-            try:
-                from .motor_plantillas import generar_secciones_contrato
-                secciones_qs = generar_secciones_contrato(contrato)
-                secciones_generadas = SeccionGeneradaPublicSerializer(
-                    secciones_qs, many=True
-                ).data
-            except Exception:
-                import logging
-                logging.getLogger(__name__).exception(
-                    "Error generando secciones para resumen público (silencioso)."
-                )
 
         contrato_payload = construir_snapshot_contrato(contrato)
 

@@ -575,14 +575,14 @@ export const Pages = {
             },
             listaPlantillasContratoV2: {
                 id: 'listaPlantillasContratoV2',
-                to: '/registros/plantillas-contrato-v2',
+                to: '/registros/plantillas-contrato',
                 text: 'Plantillas de Contrato',
                 icon: 'HeroDocumentMagnifyingGlass',
                 authority: ['staff', 'superadmin', 'rrhh'],
             },
             editorPlantillaContratoV2: {
                 id: 'editorPlantillaContratoV2',
-                to: '/registros/plantillas-contrato-v2/:plantillaId',
+                to: '/registros/plantillas-contrato/:plantillaId',
                 text: 'Editor de Plantilla',
                 icon: 'HeroDocument',
                 authority: ['staff', 'superadmin', 'rrhh'],

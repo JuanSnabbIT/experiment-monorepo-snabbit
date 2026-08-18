@@ -2,7 +2,7 @@ import FileInput from '@/components/form/FileInput';
 import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
-import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
+import { useGetPlantillasV2Query } from '@/store/slices/contratos/plantillaContratoV2Api';
 import { FormikProps } from 'formik';
 import { IFormValuesContratoTrabajador } from './types';
 
@@ -13,7 +13,7 @@ interface Props {
 const StepDocumentoLaboral = ({ formik }: Props) => {
     const { values, setFieldValue, handleChange, handleBlur } = formik;
 
-    const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery();
+    const { data: todasLasPlantillas = [] } = useGetPlantillasV2Query();
     const plantillasOpciones: TSelectOption[] = todasLasPlantillas
         .filter((p) => p.tipo_contrato === 'trabajador' && p.activa)
         .map((p) => ({ value: String(p.id), label: p.titulo }));

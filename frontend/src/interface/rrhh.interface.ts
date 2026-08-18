@@ -208,6 +208,8 @@ export interface IContratoTrabajador {
     estado_label?: string;
     fecha_aprobacion: string | null;
     aceptado_por: number | null;
+    aviso_vencimiento_enviado: boolean;
+    emails_rrhh_empresa?: string[];
 
     motivo_termino: TMotivoTerminoContrato | null;
     motivo_termino_label?: string | null;

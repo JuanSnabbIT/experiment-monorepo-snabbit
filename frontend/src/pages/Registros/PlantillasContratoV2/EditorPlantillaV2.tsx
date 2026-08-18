@@ -1,25 +1,18 @@
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { IEtiquetaPlantilla } from '@/interface/plantillaContrato.interface';
-import { ISeccionPlantillaV2 as ISeccionPlantilla } from '@/interface/plantillaContratoV2.interface';
 import {
     useDuplicarPlantillaV2Mutation,
     useGetDetallePlantillaV2Query,
     useGetEtiquetasCatalogoQuery,
-    useGetEtiquetasV2Query,
-    useReordenarSeccionesV2Mutation,
 } from '@/store/slices/contratos/plantillaContratoV2Api';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { getErrorMessage } from '@/utils/errorHandlers';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import EditorDocumentoV29, { IEditorDocumentoV29Handle } from './components/EditorDocumentoV29';
-import ModalCrearSeccionV2 from './components/ModalCrearSeccionV2.tsx';
 import ModalEditarPlantillaV2 from './components/ModalEditarPlantillaV2';
-import PanelDocumento, { IPanelDocumentoHandle } from './components/PanelDocumento';
-import PanelEstructura from './components/PanelEstructura';
-import PanelEtiquetas from './components/PanelEtiquetas';
 
 const EditorPlantillaV2 = () => {
     const { plantillaId } = useParams<{ plantillaId: string }>();
@@ -31,50 +24,22 @@ const EditorPlantillaV2 = () => {
         isLoading,
         isError,
     } = useGetDetallePlantillaV2Query(plantillaId ?? '');
-    const isV29 = plantilla?.version_editor === 'v29';
-    const { data: etiquetasV2 = [] } = useGetEtiquetasV2Query(
-        plantilla?.tipo_contrato && !isV29 ? { tipo_contrato: plantilla.tipo_contrato } : skipToken,
+    const { data: etiquetas = [] } = useGetEtiquetasCatalogoQuery(
+        plantilla?.tipo_contrato ? { tipo_contrato: plantilla.tipo_contrato } : skipToken,
     );
-    const { data: etiquetasCatalogo = [] } = useGetEtiquetasCatalogoQuery(
-        plantilla?.tipo_contrato && isV29 ? { tipo_contrato: plantilla.tipo_contrato } : skipToken,
-    );
-    const etiquetas = isV29 ? etiquetasCatalogo : etiquetasV2;
     const [duplicar, { isLoading: isDuplicating }] = useDuplicarPlantillaV2Mutation();
-    const [reordenarSecciones] = useReordenarSeccionesV2Mutation();
 
     // ─── Estado local ────────────────────────────────────────────────────────
-    const [seccionActivaId, setSeccionActivaId] = useState<number | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
     const [modalConfigOpen, setModalConfigOpen] = useState(false);
-    const [modalNuevaSeccionOpen, setModalNuevaSeccionOpen] = useState(false);
     const [hayUnsavedChanges, setHayUnsavedChanges] = useState(false);
-    // Orden optimista de secciones (se actualiza al hacer drag-and-drop)
-    const [seccionesLocales, setSeccionesLocales] = useState<ISeccionPlantilla[]>([]);
     const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
 
     // Ref del documento para guardar / insertar / envolver seleccion
-    const panelDocumentoRef = useRef<IPanelDocumentoHandle>(null);
     const editorV29Ref = useRef<IEditorDocumentoV29Handle>(null);
 
     // ─── Handlers ────────────────────────────────────────────────────────────
-    const handleSeleccionarSeccion = useCallback((seccion: ISeccionPlantilla) => {
-        setSeccionActivaId(seccion.id);
-        setIsEditing(false);
-    }, []);
-
-    const handleInsertarEtiqueta = useCallback((clave: string) => {
-        if (isV29) editorV29Ref.current?.insertarEtiqueta(clave);
-        else panelDocumentoRef.current?.insertarTexto(`[${clave}]`);
-    }, [isV29]);
-
-    const handleWrapSelection = useCallback((abre: string, cierra: string) => {
-        if (isV29) editorV29Ref.current?.wrapSelection(abre, cierra);
-        else panelDocumentoRef.current?.wrapSelection(abre, cierra);
-    }, [isV29]);
-
     const handleGuardarCambios = async () => {
-        if (isV29) await editorV29Ref.current?.guardar();
-        else await panelDocumentoRef.current?.guardar();
+        await editorV29Ref.current?.guardar();
     };
 
     const handleDuplicar = async () => {
@@ -82,54 +47,11 @@ const EditorPlantillaV2 = () => {
         try {
             const nueva = await duplicar(Number(plantillaId)).unwrap();
             toast.success('Plantilla duplicada');
-            navigate(`/registros/plantillas-contrato-v2/${nueva.id}`);
+            navigate(`/registros/plantillas-contrato/${nueva.id}`);
         } catch (err: unknown) {
             toast.error(getErrorMessage(err));
         }
     };
-
-    const handleSeccionCreada = (seccion: ISeccionPlantilla) => {
-        setSeccionActivaId(seccion.id);
-        setIsEditing(false);
-        // RTK Query invalida automáticamente via invalidatesTags — no refetch manual
-    };
-
-    const handleReordenarSecciones = async (nuevasSecciones: ISeccionPlantilla[]) => {
-        if (!plantillaId) return;
-        const previo = seccionesLocales;
-        // Actualización optimista inmediata
-        setSeccionesLocales(nuevasSecciones);
-        try {
-            await reordenarSecciones({
-                plantillaId: Number(plantillaId),
-                orden: nuevasSecciones.map((s, i) => ({ id: s.id, orden: i + 1 })),
-            }).unwrap();
-        } catch (err: unknown) {
-            // Revertir si falla
-            setSeccionesLocales(previo);
-            toast.error(getErrorMessage(err));
-        }
-    };
-
-    // ─── Ordenar secciones ───────────────────────────────────────────────────
-    // Usa estado local para actualizaciones optimistas; se sincroniza con la API
-    const secciones = seccionesLocales;
-
-    // Seleccionar primera seccion al cargar
-    useEffect(() => {
-        if (plantilla && !seccionActivaId && secciones.length > 0) {
-            setSeccionActivaId(secciones[0].id);
-        }
-    }, [plantilla, secciones, seccionActivaId]);
-
-    // Sincronizar secciones locales cuando llegan de la API
-    useEffect(() => {
-        if (plantilla?.secciones) {
-            setSeccionesLocales(
-                [...plantilla.secciones].sort((a, b) => a.orden - b.orden),
-            );
-        }
-    }, [plantilla?.secciones]);
 
     // Advertir al usuario antes de cerrar/recargar si hay cambios sin guardar
     useEffect(() => {
@@ -159,7 +81,7 @@ const EditorPlantillaV2 = () => {
             <div className='flex h-[calc(100dvh-var(--header-height))] flex-col items-center justify-center gap-4'>
                 <p className='text-zinc-500'>No se pudo cargar la plantilla.</p>
                 <Button
-                    onClick={() => navigate('/registros/plantillas-contrato-v2')}
+                    onClick={() => navigate('/registros/plantillas-contrato')}
                     icon='HeroArrowLeft'>
                     Volver a la lista
                 </Button>
@@ -178,7 +100,7 @@ const EditorPlantillaV2 = () => {
                     size='sm'
                     variant='default'
                     icon='HeroArrowLeft'
-                    onClick={() => navigate('/registros/plantillas-contrato-v2')}
+                    onClick={() => navigate('/registros/plantillas-contrato')}
                 />
 
                 <div className='h-5 w-px bg-zinc-200 dark:bg-zinc-700' />
@@ -244,8 +166,7 @@ const EditorPlantillaV2 = () => {
                         color='blue'
                         variant='solid'
                         icon='HeroCheck'
-                        onClick={handleGuardarCambios}
-                        isDisable={!isV29 && !isEditing}>
+                        onClick={handleGuardarCambios}>
                         Guardar cambios
                     </Button>
                     {/* Menu de opciones */}
@@ -272,71 +193,18 @@ const EditorPlantillaV2 = () => {
             </header>
 
             {/* ═══════════════════════════════════════════════════════════════
-                CONTENIDO PRINCIPAL
+                CONTENIDO PRINCIPAL — documento único v2.9 (Slate)
             ═══════════════════════════════════════════════════════════════ */}
             <div className='flex min-h-0 flex-1 overflow-hidden'>
-                {isV29 ? (
-                    /* ── Editor v2.9: documento único Slate ── */
-                    <EditorDocumentoV29
-                        ref={editorV29Ref}
-                        plantilla={plantilla}
-                        etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                        viewMode={viewMode}
-                        onDirtyChange={setHayUnsavedChanges}
-                        onSaved={() => { /* invalidado automáticamente por RTK Query */ }}
-                        onStopEditar={() => setIsEditing(false)}
-                    />
-                ) : (
-                    /* ── Editor v2: secciones ── */
-                    <>
-                        {/* Panel izquierdo: Estructura (oculto en preview) */}
-                        {viewMode === 'editor' && (
-                            <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
-                                <PanelEstructura
-                                    secciones={secciones}
-                                    seccionActivaId={seccionActivaId}
-                                    onSelectSeccion={handleSeleccionarSeccion}
-                                    onNuevaSeccion={() => setModalNuevaSeccionOpen(true)}
-                                    onReordenarSecciones={handleReordenarSecciones}
-                                    bloques={plantilla?.bloques_transversales ?? []}
-                                />
-                            </aside>
-                        )}
-
-                        {/* Panel central: Documento completo */}
-                        <main className='flex min-w-0 flex-1 flex-col overflow-hidden'>
-                            <PanelDocumento
-                                ref={panelDocumentoRef}
-                                secciones={secciones}
-                                seccionActivaId={viewMode === 'preview' ? null : seccionActivaId}
-                                isEditing={viewMode === 'preview' ? false : isEditing}
-                                plantillaId={plantillaId ?? ''}
-                                tituloPagina={plantilla.titulo}
-                                etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                                onSelectSeccion={handleSeleccionarSeccion}
-                                onStartEditar={() => setIsEditing(true)}
-                                onStopEditar={() => setIsEditing(false)}
-                                onSaved={() => { /* invalidado automáticamente por RTK Query */ }}
-                                onDirtyChange={setHayUnsavedChanges}
-                                bloques={plantilla?.bloques_transversales ?? []}
-                                viewMode={viewMode}
-                                plantillaTipoContrato={plantilla.tipo_contrato}
-                            />
-                        </main>
-
-                        {/* Panel derecho: Etiquetas (oculto en preview) */}
-                        {viewMode === 'editor' && (
-                            <aside className='flex h-full w-[260px] shrink-0 flex-col overflow-hidden'>
-                                <PanelEtiquetas
-                                    etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                                    onInsertarEtiqueta={handleInsertarEtiqueta}
-                                    onWrapSelection={handleWrapSelection}
-                                    editingEnabled={isEditing}
-                                />
-                            </aside>
-                        )}
-                    </>
-                )}
+                <EditorDocumentoV29
+                    ref={editorV29Ref}
+                    plantilla={plantilla}
+                    etiquetas={etiquetas as IEtiquetaPlantilla[]}
+                    viewMode={viewMode}
+                    onDirtyChange={setHayUnsavedChanges}
+                    onSaved={() => { /* invalidado automáticamente por RTK Query */ }}
+                    onStopEditar={() => { /* no-op: sin panel de secciones que cerrar */ }}
+                />
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════
@@ -347,17 +215,6 @@ const EditorPlantillaV2 = () => {
                 setIsOpen={setModalConfigOpen}
                 plantilla={plantilla}
             />
-
-            {!isV29 && (
-                <ModalCrearSeccionV2
-                    isOpen={modalNuevaSeccionOpen}
-                    setIsOpen={setModalNuevaSeccionOpen}
-                    plantillaId={plantillaId ?? ''}
-                    etiquetas={etiquetas as IEtiquetaPlantilla[]}
-                    nextOrder={(secciones.at(-1)?.orden ?? 0) + 1}
-                    onCreated={handleSeccionCreada}
-                />
-            )}
         </div>
     );
 };

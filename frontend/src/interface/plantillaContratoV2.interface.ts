@@ -1,49 +1,6 @@
 // =====================================================================
-// Interfaces para el Motor de Plantillas V2 (Slate + Bloques Transversales)
+// Interfaces para el Motor de Plantillas V2.9 (documento único Slate)
 // =====================================================================
-
-// ─── Modelos de negocio ───────────────────────────────────────────
-
-export interface IBloqueTransversalContrato {
-    id: number;
-    tipo_contrato: string;
-    tipo_contrato_label: string;
-    codigo: string;
-    codigo_label: string;
-    titulo: string;
-    descripcion: string;
-    posicion_default: number;
-    editable: boolean;
-    activo: boolean;
-}
-
-export interface IOrdenBloqueTransversalPlantilla {
-    id: number;
-    plantilla: number;
-    bloque: number;
-    bloque_detalle: IBloqueTransversalContrato;
-    posicion: number;
-    visible: boolean;
-}
-
-export interface ISeccionPlantillaV2 {
-    id: number;
-    plantilla: number;
-    titulo: string;
-    tipo: string;
-    tipo_label: string;
-    contenido_template: string;
-    /** Nodos Slate serializados como JSON */
-    contenido_template_estructurado: TSlateNode[];
-    orden: number;
-    slot_documental: string | null;
-    slot_documental_label: string | null;
-    es_editable_en_contrato: boolean;
-    es_obligatoria: boolean;
-    mostrar_numero: boolean;
-    condicion_aparicion: string | null;
-    condicion_aparicion_label: string | null;
-}
 
 // ─── Configuración de página v2.9 ────────────────────────────────
 
@@ -90,8 +47,6 @@ export interface IPlantillaContratoV2 {
     orden_bloque_alcance: number;
     orden_bloque_operacion: number;
     orden_bloque_condiciones: number;
-    secciones: ISeccionPlantillaV2[];
-    bloques_transversales: IOrdenBloqueTransversalPlantilla[];
     /** 'v2' = editor de secciones (legado); 'v29' = documento único Slate */
     version_editor: 'v2' | 'v29';
     contenido_documento_v29: TSlateNode[] | null;
@@ -117,7 +72,7 @@ export interface IPlantillaContratoV2List {
     es_default: boolean;
     requiere_nda: boolean;
     version_editor: 'v2' | 'v29';
-    total_secciones: number;
+    total_contratos_emitidos: number;
     fecha_creacion: string;
     fecha_modificacion: string;
 }
@@ -139,16 +94,6 @@ export interface IUpdatePlantillaV2Payload extends Partial<ICreatePlantillaV2Pay
     id: number;
     contenido_documento_v29?: TSlateNode[] | null;
     config_pagina_v29?: IConfigPaginaV29 | null;
-}
-
-export interface IReordenarSeccionesPayload {
-    plantillaId: number;
-    orden: { id: number; orden: number }[];
-}
-
-export interface IReordenarBloquesPayload {
-    plantillaId: number;
-    bloques: { bloque: number; posicion: number; visible: boolean }[];
 }
 
 export interface IPreviewHtmlV29Payload {

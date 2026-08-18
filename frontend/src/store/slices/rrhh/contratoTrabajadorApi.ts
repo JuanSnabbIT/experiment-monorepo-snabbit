@@ -163,6 +163,18 @@ export const contratoTrabajadorApi = RtkQueryService.injectEndpoints({
             invalidatesTags: (_r, _e, id) => [{ type: 'ContratoTrabajador', id }],
         }),
 
+        enviarAvisoVencimientoContratoTrabajador: builder.mutation<
+            IContratoTrabajador,
+            { id: number | string; email_destino?: string }
+        >({
+            query: ({ id, email_destino }) => ({
+                url: `${BASE}/${id}/enviar-aviso-vencimiento/`,
+                method: 'post',
+                data: email_destino ? { email_destino } : {},
+            }),
+            invalidatesTags: (_r, _e, { id }) => [{ type: 'ContratoTrabajador', id }],
+        }),
+
         getCamposFaltantesContratoTrabajador: builder.query<
             { campos_faltantes: ICampoFaltante[] },
             number | string
@@ -395,6 +407,7 @@ export const {
     useCrearContratoConTrabajadorMutation,
     useCompletarCamposFaltantesContratoTrabajadorMutation,
     useGenerarPdfContratoTrabajadorMutation,
+    useEnviarAvisoVencimientoContratoTrabajadorMutation,
     useLazyGetCamposFaltantesContratoTrabajadorQuery,
     useLazyPrecheckCamposFaltantesContratoTrabajadorQuery,
     useSubirPdfContratoTrabajadorMutation,

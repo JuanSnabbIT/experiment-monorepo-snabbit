@@ -16,7 +16,7 @@ import { useContratoWizard } from '@/hooks/useContratoWizard';
 import { IRelacionEmpresa } from '@/interface/empresas.interface';
 import { ICrearContratoConTrabajadorPayload } from '@/interface/rrhh.interface';
 import { useAppSelector } from '@/store';
-import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
+import { useGetPlantillasV2Query } from '@/store/slices/contratos/plantillaContratoV2Api';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { useGetAfpCatalogoQuery } from '@/store/slices/rrhh/catalogosRrhhApi';
 import { useGetGruposTurnoQuery } from '@/store/slices/rrhh/grupoTurnoApi';
@@ -186,6 +186,7 @@ const validationSchema = Yup.object({
         then: (s) => s.required('Selecciona trabajador reemplazado'),
         otherwise: (s) => s.notRequired(),
     }),
+    sistema_salud: Yup.string().required('Selecciona un sistema de salud'),
     nombre_isapre: Yup.string().when('sistema_salud', {
         is: 'isapre',
         then: (s) => s.required('Requerido para sistema Isapre'),
@@ -393,7 +394,7 @@ const CrearContratoTrabajadorWizard = ({
     // Sin skip, estas queries disparan al montar el componente causando
     // un cascade de re-renders si el usuario abre el modal antes de que
     // el caché esté caliente (freeze en primera visita).
-    const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery(undefined, { skip: !isOpen });
+    const { data: todasLasPlantillas = [] } = useGetPlantillasV2Query(undefined, { skip: !isOpen });
     const { data: afpList = [] } = useGetAfpCatalogoQuery(undefined, { skip: !isOpen });
     const wizard = useContratoWizard(contratoId ?? null);
 
@@ -807,12 +808,11 @@ const CrearContratoTrabajadorWizard = ({
                             const plantillasFiltradas = todasLasPlantillas.filter((p) => {
                                 if (p.tipo_contrato !== 'trabajador' || !p.activa) return false;
                                 // Mostrar plantillas universales (sin subtipo) o que coincidan con el tipo de contrato
-                                const subtipo = (p as unknown as { subtipo_trabajador?: string | null }).subtipo_trabajador;
-                                if (!subtipo) return true;
-                                return subtipo === formik.values.tipo_contrato;
+                                if (!p.subtipo_trabajador) return true;
+                                return p.subtipo_trabajador === formik.values.tipo_contrato;
                             });
-                            const globales = plantillasFiltradas.filter((p) => p.es_global);
-                            const deEmpresa = plantillasFiltradas.filter((p) => !p.es_global);
+                            const globales = plantillasFiltradas.filter((p) => p.empresa_prestadora === null);
+                            const deEmpresa = plantillasFiltradas.filter((p) => p.empresa_prestadora !== null);
                             const gruposOpciones: TSelectGroups = [
                                 ...(globales.length > 0
                                     ? [{

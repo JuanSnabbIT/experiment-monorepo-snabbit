@@ -13,7 +13,7 @@ import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import type { ITurnoLaboral, ITurnoLaboralWrite } from '@/interface/rrhh.interface';
 import TabGruposTurnos from '@/pages/RRHH/components/TabGruposTurnos';
 import { useAppDispatch, useAppSelector } from '@/store';
-import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
+import { useGetPlantillasV2Query } from '@/store/slices/contratos/plantillaContratoV2Api';
 import { listaMisClientesThunk } from '@/store/slices/empresa/empresaSlice';
 import {
     useCrearAfpInlineMutation,
@@ -530,14 +530,14 @@ const TabTurnos = ({ empresaId }: ITabProps) => {
 // ── Tab Plantillas ───────────────────────────────────────────────────────────
 const TabPlantillas = ({ empresaId }: ITabProps) => {
     const navigate = useNavigate();
-    const { data: plantillas = [], isLoading } = useGetPlantillasContratoQuery();
+    const { data: plantillas = [], isLoading } = useGetPlantillasV2Query();
 
     const filtradas = useMemo(
         () =>
             plantillas.filter((p) => {
                 if (p.tipo_contrato !== 'trabajador') return false;
                 if (!empresaId) return true;
-                return p.es_global || p.empresa_prestadora === empresaId;
+                return p.empresa_prestadora === null || p.empresa_prestadora === empresaId;
             }),
         [plantillas, empresaId],
     );
@@ -564,7 +564,7 @@ const TabPlantillas = ({ empresaId }: ITabProps) => {
                                     {p.activa ? 'Activa' : 'Inactiva'}
                                 </Badge>
                             </Td>
-                            <Td><BadgeAmbito esGlobal={!!p.es_global} /></Td>
+                            <Td><BadgeAmbito esGlobal={p.empresa_prestadora === null} /></Td>
                         </Tr>
                     ))}
                     {filtradas.length === 0 && (

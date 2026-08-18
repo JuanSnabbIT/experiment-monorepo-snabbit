@@ -20,7 +20,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-from django.db.models import QuerySet
 from django.utils.html import escape
 
 _logger = logging.getLogger(__name__)
@@ -65,16 +64,6 @@ class IContratoBase(ABC):
     @abstractmethod
     def plantilla(self):
         """``PlantillaContrato`` asociada o None."""
-
-    # ----- Secciones generadas (acceso polimorfico al ORM) -----
-    @abstractmethod
-    def secciones_generadas_qs(self) -> QuerySet:
-        """QuerySet de SeccionContratoGenerada filtrado por la instancia."""
-
-    @abstractmethod
-    def crear_seccion_generada(self, *, seccion_plantilla, titulo: str,
-                               contenido_renderizado: str, orden: int):
-        """Crea una nueva ``SeccionContratoGenerada`` ligada a la instancia."""
 
     @abstractmethod
     def set_plantilla_version_usada(self, version_str: str) -> None:
@@ -134,11 +123,11 @@ class AdaptadorContratoB2B(IContratoBase):
     Adaptador para ``ContratoEmpresaCliente``.
 
     Resuelve claves cortas expandiendo ``_ALIAS`` y delegando en
-    ``motor_plantillas._resolver_ruta`` (usado por el editor v2.9, que no
-    aporta un ``etiquetas_map`` real). Las rutas ya expandidas (con punto),
-    que vienen de una ``EtiquetaPlantilla`` real en BD del editor v2 legacy,
-    retornan ``NOT_HANDLED`` para que el motor v2 caiga al mismo
-    ``_resolver_ruta`` via el fallback de ``motor_plantillas_v2``.
+    ``contratos.resolucion_etiquetas._resolver_ruta`` (usado por el editor
+    v2.9, que no aporta un ``etiquetas_map`` real). Las rutas ya expandidas
+    (con punto), que vienen de una ``EtiquetaPlantilla`` real en BD del editor
+    v2 legacy, retornan ``NOT_HANDLED`` para que el motor v2 caiga al mismo
+    ``_resolver_ruta`` via ``resolucion_etiquetas.resolver_ruta_polimorfica``.
     """
 
     def __init__(self, contrato_empresa_cliente):
@@ -167,20 +156,6 @@ class AdaptadorContratoB2B(IContratoBase):
     @property
     def plantilla(self):
         return self._c.plantilla
-
-    def secciones_generadas_qs(self) -> QuerySet:
-        from contratos.models import SeccionContratoGenerada
-        return SeccionContratoGenerada.objects.filter(contrato=self._c)
-
-    def crear_seccion_generada(self, *, seccion_plantilla, titulo, contenido_renderizado, orden):
-        from contratos.models import SeccionContratoGenerada
-        return SeccionContratoGenerada.objects.create(
-            contrato=self._c,
-            seccion_plantilla=seccion_plantilla,
-            titulo=titulo,
-            contenido_renderizado=contenido_renderizado,
-            orden=orden,
-        )
 
     def set_plantilla_version_usada(self, version_str: str) -> None:
         self._c.plantilla_version_usada = version_str
@@ -214,12 +189,12 @@ class AdaptadorContratoB2B(IContratoBase):
                 return NOT_HANDLED
             if ruta_expandida.startswith("licencia_principal."):
                 return self._resolver_licencia_principal(ruta_expandida, default)
-            from contratos.motor_plantillas import _resolver_ruta
+            from contratos.resolucion_etiquetas import _resolver_ruta
             return _resolver_ruta(self._c, ruta_expandida, default)
 
         # Ruta ya expandida (con punto): viene de una EtiquetaPlantilla real en
         # BD, camino del editor v2 legacy. Sin cambios — sigue el fallback a
-        # motor v1 via motor_plantillas_v2._resolver_ruta_v2.
+        # contratos.resolucion_etiquetas.resolver_ruta_polimorfica.
         return NOT_HANDLED
 
     def _resolver_licencia_principal(self, ruta: str, default=None) -> str:
@@ -269,9 +244,10 @@ class AdaptadorContratoB2B(IContratoBase):
             "</tr></thead><tbody>" + "".join(filas) + "</tbody></table>"
         )
 
-    # Alias de claves cortas → rutas navegables por el motor v1
-    # (``motor_plantillas._resolver_ruta``). Fuente de verdad única para el
-    # catálogo de etiquetas del editor v2.9 — ampliar aquí cuando se agreguen.
+    # Alias de claves cortas → rutas navegables
+    # (``contratos.resolucion_etiquetas._resolver_ruta``). Fuente de verdad
+    # única para el catálogo de etiquetas del editor v2.9 — ampliar aquí
+    # cuando se agreguen.
     _ALIAS: dict[str, str] = {
         # cliente
         "nombre_cliente":              "empresa_cliente.nombre",
@@ -384,7 +360,7 @@ class AdaptadorContratoB2B(IContratoBase):
     _TIPOS_COMUNES: tuple[str, ...] = ("servicios", "venta", "licencia")
 
     # Claves sin origen_dato navegable: se resuelven antes de llegar al
-    # adaptador, en motor_plantillas_v2._CLAVES_ESPECIALES_B2B (cotizaciones,
+    # adaptador, en resolucion_etiquetas.CLAVES_ESPECIALES_B2B (cotizaciones,
     # cuotas de venta) o directamente en este adaptador (licenciatarios_tabla).
     # Se listan aqui solo para que aparezcan en el catalogo del editor v2.9.
     _CLAVES_SIN_RUTA: dict[str, dict] = {
@@ -517,20 +493,6 @@ class AdaptadorContratoTrabajador(IContratoBase):
     @property
     def plantilla(self):
         return self._c.plantilla_contrato
-
-    def secciones_generadas_qs(self) -> QuerySet:
-        from contratos.models import SeccionContratoGenerada
-        return SeccionContratoGenerada.objects.filter(contrato_trabajador=self._c)
-
-    def crear_seccion_generada(self, *, seccion_plantilla, titulo, contenido_renderizado, orden):
-        from contratos.models import SeccionContratoGenerada
-        return SeccionContratoGenerada.objects.create(
-            contrato_trabajador=self._c,
-            seccion_plantilla=seccion_plantilla,
-            titulo=titulo,
-            contenido_renderizado=contenido_renderizado,
-            orden=orden,
-        )
 
     def set_plantilla_version_usada(self, version_str: str) -> None:
         # ContratoTrabajador no posee campo plantilla_version_usada; no-op.
@@ -1186,8 +1148,8 @@ class AdaptadorContratoTrabajador(IContratoBase):
                     ]
                 if not slots:
                     return getattr(contrato, "horario_detalle", None) or (default or "")
-                # Marcador especial: el generador PDF (funciones_v2.py) lo convierte
-                # en una Table ReportLab con estilos, evitando HTML crudo sin estilos.
+                # Marcador especial: el motor v2.9 lo convierte en una tabla
+                # con estilos, evitando HTML crudo sin estilos.
                 return f"__TABLA_TURNOS_JSON__{_json.dumps(slots)}__END_TABLA__"
 
             return default or ""

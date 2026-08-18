@@ -8,7 +8,7 @@ import Card, { CardBody, CardHeader } from '@/components/ui/Card';
 import Modal, { ModalBody, ModalFooter, ModalHeader } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
 import type { IContratoTrabajador } from '@/interface/rrhh.interface';
-import { useGetPlantillasContratoQuery } from '@/store/slices/contratos/plantillaContratoApi';
+import { useGetPlantillasV2Query } from '@/store/slices/contratos/plantillaContratoV2Api';
 import {
     useCreateCargoCatalogoMutation,
     useGetCargosCatalogoQuery,
@@ -57,7 +57,7 @@ const TabDatosLaboralesTrabajador = ({ contrato }: ITabDatosLaboralesProps) => {
     const [modalOpen, setModalOpen] = useState(false);
 
     const { data: cargosCatalogo = [] } = useGetCargosCatalogoQuery(undefined, { skip: !modalOpen });
-    const { data: todasLasPlantillas = [] } = useGetPlantillasContratoQuery(undefined, { skip: !modalOpen });
+    const { data: todasLasPlantillas = [] } = useGetPlantillasV2Query(undefined, { skip: !modalOpen });
     const [crearCargo] = useCreateCargoCatalogoMutation();
     const [updateContrato, { isLoading: guardando }] = useUpdateContratoTrabajadorMutation();
 

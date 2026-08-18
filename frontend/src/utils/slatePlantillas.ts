@@ -3,8 +3,9 @@
  *
  * Responsabilidades:
  * - Plugin `withEtiquetas`: declara nodos void/inline para etiquetas y bloques transversales
+ *   (bloque_transversal solo se lee/renderiza para documentos guardados antes de retirar
+ *   el editor v2 — no se puede insertar uno nuevo, ver motor_v29._nodo_a_html)
  * - `insertarEtiqueta`: inserta chip de etiqueta en la posición del cursor
- * - `insertarBloqueTransversal`: inserta bloque void block
  * - `serializarSlateAPlantilla`: Slate nodes → { json, legacyText }
  * - `deserializarPlantillaASlate`: legacyText o JSON → Slate nodes
  */
@@ -144,24 +145,6 @@ export function insertarEtiqueta(editor: Editor, clave: string): void {
     Transforms.insertNodes(editor, nodo as unknown as Node);
     // Mover cursor después del chip
     Transforms.move(editor);
-}
-
-// ─── Insertar bloque transversal block ────────────────────────────────────────
-
-export function insertarBloqueTransversal(
-    editor: Editor,
-    codigo: string,
-    titulo: string,
-): void {
-    const bloque: TNodoBloqueTransversal = {
-        type: 'bloque_transversal',
-        codigo,
-        titulo,
-        void: true,
-        children: [{ text: '' }],
-    };
-    // Insertar como bloque separado
-    Transforms.insertNodes(editor, bloque as unknown as Node, { mode: 'highest' });
 }
 
 // ─── Insertar salto de página ────────────────────────────────────────────────

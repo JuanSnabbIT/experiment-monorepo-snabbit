@@ -408,16 +408,6 @@ const contentRoutes: IRoutePersonalizadas[] = [
         authority: Pages.registros.subPages.detallePlanServicio.authority,
     },
     {
-        path: '/registros/plantillas-contrato',
-        element: <Navigate to='/registros/plantillas-contrato-v2' replace />,
-        authority: ['staff', 'superadmin', 'rrhh'],
-    },
-    {
-        path: '/registros/plantillas-contrato/:plantillaId',
-        element: <Navigate to='/registros/plantillas-contrato-v2' replace />,
-        authority: ['staff', 'superadmin', 'rrhh'],
-    },
-    {
         path: Pages.registros.subPages.listaPlantillasContratoV2.to,
         element: <ListaPlantillasContratoV2 />,
         authority: Pages.registros.subPages.listaPlantillasContratoV2.authority,

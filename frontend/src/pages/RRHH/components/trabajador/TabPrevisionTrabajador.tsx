@@ -1,4 +1,3 @@
-import Input from '@/components/form/Input';
 import Label from '@/components/form/Label';
 import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Icon from '@/components/icon/Icon';
@@ -15,7 +14,7 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 import { useFormik } from 'formik';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { SISTEMA_SALUD_OPTIONS } from './types';
+import SelectorSistemaSalud from './SelectorSistemaSalud';
 import { confirmarConsultaAfpLegal, useConsultaAfp } from './useConsultaAfp';
 
 interface Props {
@@ -188,39 +187,13 @@ const TabPrevisionTrabajador = ({ contrato }: Props) => {
                                 placeholder='Selecciona AFP...'
                             />
                         </div>
-                        <div>
-                            <Label htmlFor='m_sistema_salud'>Sistema de salud</Label>
-                            <SelectReact
-                                id='m_sistema_salud'
-                                name='sistema_salud'
-                                isClearable
-                                options={SISTEMA_SALUD_OPTIONS}
-                                value={
-                                    SISTEMA_SALUD_OPTIONS.find(
-                                        (o) => o.value === formik.values.sistema_salud,
-                                    ) ?? null
-                                }
-                                onChange={(opt) =>
-                                    formik.setFieldValue(
-                                        'sistema_salud',
-                                        (opt as TSelectOption)?.value ?? '',
-                                    )
-                                }
-                                placeholder='Fonasa / Isapre...'
-                            />
-                        </div>
-                        {formik.values.sistema_salud === 'isapre' && (
-                            <div>
-                                <Label htmlFor='m_nombre_isapre'>Nombre Isapre</Label>
-                                <Input
-                                    id='m_nombre_isapre'
-                                    name='nombre_isapre'
-                                    value={formik.values.nombre_isapre}
-                                    onChange={formik.handleChange}
-                                    placeholder='Banmédica, Cruz Blanca...'
-                                />
-                            </div>
-                        )}
+                        <SelectorSistemaSalud
+                            idPrefix='m'
+                            sistemaSalud={formik.values.sistema_salud}
+                            nombreIsapre={formik.values.nombre_isapre}
+                            onChangeSistemaSalud={(val) => formik.setFieldValue('sistema_salud', val)}
+                            onChangeNombreIsapre={(val) => formik.setFieldValue('nombre_isapre', val)}
+                        />
                     </div>
                 </ModalBody>
                 <ModalFooter>

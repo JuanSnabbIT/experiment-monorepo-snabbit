@@ -14,8 +14,12 @@ empresa, no se crea duplicado ni se modifican sus secciones.
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from contratos.models import PlantillaContrato, SeccionPlantilla
+from contratos.models import PlantillaContrato
 from contratos.estados_modelo import CONTENIDO_CANONICO_CONDICIONES_GENERALES
+from contratos.management.commands._v29_seed_helpers import (
+    config_pagina_basica,
+    documento_desde_secciones,
+)
 from empresas.models import Empresa
 
 
@@ -262,16 +266,19 @@ _TIPOS = {
         TITULO_SERVICIOS,
         SECCIONES_SERVICIOS,
         "Plantilla base de contrato de servicios tecnológicos y asesorías generada por seed.",
+        ("Proveedor", "Cliente"),
     ),
     "licencia": (
         TITULO_LICENCIA,
         SECCIONES_LICENCIA,
         "Plantilla base de contrato de licenciamiento de software generada por seed.",
+        ("Licenciante", "Licenciatario"),
     ),
     "venta": (
         TITULO_VENTA,
         SECCIONES_VENTA,
         "Plantilla base de contrato de venta de equipos y servicios generada por seed.",
+        ("Vendedor", "Comprador"),
     ),
 }
 
@@ -321,7 +328,7 @@ class Command(BaseCommand):
         for empresa in empresas:
             self.stdout.write(f"\n{empresa.nombre}:")
             for tipo in tipos_a_crear:
-                titulo, secciones, descripcion = _TIPOS[tipo]
+                titulo, secciones, descripcion, roles_firma = _TIPOS[tipo]
 
                 existente = PlantillaContrato.objects.filter(
                     empresa_prestadora=empresa,
@@ -345,17 +352,12 @@ class Command(BaseCommand):
                         es_default=True,
                         activa=True,
                         version=1,
+                        version_editor="v29",
+                        contenido_documento_v29=documento_desde_secciones(
+                            titulo, secciones, roles_firma,
+                        ),
+                        config_pagina_v29=config_pagina_basica(),
                     )
-                    for sec in secciones:
-                        SeccionPlantilla.objects.create(
-                            plantilla=plantilla,
-                            titulo=sec["titulo"],
-                            tipo=sec["tipo"],
-                            contenido_template=sec["contenido_template"],
-                            orden=sec["orden"],
-                            es_obligatoria=sec["es_obligatoria"],
-                            es_editable_en_contrato=sec["es_editable_en_contrato"],
-                        )
 
                 total_creadas += 1
                 self.stdout.write(

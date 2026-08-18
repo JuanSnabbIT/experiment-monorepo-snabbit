@@ -18,17 +18,10 @@ from contratos.views import (
     LicenciaViewSet,
     CondicionEspecialViewSet,
     FacturaContratoViewSet,
-    PlantillaContratoViewSet,
-    SeccionPlantillaViewSet,
-    EtiquetaPlantillaViewSet,
-    SeccionContratoGeneradaViewSet,
     obtener_acuerdos_por_envio,
     firmar_envio,
-    # V2
+    # V2 — unico motor de plantillas soportado (documento v2.9)
     PlantillaContratoV2ViewSet,
-    SeccionPlantillaV2ViewSet,
-    BloqueTransversalContratoV2ViewSet,
-    EtiquetaPlantillaV2ViewSet,
     etiquetas_disponibles,
 )
 from django.urls import path
@@ -57,7 +50,6 @@ contrato_router.register(r'visitas', ContratoVisitaViewSet, basename='contrato-v
 contrato_router.register(r'licencias', ContratoLicenciaViewSet, basename='contrato-licencias')
 contrato_router.register(r'condiciones-especiales', ContratoCondicionEspecialViewSet, basename='contrato-condiciones')
 contrato_router.register(r'firmas', AcuerdoConfidencialidadContratoViewSet, basename='contrato-firmas')
-contrato_router.register(r'secciones-generadas', SeccionContratoGeneradaViewSet, basename='contrato-secciones-generadas')
 
 usuarios_vinculados_router = routers.NestedDefaultRouter(contrato_router, r'usuarios-vinculados', lookup='usuario_vinculado')
 usuarios_vinculados_router.register(r'envio-firma', EnvioContratoFirmaUsuarioViewSet, basename='contrato-usuarios-firma')
@@ -73,21 +65,9 @@ router.register(r'contrato-licencias', ContratoLicenciaViewSet, basename='contra
 router.register(r'personas-licenciatarias', PersonaLicenciatariaViewSet, basename='persona-licenciataria')
 router.register(r'facturas-contrato', FacturaContratoViewSet, basename='factura-contrato')
 
-# Plantillas de contrato (V1)
-router.register(r'plantillas-contrato', PlantillaContratoViewSet, basename='plantilla-contrato')
-router.register(r'etiquetas-plantilla', EtiquetaPlantillaViewSet, basename='etiqueta-plantilla')
-
-plantilla_router = routers.NestedDefaultRouter(router, r'plantillas-contrato', lookup='plantilla')
-plantilla_router.register(r'secciones', SeccionPlantillaViewSet, basename='seccion-plantilla')
-
-# Plantillas de contrato V2 (Motor Slate)
+# Plantillas de contrato V2 (Motor Slate — unico motor soportado, documento v2.9)
 router_v2 = routers.DefaultRouter()
-router_v2.register(r'plantillas-contrato-v2', PlantillaContratoV2ViewSet, basename='plantilla-contrato-v2')
-router_v2.register(r'bloques-transversales', BloqueTransversalContratoV2ViewSet, basename='bloque-transversal')
-router_v2.register(r'etiquetas-plantilla-v2', EtiquetaPlantillaV2ViewSet, basename='etiqueta-plantilla-v2')
-
-plantilla_v2_router = routers.NestedDefaultRouter(router_v2, r'plantillas-contrato-v2', lookup='plantilla')
-plantilla_v2_router.register(r'secciones-v2', SeccionPlantillaV2ViewSet, basename='seccion-plantilla-v2')
+router_v2.register(r'plantillas-contrato', PlantillaContratoV2ViewSet, basename='plantilla-contrato')
 
 licencia_router = routers.NestedDefaultRouter(router, r'contrato-licencias', lookup='licencia')
 licencia_router.register(r'usuarios-vinculados', UsuarioVinculadoLicenciaViewSet, basename='contrato-licencia-usuarios')
@@ -98,8 +78,6 @@ urlpatterns = (
     router.urls +
     router_v2.urls +
     contrato_router.urls +
-    plantilla_router.urls +
-    plantilla_v2_router.urls +
     licencia_router.urls +
     persona_router.urls +
     usuarios_vinculados_router.urls +

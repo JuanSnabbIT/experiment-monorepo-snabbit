@@ -46,6 +46,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CrearContratoTrabajadorWizard from '@/pages/RRHH/modals/CrearContratoTrabajadorWizard';
+import SelectorSistemaSalud from '@/pages/RRHH/components/trabajador/SelectorSistemaSalud';
 import {
     confirmarConsultaAfpLegal,
     useConsultaAfp,
@@ -111,12 +112,6 @@ const NIVEL_ESTUDIOS_OPTIONS: TSelectOption[] = [
     { value: 'tecnico_nivel_superior', label: 'Técnico nivel superior' },
     { value: 'universitario', label: 'Universitario' },
     { value: 'postgrado', label: 'Postgrado / Magíster / Doctorado' },
-];
-
-const SISTEMA_SALUD_OPTIONS: TSelectOption[] = [
-    { value: 'fonasa', label: 'Fonasa' },
-    { value: 'isapre', label: 'Isapre' },
-    { value: 'otro', label: 'Otro' },
 ];
 
 const TIPO_CUENTA_OPTIONS: TSelectOption[] = [
@@ -597,24 +592,13 @@ const TabPersonalConPrevision = ({
                                 placeholder='Selecciona AFP...'
                             />
                         </div>
-                        <div>
-                            <Label htmlFor='mpv_salud'>Sistema de salud</Label>
-                            <SelectReact
-                                id='mpv_salud'
-                                name='sistema_salud'
-                                isClearable
-                                options={SISTEMA_SALUD_OPTIONS}
-                                value={SISTEMA_SALUD_OPTIONS.find((o) => o.value === fPrevision.values.sistema_salud) ?? null}
-                                onChange={(opt) => fPrevision.setFieldValue('sistema_salud', (opt as TSelectOption)?.value ?? '')}
-                                placeholder='Fonasa / Isapre...'
-                            />
-                        </div>
-                        {fPrevision.values.sistema_salud === 'isapre' && (
-                            <div>
-                                <Label htmlFor='mpv_isapre'>Nombre Isapre</Label>
-                                <Input id='mpv_isapre' name='nombre_isapre' value={fPrevision.values.nombre_isapre} onChange={fPrevision.handleChange} placeholder='Banmédica, Cruz Blanca...' />
-                            </div>
-                        )}
+                        <SelectorSistemaSalud
+                            idPrefix='mpv'
+                            sistemaSalud={fPrevision.values.sistema_salud}
+                            nombreIsapre={fPrevision.values.nombre_isapre}
+                            onChangeSistemaSalud={(val) => fPrevision.setFieldValue('sistema_salud', val)}
+                            onChangeNombreIsapre={(val) => fPrevision.setFieldValue('nombre_isapre', val)}
+                        />
                     </div>
                 </ModalBody>
                 <ModalFooter>

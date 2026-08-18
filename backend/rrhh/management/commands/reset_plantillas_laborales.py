@@ -1,7 +1,11 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from contratos.models import PlantillaContrato, SeccionPlantilla
+from contratos.models import PlantillaContrato
+from contratos.management.commands._v29_seed_helpers import (
+    config_pagina_basica,
+    documento_desde_secciones_condicionales,
+)
 
 PLANTILLAS_LABORALES = [
     {
@@ -13,7 +17,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 1,
                 "tipo": "encabezado",
                 "titulo": "CONTRATO INDIVIDUAL DE TRABAJO",
-                "contenido_template": "CONTRATO INDIVIDUAL DE TRABAJO\n\nEntre [empresa.nombre] y [trabajador.nombre_completo]",
+                "contenido_template": "CONTRATO INDIVIDUAL DE TRABAJO\n\nEntre [nombre_empresa] y [nombre_trabajador]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -21,7 +25,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 2,
                 "tipo": "clausula",
                 "titulo": "PRIMERA: PARTES",
-                "contenido_template": "PRIMERA: PARTES\n\nContratante: [empresa.nombre], RUT [empresa.rut]\nContratado: [trabajador.nombre_completo], RUT [trabajador.rut]",
+                "contenido_template": "PRIMERA: PARTES\n\nContratante: [nombre_empresa], RUT [rut_empresa]\nContratado: [nombre_trabajador], RUT [rut_trabajador]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -29,7 +33,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 3,
                 "tipo": "clausula",
                 "titulo": "SEGUNDA: FUNCIONES",
-                "contenido_template": "SEGUNDA: FUNCIONES\n\nEl trabajador desempeñará el cargo de [cargo.nombre]",
+                "contenido_template": "SEGUNDA: FUNCIONES\n\nEl trabajador desempeñará el cargo de [nombre_cargo]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -37,7 +41,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 4,
                 "tipo": "clausula",
                 "titulo": "TERCERA: REMUNERACIÓN",
-                "contenido_template": "TERCERA: REMUNERACIÓN\n\nSueldo Base: [remuneracion.sueldo_base] [remuneracion.moneda]",
+                "contenido_template": "TERCERA: REMUNERACIÓN\n\nSueldo Base: [sueldo_base] [moneda]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -45,7 +49,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 5,
                 "tipo": "clausula",
                 "titulo": "CUARTA: JORNADA",
-                "contenido_template": "CUARTA: JORNADA\n\nTipo: [jornada.tipo]\nHoras Semanales: [jornada.horas_semanales]",
+                "contenido_template": "CUARTA: JORNADA\n\nTipo: [jornada_label]\nHoras Semanales: [horas_semanales]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -68,7 +72,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 1,
                 "tipo": "encabezado",
                 "titulo": "CONTRATO DE TRABAJO A PLAZO FIJO",
-                "contenido_template": "CONTRATO DE TRABAJO A PLAZO FIJO\n\nEntre [empresa.nombre] y [trabajador.nombre_completo]",
+                "contenido_template": "CONTRATO DE TRABAJO A PLAZO FIJO\n\nEntre [nombre_empresa] y [nombre_trabajador]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -76,7 +80,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 2,
                 "tipo": "clausula",
                 "titulo": "PRIMERA: PARTES",
-                "contenido_template": "PRIMERA: PARTES\n\nContratante: [empresa.nombre], RUT [empresa.rut]\nContratado: [trabajador.nombre_completo], RUT [trabajador.rut]",
+                "contenido_template": "PRIMERA: PARTES\n\nContratante: [nombre_empresa], RUT [rut_empresa]\nContratado: [nombre_trabajador], RUT [rut_trabajador]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -84,7 +88,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 3,
                 "tipo": "clausula",
                 "titulo": "SEGUNDA: DURACIÓN",
-                "contenido_template": "SEGUNDA: DURACIÓN\n\nFecha de Inicio: [contrato.fecha_inicio]\nFecha de Término: [contrato.fecha_termino]\nDuración aproximada: [contrato.cantidad_meses] meses",
+                "contenido_template": "SEGUNDA: DURACIÓN\n\nFecha de Inicio: [fecha_inicio]\nFecha de Término: [fecha_termino]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -92,7 +96,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 4,
                 "tipo": "clausula",
                 "titulo": "TERCERA: FUNCIONES",
-                "contenido_template": "TERCERA: FUNCIONES\n\nCargo: [cargo.nombre]",
+                "contenido_template": "TERCERA: FUNCIONES\n\nCargo: [nombre_cargo]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -100,7 +104,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 5,
                 "tipo": "clausula",
                 "titulo": "CUARTA: REMUNERACIÓN",
-                "contenido_template": "CUARTA: REMUNERACIÓN\n\nSueldo Base: [remuneracion.sueldo_base] [remuneracion.moneda]",
+                "contenido_template": "CUARTA: REMUNERACIÓN\n\nSueldo Base: [sueldo_base] [moneda]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -123,7 +127,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 1,
                 "tipo": "encabezado",
                 "titulo": "CONTRATO DE REEMPLAZO",
-                "contenido_template": "CONTRATO DE REEMPLAZO\n\nEntre [empresa.nombre] y [trabajador.nombre_completo]",
+                "contenido_template": "CONTRATO DE REEMPLAZO\n\nEntre [nombre_empresa] y [nombre_trabajador]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -131,7 +135,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 2,
                 "tipo": "clausula",
                 "titulo": "PRIMERA: PARTES",
-                "contenido_template": "PRIMERA: PARTES\n\nContratante: [empresa.nombre], RUT [empresa.rut]\nContratado (Reemplazo): [trabajador.nombre_completo], RUT [trabajador.rut]\nReemplaza a: [trabajador_reemplazado.nombre_completo]",
+                "contenido_template": "PRIMERA: PARTES\n\nContratante: [nombre_empresa], RUT [rut_empresa]\nContratado (Reemplazo): [nombre_trabajador], RUT [rut_trabajador]\nReemplaza a: [nombre_reemplazado]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -139,7 +143,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 3,
                 "tipo": "clausula",
                 "titulo": "SEGUNDA: CAUSAL",
-                "contenido_template": "SEGUNDA: CAUSAL DE REEMPLAZO\n\nCausa: [reemplazo.causal]\nDuración estimada: [contrato.cantidad_meses] meses",
+                "contenido_template": "SEGUNDA: CAUSAL DE REEMPLAZO\n\nCausa: [causal_reemplazo_label]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -147,7 +151,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 4,
                 "tipo": "clausula",
                 "titulo": "TERCERA: FUNCIONES",
-                "contenido_template": "TERCERA: FUNCIONES\n\nCargo: [cargo.nombre]\nLugar de trabajo: [contrato.lugar_trabajo]",
+                "contenido_template": "TERCERA: FUNCIONES\n\nCargo: [nombre_cargo]\nLugar de trabajo: [lugar_trabajo]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -155,7 +159,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 5,
                 "tipo": "clausula",
                 "titulo": "CUARTA: REMUNERACIÓN",
-                "contenido_template": "CUARTA: REMUNERACIÓN\n\nSueldo Base: [remuneracion.sueldo_base] [remuneracion.moneda]",
+                "contenido_template": "CUARTA: REMUNERACIÓN\n\nSueldo Base: [sueldo_base] [moneda]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -178,7 +182,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 1,
                 "tipo": "encabezado",
                 "titulo": "ANEXO - MODIFICACIÓN DE REMUNERACIÓN",
-                "contenido_template": "ANEXO - MODIFICACIÓN DE REMUNERACIÓN\n\nAl Contrato Individual de Trabajo celebrado entre [empresa.nombre] y [trabajador.nombre_completo]",
+                "contenido_template": "ANEXO - MODIFICACIÓN DE REMUNERACIÓN\n\nAl Contrato Individual de Trabajo celebrado entre [nombre_empresa] y [nombre_trabajador]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -186,7 +190,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 2,
                 "tipo": "clausula",
                 "titulo": "PRIMERA: ANTECEDENTES",
-                "contenido_template": "PRIMERA: ANTECEDENTES\n\nFecha de contrato original: [contrato.fecha_inicio]\nCargo actual: [cargo.nombre]\nSueldo actual: [remuneracion.sueldo_base_anterior]",
+                "contenido_template": "PRIMERA: ANTECEDENTES\n\nFecha de contrato original: [fecha_inicio]\nCargo actual: [nombre_cargo]\nSueldo actual: [sueldo_base]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": False,
             },
@@ -194,7 +198,7 @@ PLANTILLAS_LABORALES = [
                 "orden": 3,
                 "tipo": "clausula",
                 "titulo": "SEGUNDA: MODIFICACIÓN",
-                "contenido_template": "SEGUNDA: MODIFICACIÓN\n\nA partir de [anexo.fecha_efectiva], el nuevo sueldo base será: [remuneracion.sueldo_base_nuevo]\nMoneda: [remuneracion.moneda]",
+                "contenido_template": "SEGUNDA: MODIFICACIÓN\n\nEl nuevo sueldo base será: [sueldo_base]\nMoneda: [moneda]",
                 "es_obligatoria": True,
                 "es_editable_en_contrato": True,
             },
@@ -231,7 +235,6 @@ class Command(BaseCommand):
 
             plantillas_qs = PlantillaContrato.objects.filter(tipo_contrato="trabajador")
             plantillas_eliminadas = [p.titulo for p in plantillas_qs.order_by("titulo")]
-            secciones_eliminadas = SeccionPlantilla.objects.filter(plantilla__tipo_contrato="trabajador").count()
             total_plantillas_eliminadas = plantillas_qs.count()
 
             plantillas_qs.delete()
@@ -242,15 +245,11 @@ class Command(BaseCommand):
                 ))
                 for titulo in plantillas_eliminadas:
                     self.stdout.write(f"    - {titulo}")
-                self.stdout.write(self.style.SUCCESS(
-                    f"  Secciones eliminadas: {secciones_eliminadas}"
-                ))
             else:
                 self.stdout.write(self.style.WARNING("  No se encontraron plantillas laborales para eliminar."))
 
             self.stdout.write(self.style.WARNING("[2/3] Creando plantillas laborales globales..."))
             plantillas_creadas = []
-            secciones_creadas = 0
 
             for plantilla_data in PLANTILLAS_LABORALES:
                 plantilla = PlantillaContrato.objects.create(
@@ -261,29 +260,19 @@ class Command(BaseCommand):
                     es_default=plantilla_data["es_default"],
                     activa=True,
                     version=1,
+                    version_editor="v29",
+                    contenido_documento_v29=documento_desde_secciones_condicionales(
+                        plantilla_data["secciones"],
+                    ),
+                    config_pagina_v29=config_pagina_basica(),
                 )
                 plantillas_creadas.append(plantilla.titulo)
-
-                for seccion_data in plantilla_data["secciones"]:
-                    SeccionPlantilla.objects.create(
-                        plantilla=plantilla,
-                        orden=seccion_data["orden"],
-                        tipo=seccion_data["tipo"],
-                        titulo=seccion_data["titulo"],
-                        contenido_template=seccion_data["contenido_template"],
-                        es_obligatoria=seccion_data["es_obligatoria"],
-                        es_editable_en_contrato=seccion_data["es_editable_en_contrato"],
-                    )
-                    secciones_creadas += 1
 
             self.stdout.write(self.style.SUCCESS(
                 f"  Plantillas creadas: {len(plantillas_creadas)}"
             ))
             for titulo in plantillas_creadas:
                 self.stdout.write(f"    - {titulo}")
-            self.stdout.write(self.style.SUCCESS(
-                f"  Total secciones creadas: {secciones_creadas}"
-            ))
 
             self.stdout.write(self.style.WARNING("[3/3] Verificando estado final..."))
             total_globales = PlantillaContrato.objects.filter(

@@ -1,5 +1,6 @@
 import Input from '@/components/form/Input';
 import Validation from '@/components/form/Validation';
+import Icon from '@/components/icon/Icon';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal, {
@@ -9,6 +10,7 @@ import Modal, {
     ModalHeader,
 } from '@/components/ui/Modal';
 import Tooltip from '@/components/ui/Tooltip';
+import Collapse from '@/components/utils/Collapse';
 import { useCreateEmpresaMutation } from '@/store/slices/empresa/empresaApi';
 import { useFormik } from 'formik';
 import { useState } from 'react';
@@ -18,6 +20,7 @@ import * as Yup from 'yup';
 function CrearEmpresa() {
     const [createEmpresa] = useCreateEmpresaMutation();
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const [mostrarAvanzado, setMostrarAvanzado] = useState<boolean>(false);
 
     const formik = useFormik({
         enableReinitialize: true,
@@ -29,6 +32,8 @@ function CrearEmpresa() {
             sitio_web: '',
             direccion_principal: '',
             recargo: '',
+            representante_legal: '',
+            rut_representante: '',
         },
         validationSchema: Yup.object().shape({
             nombre: Yup.string().required('Requerido').max(255, 'Maximo 255 Caracteres'),
@@ -40,6 +45,8 @@ function CrearEmpresa() {
                 .required('Requerido')
                 .max(250, 'Maximo 250 Caracteres'),
             recargo: Yup.number().required('Requerido').min(0, 'Debe ser mayor o igual a 0'),
+            representante_legal: Yup.string().notRequired().nullable().max(255, 'Maximo 255 Caracteres'),
+            rut_representante: Yup.string().notRequired().nullable().max(20, 'Maximo 20 Caracteres'),
         }),
         onSubmit: async (values) => {
             try {
@@ -51,9 +58,12 @@ function CrearEmpresa() {
                     telefono: values.telefono,
                     email: values.email,
                     recargo: Number(values.recargo),
+                    representante_legal: values.representante_legal || null,
+                    rut_representante: values.rut_representante || null,
                 }).unwrap();
                 toast.success('Empresa creada', { autoClose: 1000 });
                 formik.resetForm();
+                setMostrarAvanzado(false);
                 setIsOpen(false);
             } catch (error: any) {
                 toast.error(error.response?.data || 'Error al crear la empresa');
@@ -190,6 +200,50 @@ function CrearEmpresa() {
                                 />
                             </Validation>
                         </div>
+
+                        <button
+                            type='button'
+                            onClick={() => setMostrarAvanzado((prev) => !prev)}
+                            className='flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'>
+                            <Icon icon={mostrarAvanzado ? 'HeroChevronUp' : 'HeroChevronDown'} />
+                            Avanzado
+                        </button>
+                        <Collapse isOpen={mostrarAvanzado}>
+                            <div className='flex flex-col gap-4 border-l-2 border-zinc-200 pl-4 dark:border-zinc-700'>
+                                <div>
+                                    <Badge>Representante Legal</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.representante_legal}
+                                        invalidFeedback={formik.errors.representante_legal}>
+                                        <Input
+                                            name='representante_legal'
+                                            id='representante_legal'
+                                            type='text'
+                                            onBlur={formik.handleBlur}
+                                            onChange={formik.handleChange}
+                                            value={formik.values.representante_legal}
+                                        />
+                                    </Validation>
+                                </div>
+                                <div>
+                                    <Badge>RUT del Representante Legal</Badge>
+                                    <Validation
+                                        isValid={formik.isValid}
+                                        isTouched={formik.touched.rut_representante}
+                                        invalidFeedback={formik.errors.rut_representante}>
+                                        <Input
+                                            name='rut_representante'
+                                            id='rut_representante'
+                                            type='text'
+                                            onBlur={formik.handleBlur}
+                                            onChange={formik.handleChange}
+                                            value={formik.values.rut_representante}
+                                        />
+                                    </Validation>
+                                </div>
+                            </div>
+                        </Collapse>
                     </div>
                 </ModalBody>
                 <ModalFooter>
@@ -200,6 +254,7 @@ function CrearEmpresa() {
                             onClick={() => {
                                 setIsOpen(false);
                                 formik.resetForm();
+                                setMostrarAvanzado(false);
                             }}>
                             Cancelar
                         </Button>

@@ -1,7 +1,7 @@
 ---
 viewId: plantillas-contrato-editor-v29
 titulo: Editor de Plantillas de Contrato (v2.9)
-ruta: /registros/plantillas-contrato-v2/:plantillaId
+ruta: /registros/plantillas-contrato/:plantillaId
 estado: borrador
 actualizado: 2026-07-28
 ---

@@ -56,7 +56,6 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
             tipo_contrato: '',
             descripcion: '',
             empresa_cliente: null as number | null,
-            version_editor: 'v2' as 'v2' | 'v29',
         },
         validationSchema,
         onSubmit: async (values, { resetForm }) => {
@@ -66,7 +65,7 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
                     tipo_contrato: values.tipo_contrato,
                     descripcion: values.descripcion,
                     empresa_cliente: values.empresa_cliente,
-                    version_editor: values.version_editor,
+                    version_editor: 'v29',
                 }).unwrap();
                 toast.success('Plantilla creada correctamente');
                 resetForm();
@@ -111,12 +110,13 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
                                 value={tipoOptions.find(
                                     (o) => o.value === formik.values.tipo_contrato,
                                 )}
-                                onChange={(option) =>
-                                    formik.setFieldValue(
-                                        'tipo_contrato',
-                                        (option as TSelectOption)?.value || '',
-                                    )
-                                }
+                                onChange={(option) => {
+                                    const nuevoTipo = (option as TSelectOption)?.value || '';
+                                    formik.setFieldValue('tipo_contrato', nuevoTipo);
+                                    if (nuevoTipo !== 'trabajador') {
+                                        formik.setFieldValue('empresa_cliente', null);
+                                    }
+                                }}
                             />
                         </Validation>
                     </div>
@@ -130,57 +130,36 @@ const ModalCrearPlantillaV2 = ({ isOpen, setIsOpen, onCreated }: IModalCrearPlan
                             rows={3}
                         />
                     </div>
-                    <div>
-                        <Label>Editor</Label>
-                        <div className='mt-1.5 flex gap-4'>
-                            {(['v2', 'v29'] as const).map((v) => (
-                                <label key={v} className='flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300'>
-                                    <input
-                                        type='radio'
-                                        name='version_editor'
-                                        value={v}
-                                        checked={formik.values.version_editor === v}
-                                        onChange={() => formik.setFieldValue('version_editor', v)}
-                                        className='accent-blue-600'
-                                    />
-                                    {v === 'v2' ? 'Editor de secciones (v2)' : 'Documento único (v2.9)'}
-                                </label>
-                            ))}
-                        </div>
-                        {formik.values.version_editor === 'v29' && (
-                            <p className='mt-1.5 text-xs text-blue-600'>
-                                Editor Word-like con bloques condicionales, firma digital y PDF 1:1.
+                    {formik.values.tipo_contrato === 'trabajador' && (
+                        <div>
+                            <Label htmlFor='v2-crear-cliente'>Empresa cliente</Label>
+                            <p className='mb-1 text-xs text-zinc-500'>
+                                Deja en "Global" para que aplique a todos los clientes.
                             </p>
-                        )}
-                    </div>
-                    <div>
-                        <Label htmlFor='v2-crear-cliente'>Empresa cliente</Label>
-                        <p className='mb-1 text-xs text-zinc-500'>
-                            Deja en "Global" para que aplique a todos los clientes.
-                        </p>
-                        <SelectReact
-                            isLoading={cargandoClientes}
-                            id='v2-crear-cliente'
-                            name='empresa_cliente'
-                            options={clienteOptions}
-                            menuPortalTarget={document.body}
-                            menuPosition='fixed'
-                            styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-                            value={
-                                clienteOptions.find(
-                                    (o) =>
-                                        o.value === (formik.values.empresa_cliente === null ? '' : String(formik.values.empresa_cliente)),
-                                ) ?? clienteOptions[0]
-                            }
-                            onChange={(option) => {
-                                const val = (option as TSelectOption)?.value;
-                                formik.setFieldValue(
-                                    'empresa_cliente',
-                                    val ? Number(val) : null,
-                                );
-                            }}
-                        />
-                    </div>
+                            <SelectReact
+                                isLoading={cargandoClientes}
+                                id='v2-crear-cliente'
+                                name='empresa_cliente'
+                                options={clienteOptions}
+                                menuPortalTarget={document.body}
+                                menuPosition='fixed'
+                                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                                value={
+                                    clienteOptions.find(
+                                        (o) =>
+                                            o.value === (formik.values.empresa_cliente === null ? '' : String(formik.values.empresa_cliente)),
+                                    ) ?? clienteOptions[0]
+                                }
+                                onChange={(option) => {
+                                    const val = (option as TSelectOption)?.value;
+                                    formik.setFieldValue(
+                                        'empresa_cliente',
+                                        val ? Number(val) : null,
+                                    );
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
             </ModalBody>
             <ModalFooter>

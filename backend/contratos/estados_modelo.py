@@ -99,28 +99,6 @@ TRANSICIONES_ESTADO_LICENCIA = {
     'cancelada': [],
 }
 
-# ── Contenido canónico para secciones de tipo "firmas" ──
-# Este texto se fuerza en SeccionPlantilla.contenido_template cuando tipo='firmas'.
-# El PDF contractual real (funciones.py) genera el bloque de firmas de forma independiente;
-# este contenido es solo referencia semántica para el authoring de plantillas.
-CONTENIDO_CANONICO_FIRMAS = (
-    "[Zona de firmas del contrato]\n\n"
-    "Representante Empresa Prestadora: [nombre_empresa_prestadora]\n"
-    "Representante Cliente: [nombre_cliente]"
-)
-
-# ── Contenido canónico para secciones de tipo "identificacion_cliente" ──
-CONTENIDO_CANONICO_IDENTIFICACION = (
-    "1.- Identificación de \"EL CLIENTE\"\n\n"
-    "Nombre o Razón Social: [nombre_cliente]\n"
-    "R.U.T: [rut_cliente]\n"
-    "Domicilio: [domicilio_cliente]\n"
-    "Giro o actividad: [giro_cliente]\n"
-    "Representante legal: [representante_cliente]\n"
-    "R.U.T del representante: [rut_representante_cliente]\n"
-    "E-mail: [email_cliente]"
-)
-
 # ── Contenido canónico para secciones de tipo "condiciones_generales" ──
 # Texto base reutilizado en todos los contratos B2B (servicios, licencia, venta).
 CONTENIDO_CANONICO_CONDICIONES_GENERALES = (
@@ -130,17 +108,6 @@ CONTENIDO_CANONICO_CONDICIONES_GENERALES = (
     "Las partes declaran conocer y aceptar integra y voluntariamente el "
     "contenido de este instrumento."
 )
-
-# ── Secciones documentales predeterminadas por tipo de plantilla ──
-# Define qué SeccionPlantilla se crean automáticamente al crear una PlantillaContrato nueva.
-# "trabajador" no incluye identificacion_cliente porque el contrato laboral
-# identifica a las partes en el encabezado (nombre_trabajador / nombre_empresa).
-SECCIONES_PREDETERMINADAS_POR_TIPO = {
-    "servicios": ["identificacion_cliente"],
-    "licencia": ["identificacion_cliente"],
-    "venta": ["identificacion_cliente"],
-    "trabajador": [],
-}
 
 # ── Bloques comerciales requeridos por tipo de contrato ──
 # Define qué dato comercial debe estar presente antes de enviar el contrato a aprobación.

@@ -549,9 +549,31 @@ def notificar_vacaciones_resolucion(
     )
 
 
+def _usuarios_superadmin_activos() -> list[int]:
+    """Ids de Users activos con rol 'superadmin' en cualquier empresa.
+
+    A diferencia de _usuarios_en_rol_de_empresa, esta consulta NO se restringe
+    a la empresa del evento: 'superadmin' es un rol de administracion interna
+    (staff de la prestadora que gestiona clientes desde el panel), no un rol
+    del lado del cliente. Se usa para que estos usuarios tambien reciban
+    notificaciones aunque no tengan UsuarioEmpresa en la empresa cliente.
+    """
+    from empresas.models import UsuarioEmpresa  # import local para evitar ciclos
+
+    grupo = Group.objects.filter(name="superadmin").first()
+    if grupo is None:
+        return []
+    return list(
+        UsuarioEmpresa.objects.filter(
+            grupos=grupo, usuario__is_active=True,
+        ).values_list("usuario_id", flat=True).distinct()
+    )
+
+
 # ----- Contratos laborales (constancia de aviso de vencimiento) -------------
 def notificar_contrato_proximo_a_vencer(contrato) -> None:
-    """Contrato laboral a plazo fijo proximo a vencer -> notifica a RRHH.
+    """Contrato laboral a plazo fijo proximo a vencer -> notifica a RRHH del
+    cliente y, ademas, a los superadmin (rol global de la prestadora).
 
     Deja constancia in-app (visible en la campana del header) de que el
     aviso de vencimiento fue generado, independiente de si el correo
@@ -561,13 +583,26 @@ def notificar_contrato_proximo_a_vencer(contrato) -> None:
         empresa = contrato.usuario_empresa.sucursal.empresa
     except Exception:
         empresa = None
+    if empresa is None:
+        return
+    if not ConfiguracionNotificacionEmpresa.esta_activo(
+        empresa, TipoEventoNotificacion.CONTRATO_PROXIMO_A_VENCER.value
+    ):
+        return
+
     try:
         nombre_trabajador = contrato.usuario_empresa.usuario.get_nombre_completo()
     except Exception:
         nombre_trabajador = "un trabajador"
-    _disparar_a_grupo(
-        empresa=empresa,
-        grupo=GRUPO_RRHH,
+
+    usuario_ids = set(_usuarios_en_rol_de_empresa(empresa, GRUPO_RRHH)) | set(
+        _usuarios_superadmin_activos()
+    )
+    if not usuario_ids:
+        return
+
+    _disparar(
+        usuario_ids=usuario_ids,
         tipo=TipoEventoNotificacion.CONTRATO_PROXIMO_A_VENCER.value,
         titulo="Contrato laboral próximo a vencer",
         cuerpo=(

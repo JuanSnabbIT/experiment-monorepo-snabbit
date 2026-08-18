@@ -96,10 +96,26 @@ export const MONEDA_LABORAL_OPTIONS = [
     { value: 'USD', label: 'USD' },
 ];
 
+// Solo Fonasa/Isapre son seleccionables desde la UI. 'otro' se mantiene como
+// valor válido a nivel de modelo/API (backend/empresas/estados_modelo.py) por
+// compatibilidad con datos históricos, pero no se ofrece como opción nueva.
 export const SISTEMA_SALUD_OPTIONS = [
     { value: 'fonasa', label: 'Fonasa' },
     { value: 'isapre', label: 'Isapre' },
-    { value: 'otro', label: 'Otro' },
+];
+
+// Lista fija de instituciones Isapre (evita variaciones de escritura como
+// "Colmena" / "colmena" / "ISAPRE COLMENA"). Coincide con el catálogo global
+// sembrado por seed_isapres_comunes.py. 'otra' habilita un campo de texto libre.
+export const ISAPRE_INSTITUCION_OPTIONS = [
+    { value: 'Banmédica', label: 'Banmédica' },
+    { value: 'Colmena Golden Cross', label: 'Colmena Golden Cross' },
+    { value: 'Consalud', label: 'Consalud' },
+    { value: 'Cruz Blanca', label: 'Cruz Blanca' },
+    { value: 'Nueva Masvida', label: 'Nueva Masvida' },
+    { value: 'Vida Tres', label: 'Vida Tres' },
+    { value: 'Esencial', label: 'Esencial' },
+    { value: 'otra', label: 'Otra' },
 ];
 
 export const TIPO_GRATIFICACION_OPTIONS = [

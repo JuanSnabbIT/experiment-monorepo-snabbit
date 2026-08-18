@@ -14,12 +14,6 @@ class SeccionGeneradaPublicSerializer(serializers.Serializer):
     titulo = serializers.CharField(read_only=True)
     contenido_renderizado = serializers.CharField(read_only=True)
     orden = serializers.IntegerField(read_only=True)
-    tipo = serializers.SerializerMethodField()
-
-    def get_tipo(self, obj):
-        if obj.seccion_plantilla:
-            return obj.seccion_plantilla.tipo
-        return "libre"
 
 
 class ContratoAprobacionPublicSerializer(serializers.Serializer):

@@ -1,17 +1,32 @@
+"""
+Resolucion de etiquetas de plantillas — modulo neutral compartido por todos
+los motores de renderizado (v1 legacy, v2 legacy, v2.9).
+
+Contiene la logica generica de navegacion de rutas de datos (``_resolver_ruta``)
+y las etiquetas especiales B2B (cotizaciones, cuotas de venta) que no son
+exclusivas de ningun motor en particular — cualquier motor que necesite
+interpolar ``[etiqueta]`` sobre un ``ContratoEmpresaCliente``/``ContratoTrabajador``
+pasa por aqui.
+
+Antes vivia repartido entre motor_plantillas.py (v1) y motor_plantillas_v2.py
+(v2), con v2.9 dependiendo transitivamente de ambos. Extraido a este modulo
+para que el motor v2.9 no dependa de los motores legacy.
+"""
+
+from __future__ import annotations
+
 import re
 
 from django.db import models
 
-from contratos.models import (
-    ContratoEmpresaCliente,
-    EtiquetaPlantilla,
-    SeccionPlantilla,
-    SeccionContratoGenerada,
-)
 from contratos.venta_helpers import construir_resumen_venta_contrato
 
 PATRON_ETIQUETA = re.compile(r'\[([a-z_.]+)\]')
 
+
+# ---------------------------------------------------------------------------
+# Resolucion generica de rutas (usada por v1, v2 y v2.9)
+# ---------------------------------------------------------------------------
 
 def resolver_valor_etiqueta(clave, contrato, etiquetas_map):
     """
@@ -140,7 +155,7 @@ def _renderizar_cotizaciones_tabla(contrato):
         total = cot.calcular_total_estimado
         filas.append(
             f'<tr><td colspan="4"><strong>'
-            f'Cotizaci\u00f3n #{cot.numero_cotizacion} - {cot.nombre}'
+            f'Cotización #{cot.numero_cotizacion} - {cot.nombre}'
             f'</strong> ({moneda_label} {total})</td></tr>'
         )
         if detalle.get("total_convertido") is not None:
@@ -168,7 +183,7 @@ def _renderizar_cotizaciones_tabla(contrato):
 
     return (
         '<table><thead><tr>'
-        '<th>Descripci\u00f3n</th><th>Cantidad</th><th>Precio Unit.</th><th>Total</th>'
+        '<th>Descripción</th><th>Cantidad</th><th>Precio Unit.</th><th>Total</th>'
         '</tr></thead><tbody>'
         + ''.join(filas)
         + '</tbody></table>'
@@ -245,79 +260,85 @@ def _renderizar_dolar_observado_cotizaciones(contrato):
     return "<br/>".join(lineas)
 
 
-def renderizar_seccion(contenido_template, contrato, etiquetas_map):
+# ---------------------------------------------------------------------------
+# Resolucion polimorfica (via adaptador) — usada por v2 y v2.9
+# ---------------------------------------------------------------------------
+
+# Claves que se resuelven con logica especial B2B (cotizaciones, cuotas, etc.)
+CLAVES_ESPECIALES_B2B = {
+    "cotizaciones_tabla",
+    "cantidad_cotizaciones",
+    "total_cotizaciones",
+    "forma_pago_venta",
+    "cantidad_cuotas_venta",
+    "cuotas_venta_tabla",
+    "cotizaciones_totales_convertidos",
+    "dolar_observado_cotizaciones",
+}
+
+
+def es_adaptador_b2b(adaptador) -> bool:
+    from contratos.models import ContratoEmpresaCliente
+    return isinstance(adaptador.instancia, ContratoEmpresaCliente)
+
+
+def resolver_ruta_polimorfica(adaptador, ruta: str, default=None) -> str:
     """
-    Reemplaza todas las [etiquetas] en el texto por valores reales.
-    Retorna el texto renderizado.
+    Intenta resolver primero con el adaptador. Si retorna NOT_HANDLED y
+    la instancia es B2B, hace fallback a ``_resolver_ruta`` generico.
     """
-    def reemplazo(match):
-        clave = match.group(1)
-        return resolver_valor_etiqueta(clave, contrato, etiquetas_map)
+    from contratos.adaptadores import NOT_HANDLED
 
-    return PATRON_ETIQUETA.sub(reemplazo, contenido_template)
+    resultado = adaptador.resolver_ruta_extendida(ruta, default)
+    if resultado is not NOT_HANDLED:
+        return resultado if resultado is not None else (default or "")
+
+    if es_adaptador_b2b(adaptador):
+        return _resolver_ruta(adaptador.instancia, ruta, default)
+
+    return default or ""
 
 
-def generar_secciones_contrato(contrato):
-    """
-    Genera SeccionContratoGenerada para cada sección de la plantilla del contrato.
-    No sobreescribe secciones editadas manualmente.
-    Retorna lista de SeccionContratoGenerada creadas/actualizadas.
-    """
-    plantilla = contrato.plantilla
-    if not plantilla:
-        return []
+def resolver_valor_etiqueta_v2(clave: str, adaptador, etiquetas_map: dict) -> str:
+    """Equivalente polimorfico de ``resolver_valor_etiqueta``."""
+    from contratos.adaptadores import NOT_HANDLED
 
-    empresa = contrato.empresa_prestadora
-    etiquetas = EtiquetaPlantilla.objects.filter(
-        models.Q(empresa_prestadora__isnull=True)
-        | models.Q(empresa_prestadora=empresa)
-    )
-    # Empresa-específica tiene prioridad sobre global (si misma clave)
-    etiquetas_map = {}
-    for e in etiquetas:
-        if e.clave not in etiquetas_map or e.empresa_prestadora is not None:
-            etiquetas_map[e.clave] = e
+    # Etiquetas especiales B2B → solo aplican si la instancia es ContratoEmpresaCliente.
+    if clave in CLAVES_ESPECIALES_B2B:
+        if es_adaptador_b2b(adaptador):
+            return resolver_valor_etiqueta(clave, adaptador.instancia, etiquetas_map)
+        # Para trabajador, las claves comerciales no aplican: vacio.
+        return ""
 
-    secciones = plantilla.secciones.all().order_by("orden")
-    resultado = []
+    etiqueta = etiquetas_map.get(clave)
 
-    for seccion in secciones:
-        existente = SeccionContratoGenerada.objects.filter(
-            contrato=contrato,
-            seccion_plantilla=seccion,
-        ).first()
+    if not etiqueta or not etiqueta.origen_dato:
+        # Fallback 1: ruta directa si la clave ya tiene punto.
+        if "." in clave:
+            return resolver_ruta_polimorfica(adaptador, clave)
+        # Fallback 2: intentar el adaptador directamente (honra _ALIAS en AdaptadorContratoTrabajador
+        # y cualquier alias que el adaptador conozca, sin requerir EtiquetaPlantilla en BD).
+        resultado_adaptador = adaptador.resolver_ruta_extendida(clave)
+        if resultado_adaptador is not NOT_HANDLED:
+            return str(resultado_adaptador) if resultado_adaptador is not None else ""
+        return etiqueta.valor_default if etiqueta else f"[{clave}]"
 
-        if existente and existente.fue_editado_manualmente:
-            resultado.append(existente)
-            continue
+    return resolver_ruta_polimorfica(adaptador, etiqueta.origen_dato, etiqueta.valor_default)
 
-        # Tipos sin cuerpo de texto: titulo, subtitulo y bloques dinámicos
-        # Los bloques dinámicos se renderizan en el PDF desde los datos del contrato.
-        from contratos.models import TIPOS_BLOQUE_DINAMICO
-        if seccion.tipo in ('titulo', 'subtitulo') or seccion.tipo in TIPOS_BLOQUE_DINAMICO:
-            contenido = ''
-        else:
-            contenido = renderizar_seccion(seccion.contenido_template, contrato, etiquetas_map)
 
-        if existente:
-            existente.contenido_renderizado = contenido
-            existente.titulo = seccion.titulo
-            existente.orden = seccion.orden
-            existente.save()
-            resultado.append(existente)
-        else:
-            nueva = SeccionContratoGenerada.objects.create(
-                contrato=contrato,
-                seccion_plantilla=seccion,
-                titulo=seccion.titulo,
-                contenido_renderizado=contenido,
-                orden=seccion.orden,
-            )
-            resultado.append(nueva)
-
-    # Registrar la versión de la plantilla usada en esta generación
-    if plantilla.version:
-        contrato.plantilla_version_usada = str(plantilla.version)
-        contrato.save(update_fields=["plantilla_version_usada", "fecha_modificacion"])
-
-    return resultado
+CONDICIONES_TRABAJADOR = {
+    "siempre":              lambda c: True,
+    "solo_plazo_fijo":      lambda c: c.tipo_contrato == "plazo_fijo",
+    "solo_indefinido":      lambda c: c.tipo_contrato == "indefinido",
+    "solo_reemplazo":       lambda c: c.tipo_contrato == "reemplazo",
+    "si_bono_movilizacion": lambda c: bool(getattr(c, "bono_movilizacion_activo", False)),
+    "si_bono_colacion":     lambda c: bool(getattr(c, "bono_colacion_activo", False)),
+    "si_grupo_turno":       lambda c: bool(c.grupo_turno_id or c.grupo_turno_snapshot),
+    "si_gratificacion":     lambda c: c.tipo_gratificacion != "no_aplica",
+    "si_jornada_parcial":   lambda c: c.jornada == "parcial",
+    "si_banco":             lambda c: bool(c.usuario_empresa and c.usuario_empresa.banco),
+    "si_isapre":            lambda c: bool(
+        c.usuario_empresa and c.usuario_empresa.sistema_salud == "isapre"
+    ),
+    "si_lugar_trabajo":     lambda c: bool((c.lugar_trabajo or "").strip()),
+}

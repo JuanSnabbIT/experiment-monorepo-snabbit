@@ -57,6 +57,28 @@ export const ESTADOS_CONTRATO: {
     { value: 'finalizado',             label: 'Finalizado',                color: 'violet' },
 ];
 
+// Ventana (en días) para marcar un contrato como "próximo a vencer" en la UI
+// (borde de alerta + botón de enviar aviso manual). Es más amplia que
+// DIAS_AVISO_VENCIMIENTO en backend/rrhh/tasks.py (7 días) — esa es la ventana
+// en que la tarea automática dispara el correo; esta permite a RRHH avisar
+// manualmente con más anticipación, desde 10 días antes del vencimiento.
+export const DIAS_AVISO_VENCIMIENTO_CONTRATO = 10;
+
+export const esContratoProximoAVencer = (contrato: {
+    estado: string;
+    tipo_contrato: string;
+    fecha_termino: string | null;
+}): boolean => {
+    if (contrato.estado !== 'vigente' || contrato.tipo_contrato !== 'plazo_fijo' || !contrato.fecha_termino) {
+        return false;
+    }
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const termino = new Date(`${contrato.fecha_termino}T00:00:00`);
+    const diasRestantes = Math.round((termino.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+    return diasRestantes >= 0 && diasRestantes <= DIAS_AVISO_VENCIMIENTO_CONTRATO;
+};
+
 export const ESTADOS_CONTRATO_RRHH: {
     value: string;
     label: string;

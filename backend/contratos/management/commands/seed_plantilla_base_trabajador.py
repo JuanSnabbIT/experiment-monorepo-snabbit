@@ -9,7 +9,11 @@ Uso:
 
 from django.core.management.base import BaseCommand
 
-from contratos.models import PlantillaContrato, SeccionPlantilla
+from contratos.models import PlantillaContrato
+from contratos.management.commands._v29_seed_helpers import (
+    config_pagina_basica,
+    documento_desde_secciones_condicionales,
+)
 
 PLANTILLA_TITULO = "Contrato de Trabajo — Plantilla Base"
 
@@ -31,8 +35,8 @@ SECCIONES = [
             "RUT [rut_empresa], domiciliada en [domicilio_empresa], "
             "representada por [representante_legal], RUT [rut_representante], "
             "en adelante el «Empleador»; y don/doña [nombre_trabajador], "
-            "RUT [rut_trabajador], [estado_civil_label], de profesión u oficio [profesion_u_oficio], "
-            "domiciliado/a en [domicilio_trabajador], en adelante el «Trabajador», "
+            "RUT [rut_trabajador], estado civil [estado_civil], de profesión u oficio [profesion_u_oficio], "
+            "domiciliado/a en [direccion_trabajador], en adelante el «Trabajador», "
             "se celebra el siguiente Contrato Individual de Trabajo:"
         ),
         "orden": 20,
@@ -66,8 +70,8 @@ SECCIONES = [
         "titulo": "CUARTO: CARGO Y FUNCIONES",
         "tipo": "clausula",
         "contenido_template": (
-            "El Trabajador se desempeñará en el cargo de [cargo]. "
-            "Sus principales funciones serán: [funciones]. "
+            "El Trabajador se desempeñará en el cargo de [nombre_cargo]. "
+            "Sus principales funciones serán: [funciones_cargo]. "
             "El lugar de prestación de servicios será [lugar_trabajo]."
         ),
         "orden": 40,
@@ -103,8 +107,7 @@ SECCIONES = [
         "tipo": "clausula",
         "contenido_template": (
             "El Empleador pagará al Trabajador una remuneración mensual de "
-            "$[sueldo_base] ([sueldo_base_palabras]), en [moneda]. "
-            "Dicho monto corresponde al [tipo_sueldo_label] pactado."
+            "$[sueldo_base] ([sueldo_base_palabras]), en [moneda], conforme a lo pactado."
         ),
         "orden": 60,
         "condicion_aparicion": "siempre",
@@ -151,7 +154,7 @@ SECCIONES = [
         "titulo": "DÉCIMO: PREVISIÓN Y SALUD",
         "tipo": "clausula",
         "contenido_template": (
-            "El Trabajador cotizará previsión en [afp] y salud en [salud_descripcion]. "
+            "El Trabajador cotizará previsión en [nombre_afp] y salud en [sistema_salud_label]. "
             "Los descuentos correspondientes serán aplicados conforme a la legislación vigente."
         ),
         "orden": 80,
@@ -164,7 +167,7 @@ SECCIONES = [
         "tipo": "clausula",
         "contenido_template": (
             "El pago de las remuneraciones se realizará mediante transferencia electrónica "
-            "a la [tipo_cuenta] N° [numero_cuenta] del banco [banco]."
+            "a la [tipo_cuenta_bancaria] N° [numero_cuenta_bancaria] del banco [nombre_banco]."
         ),
         "orden": 85,
         "condicion_aparicion": "si_banco",
@@ -231,27 +234,11 @@ class Command(BaseCommand):
                     "secciones condicionales según los datos del contrato."
                 ),
                 "version": 1,
+                "version_editor": "v29",
+                "contenido_documento_v29": documento_desde_secciones_condicionales(SECCIONES),
+                "config_pagina_v29": config_pagina_basica(),
             },
         )
         accion = "Creada" if created else "Ya existía"
         self.stdout.write(f"{accion}: '{plantilla.titulo}' (id={plantilla.id})")
-
-        creadas_sec = 0
-        existentes_sec = 0
-        for sec_data in SECCIONES:
-            condicion = sec_data.pop("condicion_aparicion", "siempre")
-            _, sec_created = SeccionPlantilla.objects.get_or_create(
-                plantilla=plantilla,
-                titulo=sec_data["titulo"],
-                defaults={**sec_data, "condicion_aparicion": condicion},
-            )
-            sec_data["condicion_aparicion"] = condicion  # restaurar para re-runs
-            if sec_created:
-                creadas_sec += 1
-            else:
-                existentes_sec += 1
-
-        self.stdout.write(self.style.SUCCESS(
-            f"Secciones: {creadas_sec} creadas, {existentes_sec} ya existían "
-            f"(total: {len(SECCIONES)})."
-        ))
+        self.stdout.write(self.style.SUCCESS(f"Secciones incluidas en el documento: {len(SECCIONES)}."))

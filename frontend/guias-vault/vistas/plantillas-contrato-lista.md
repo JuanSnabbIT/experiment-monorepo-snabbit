@@ -1,7 +1,7 @@
 ---
 viewId: plantillas-contrato-lista
 titulo: Lista de Plantillas de Contrato
-ruta: /registros/plantillas-contrato-v2
+ruta: /registros/plantillas-contrato
 estado: borrador
 actualizado: 2026-07-28
 ---

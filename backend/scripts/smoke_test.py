@@ -212,7 +212,7 @@ class SmokeRunner:
         print(f"\n{BOLD}[CONTRATOS B2B]{RESET}")
         endpoints = [
             ("GET", "/api/contratos/contratos/"),
-            ("GET", "/api/contratos/plantillas-contrato-v2/"),
+            ("GET", "/api/contratos/plantillas-contrato/"),
             ("GET", "/api/contratos/servicios/"),
         ]
         for method, path in endpoints:

@@ -12,6 +12,7 @@ import Card, { CardBody, CardHeader, CardHeaderChild } from '@/components/ui/Car
 import Table, { TBody, Td, Th, THead, Tr } from '@/components/ui/Table';
 import Tooltip from '@/components/ui/Tooltip';
 import AnimacionDeInputModoMovil from '@/components/utils/AnimacionDeIntputModoMovil';
+import Collapse from '@/components/utils/Collapse';
 import { ISucursalEmpresa } from '@/interface/empresas.interface';
 import { IInvitacionEmpresa } from '@/interface/invitacion.interface';
 import ApiService from '@/services/ApiService';
@@ -68,6 +69,7 @@ function DetalleEmpresa() {
     const [sortingInvitaciones, setSortingInvitaciones] = useState<SortingState>([]);
     const [globalFilterInvitaciones, setGlobalFilterInvitaciones] = useState<string>('');
     const [isEditing, setIsEditing] = useState<boolean>(false);
+    const [mostrarAvanzado, setMostrarAvanzado] = useState<boolean>(false);
     const [activeComponent, setActiveComponent] = useState<string>(
         searchParamsEmpresa.get('section') ?? 'Sucursales',
     );
@@ -251,6 +253,8 @@ function DetalleEmpresa() {
             telefono: '',
             email: '',
             ppm: 0,
+            representante_legal: '',
+            rut_representante: '',
         },
         validationSchema: Yup.object().shape({
             nombre: Yup.string()
@@ -273,6 +277,8 @@ function DetalleEmpresa() {
                 .required('Requerido')
                 .min(0, 'Debe ser mayor o igual a 0')
                 .nonNullable('Requerido'),
+            representante_legal: Yup.string().notRequired().nullable().max(255, 'Maximo 255 Caracteres'),
+            rut_representante: Yup.string().notRequired().nullable().max(20, 'Maximo 20 Caracteres'),
         }),
         onSubmit: async (values) => {
             if (!id) return;
@@ -288,11 +294,14 @@ function DetalleEmpresa() {
                         telefono: values.telefono,
                         email: values.email,
                         ppm: values.ppm,
+                        representante_legal: values.representante_legal || null,
+                        rut_representante: values.rut_representante || null,
                     },
                 }).unwrap();
                 toast.success('Empresa editada', { autoClose: 1000 });
                 formik.resetForm();
                 setIsEditing(false);
+                setMostrarAvanzado(false);
                 refetchDetalleEmpresa();
             } catch (error: any) {
                 toast.error(error.response?.data || 'Error al editar la empresa', {
@@ -313,6 +322,8 @@ function DetalleEmpresa() {
                 sitio_web: detalleEmpresa.sitio_web || '',
                 telefono: detalleEmpresa.telefono || '',
                 ppm: detalleEmpresa.ppm,
+                representante_legal: detalleEmpresa.representante_legal || '',
+                rut_representante: detalleEmpresa.rut_representante || '',
             });
         }
     }, [detalleEmpresa, isEditing]);
@@ -346,6 +357,7 @@ function DetalleEmpresa() {
                                             onClick={() => {
                                                 setIsEditing(false);
                                                 formik.resetForm();
+                                                setMostrarAvanzado(false);
                                             }}>
                                             Cancelar
                                         </Button>
@@ -473,6 +485,53 @@ function DetalleEmpresa() {
                                                 />
                                             </Validation>
                                         </div>
+                                        <div className='md:col-span-2 lg:col-span-3'>
+                                            <button
+                                                type='button'
+                                                onClick={() => setMostrarAvanzado((prev) => !prev)}
+                                                className='flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'>
+                                                <Icon icon={mostrarAvanzado ? 'HeroChevronUp' : 'HeroChevronDown'} />
+                                                Avanzado
+                                            </button>
+                                            <Collapse isOpen={mostrarAvanzado}>
+                                                <div className='grid grid-cols-1 gap-4 border-l-2 border-zinc-200 pl-4 pt-4 dark:border-zinc-700 md:grid-cols-2'>
+                                                    <div>
+                                                        <Badge>Representante Legal</Badge>
+                                                        <Validation
+                                                            isValid={formik.isValid}
+                                                            isTouched={formik.touched.representante_legal}
+                                                            invalidFeedback={formik.errors.representante_legal}>
+                                                            <Input
+                                                                id='representante_legal'
+                                                                name='representante_legal'
+                                                                type='text'
+                                                                placeholder='Representante Legal'
+                                                                onBlur={formik.handleBlur}
+                                                                onChange={formik.handleChange}
+                                                                value={formik.values.representante_legal}
+                                                            />
+                                                        </Validation>
+                                                    </div>
+                                                    <div>
+                                                        <Badge>RUT del Representante Legal</Badge>
+                                                        <Validation
+                                                            isValid={formik.isValid}
+                                                            isTouched={formik.touched.rut_representante}
+                                                            invalidFeedback={formik.errors.rut_representante}>
+                                                            <Input
+                                                                id='rut_representante'
+                                                                name='rut_representante'
+                                                                type='text'
+                                                                placeholder='RUT del Representante Legal'
+                                                                onBlur={formik.handleBlur}
+                                                                onChange={formik.handleChange}
+                                                                value={formik.values.rut_representante}
+                                                            />
+                                                        </Validation>
+                                                    </div>
+                                                </div>
+                                            </Collapse>
+                                        </div>
                                     </>
                                 ) : (
                                     <>
@@ -511,6 +570,31 @@ function DetalleEmpresa() {
                                                     ? detalleEmpresa.sitio_web
                                                     : 'Sin sitio web'}
                                             </div>
+                                        </div>
+                                        <div className='md:col-span-2 lg:col-span-3'>
+                                            <button
+                                                type='button'
+                                                onClick={() => setMostrarAvanzado((prev) => !prev)}
+                                                className='flex items-center gap-1.5 text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'>
+                                                <Icon icon={mostrarAvanzado ? 'HeroChevronUp' : 'HeroChevronDown'} />
+                                                Avanzado
+                                            </button>
+                                            <Collapse isOpen={mostrarAvanzado}>
+                                                <div className='grid grid-cols-1 gap-4 border-l-2 border-zinc-200 pl-4 pt-4 dark:border-zinc-700 md:grid-cols-2'>
+                                                    <div className='w-full'>
+                                                        <Badge>Representante Legal</Badge>
+                                                        <div className='ml-4'>
+                                                            {detalleEmpresa?.representante_legal || 'Sin Representante Legal'}
+                                                        </div>
+                                                    </div>
+                                                    <div className='w-full'>
+                                                        <Badge>RUT del Representante Legal</Badge>
+                                                        <div className='ml-4'>
+                                                            {detalleEmpresa?.rut_representante || 'Sin RUT de Representante'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Collapse>
                                         </div>
                                     </>
                                 )}

@@ -5,8 +5,8 @@ Encapsula el pipeline completo:
 
   1. Resolucion de plantilla (para contratos laborales).
   2. Creacion del adaptador correcto segun tipo de contrato.
-  3. Generacion/actualizacion de secciones renderizadas.
-  4. Generacion de bytes PDF via motor v2.
+  3. Generacion/recongelamiento del documento v2.9 (Slate → HTML).
+  4. Generacion de bytes PDF via WeasyPrint.
   5. Persistencia opcional en ``modelo.archivo_pdf``.
 
 Uso basico desde una vista::
@@ -110,12 +110,14 @@ def _resolver_plantilla_trabajador(contrato, empresa):
 # ---------------------------------------------------------------------------
 
 def _generar_pdf_b2b(modelo, *, firma_b64=None, firmante="") -> bytes:
-    """Pipeline para ContratoEmpresaCliente — delega integro al motor v1."""
+    """Pipeline para ContratoEmpresaCliente: documento único v2.9 → WeasyPrint."""
     from contratos.adaptadores import AdaptadorContratoB2B
-    from contratos.funciones_v2 import generar_contrato_pdf_v2
+    from contratos.motor_v29 import generar_o_recongelar_documento_v29
+    from weasyprint import HTML as WeasyHTML
 
     adaptador = AdaptadorContratoB2B(modelo)
-    return generar_contrato_pdf_v2(adaptador, firma_b64=firma_b64, firmante=firmante)
+    documento = generar_o_recongelar_documento_v29(adaptador)
+    return WeasyHTML(string=documento.html_generado).write_pdf()
 
 
 def _generar_pdf_trabajador(
@@ -133,8 +135,6 @@ def _generar_pdf_trabajador(
     from django.core.files.base import ContentFile
 
     from contratos.adaptadores import AdaptadorContratoTrabajador
-    from contratos.funciones_v2 import generar_contrato_pdf_v2
-    from contratos.motor_plantillas_v2 import generar_secciones_v2
 
     empresa = _empresa_desde_contrato_trabajador(contrato)
     plantilla = _resolver_plantilla_trabajador(contrato, empresa)
@@ -173,35 +173,18 @@ def _generar_pdf_trabajador(
 
     adaptador = AdaptadorContratoTrabajador(contrato)
 
-    # ── Rama v2.9: documento único Slate → WeasyPrint ────────────────────────
-    if plantilla.version_editor == "v29":
-        from contratos.motor_v29 import (
-            generar_o_recongelar_documento_v29,
-            inyectar_marca_agua_borrador,
-        )
-        from weasyprint import HTML as WeasyHTML  # deferred: no rompe path v2 si no instalado
-
-        documento = generar_o_recongelar_documento_v29(adaptador)
-        html_final = documento.html_generado
-        if forzar_borrador:
-            html_final = inyectar_marca_agua_borrador(html_final)
-        pdf_bytes = WeasyHTML(string=html_final).write_pdf()
-        if persistir:
-            nombre_archivo = f"contrato_trabajador_{contrato.id}.pdf"
-            contrato.archivo_pdf.save(nombre_archivo, ContentFile(pdf_bytes), save=True)
-        return pdf_bytes
-    # ─────────────────────────────────────────────────────────────────────────
-
-    # Generar/refrescar secciones renderizadas segun plantilla.
-    generar_secciones_v2(adaptador)
-
-    # Generar PDF.
-    pdf_bytes = generar_contrato_pdf_v2(
-        adaptador,
-        firma_b64=firma_b64,
-        firmante=firmante,
-        forzar_borrador=forzar_borrador,
+    # Documento único v2.9 → WeasyPrint.
+    from contratos.motor_v29 import (
+        generar_o_recongelar_documento_v29,
+        inyectar_marca_agua_borrador,
     )
+    from weasyprint import HTML as WeasyHTML
+
+    documento = generar_o_recongelar_documento_v29(adaptador)
+    html_final = documento.html_generado
+    if forzar_borrador:
+        html_final = inyectar_marca_agua_borrador(html_final)
+    pdf_bytes = WeasyHTML(string=html_final).write_pdf()
 
     if persistir:
         nombre_archivo = f"contrato_trabajador_{contrato.id}.pdf"
@@ -226,8 +209,8 @@ def generar_pdf(
     Genera el PDF para cualquier tipo de contrato soportado.
 
     Tipos soportados:
-    - ``ContratoTrabajador`` (rrhh): resuelve plantilla, genera secciones y PDF.
-    - ``ContratoEmpresaCliente`` (contratos): delega al motor v1 (B2B).
+    - ``ContratoTrabajador`` (rrhh): resuelve plantilla, genera documento v2.9 y PDF.
+    - ``ContratoEmpresaCliente`` (contratos): genera documento v2.9 y PDF.
 
     Args:
         modelo:          Instancia del contrato.
@@ -299,12 +282,10 @@ def _resolver_plantilla_finiquito(empresa):
 
 def generar_pdf_finiquito(finiquito, *, persistir: bool = False) -> bytes:
     """
-    Genera el PDF del finiquito usando el motor V2 con plantilla tipo 'finiquito'.
+    Genera el PDF del finiquito usando el motor v2.9 con plantilla tipo 'finiquito'.
 
-    Usa ``AdaptadorContratoTrabajador`` extendido con etiquetas finiquito.
-    Las secciones se persisten en ``SeccionContratoGenerada`` vinculadas al
-    contrato, aisladas de las secciones del contrato base por el filtro de
-    plantilla en ``_generar_pdf_trabajador``.
+    Usa ``AdaptadorFiniquito`` (extiende ``AdaptadorContratoTrabajador`` con
+    etiquetas de finiquito).
 
     Args:
         finiquito: Instancia de ``FiniquitoContrato``.
@@ -319,8 +300,8 @@ def generar_pdf_finiquito(finiquito, *, persistir: bool = False) -> bytes:
     from django.core.files.base import ContentFile
 
     from contratos.adaptadores import AdaptadorFiniquito
-    from contratos.funciones_v2 import generar_contrato_pdf_v2
-    from contratos.motor_plantillas_v2 import generar_secciones_v2
+    from contratos.motor_v29 import generar_o_recongelar_documento_v29
+    from weasyprint import HTML as WeasyHTML
 
     contrato = finiquito.contrato
     empresa = _empresa_desde_contrato_trabajador(contrato)
@@ -334,15 +315,8 @@ def generar_pdf_finiquito(finiquito, *, persistir: bool = False) -> bytes:
 
     adaptador = AdaptadorFiniquito(contrato, plantilla, finiquito)
 
-    if plantilla.version_editor == "v29":
-        from contratos.motor_v29 import generar_o_recongelar_documento_v29
-        from weasyprint import HTML as WeasyHTML
-
-        documento = generar_o_recongelar_documento_v29(adaptador)
-        pdf_bytes = WeasyHTML(string=documento.html_generado).write_pdf()
-    else:
-        generar_secciones_v2(adaptador)
-        pdf_bytes = generar_contrato_pdf_v2(adaptador)
+    documento = generar_o_recongelar_documento_v29(adaptador)
+    pdf_bytes = WeasyHTML(string=documento.html_generado).write_pdf()
 
     if persistir:
         nombre_archivo = f"finiquito_{contrato.id}.pdf"

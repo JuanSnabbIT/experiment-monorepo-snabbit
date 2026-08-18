@@ -397,7 +397,7 @@ class Command(BaseCommand):
 
     def _paso_0_seeds_opcionales(self):
         self.stdout.write(self.style.WARNING("Paso 0: Seeds globales opcionales..."))
-        for cmd in ("seed_turnos_globales", "seed_etiquetas_trabajador", "seed_bloques_transversales"):
+        for cmd in ("seed_turnos_globales",):
             try:
                 call_command(cmd, verbosity=0)
                 self.stdout.write(self.style.SUCCESS(f"  [OK] {cmd}"))

@@ -206,6 +206,7 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
     empresa_nombre = serializers.SerializerMethodField()
     sucursal_nombre = serializers.SerializerMethodField()
     email_empresa = serializers.SerializerMethodField()
+    emails_rrhh_empresa = serializers.SerializerMethodField()
 
     antiguedad_trabajador = serializers.SerializerMethodField()
 
@@ -350,6 +351,31 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_emails_rrhh_empresa(self, obj):
+        """Correos de usuarios RRHH de la empresa — misma consulta que usa
+        RRHHContratosService.enviar_aviso_vencimiento para elegir destinatarios.
+        Permite al frontend mostrar a dónde se enviará el aviso antes de confirmar.
+        """
+        try:
+            empresa = obj.usuario_empresa.sucursal.empresa
+        except Exception:
+            empresa = None
+        if empresa is None:
+            return []
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        return list(
+            User.objects.filter(
+                usuarioempresa__sucursal__empresa=empresa,
+                usuarioempresa__grupos__name="rrhh",
+                is_active=True,
+            )
+            .exclude(email="")
+            .values_list("email", flat=True)
+            .distinct()
+        )
+
     def get_antiguedad_trabajador(self, obj):
         if not obj.usuario_empresa:
             return None
@@ -371,7 +397,6 @@ class ContratoTrabajadorSerializer(serializers.ModelSerializer):
                 "contenido_renderizado": s.contenido_renderizado,
                 "orden": s.orden,
                 "fue_editado_manualmente": s.fue_editado_manualmente,
-                "seccion_plantilla_id": s.seccion_plantilla_id,
             }
             for s in secciones
         ]
@@ -513,7 +538,6 @@ class TrabajadorExistenteSerializer(serializers.Serializer):
     afp = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     sistema_salud = serializers.ChoiceField(
         choices=[("fonasa", "fonasa"), ("isapre", "isapre"), ("otro", "otro")],
-        required=False, allow_blank=True, allow_null=True,
     )
     nombre_isapre = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     banco = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
@@ -527,6 +551,7 @@ class TrabajadorExistenteSerializer(serializers.Serializer):
         required=False, allow_blank=True, allow_null=True,
     )
     numero_cuenta_bancaria = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    sistema_salud_otro = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     nacionalidad = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     fecha_nacimiento = serializers.DateField(required=False, allow_null=True)
     direccion = serializers.CharField(max_length=250, required=False, allow_blank=True, allow_null=True)
@@ -575,7 +600,6 @@ class TrabajadorNuevoSerializer(serializers.Serializer):
     afp = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     sistema_salud = serializers.ChoiceField(
         choices=[("fonasa", "fonasa"), ("isapre", "isapre"), ("otro", "otro")],
-        required=False, allow_blank=True, allow_null=True,
     )
     nombre_isapre = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     banco = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)

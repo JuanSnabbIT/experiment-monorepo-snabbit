@@ -5,10 +5,8 @@ import SelectReact, { TSelectOption } from '@/components/form/SelectReact';
 import Validation from '@/components/form/Validation';
 import {
     useCrearBancoInlineMutation,
-    useCrearIsapreInlineMutation,
     useGetAfpCatalogoQuery,
     useGetBancoCatalogoQuery,
-    useGetIsapreCatalogoQuery,
 } from '@/store/slices/rrhh/catalogosRrhhApi';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
@@ -16,11 +14,8 @@ import { getErrorMessage } from '@/utils/errorHandlers';
 import { FormikProps } from 'formik';
 import { useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
-import {
-    IFormValuesContratoTrabajador,
-    SISTEMA_SALUD_OPTIONS,
-    TIPO_CUENTA_OPTIONS,
-} from './types';
+import { IFormValuesContratoTrabajador, TIPO_CUENTA_OPTIONS } from './types';
+import SelectorSistemaSalud from './SelectorSistemaSalud';
 import { confirmarConsultaAfpLegal, useConsultaAfp } from './useConsultaAfp';
 
 interface Props {
@@ -41,11 +36,7 @@ const StepPrevisionBanco = ({ formik }: Props) => {
 
     const { data: afpList = [] } = useGetAfpCatalogoQuery();
     const { data: bancoList = [] } = useGetBancoCatalogoQuery();
-    const { data: isapreList = [] } = useGetIsapreCatalogoQuery(undefined, {
-        skip: values.sistema_salud !== 'isapre',
-    });
     const [crearBanco] = useCrearBancoInlineMutation();
-    const [crearIsapre] = useCrearIsapreInlineMutation();
 
     const afpOptions = useMemo<TSelectOption[]>(
         () => afpList.map((a) => ({ value: String(a.id), label: a.nombre })),
@@ -55,24 +46,11 @@ const StepPrevisionBanco = ({ formik }: Props) => {
         () => bancoList.map((b) => ({ value: b.nombre, label: b.nombre })),
         [bancoList],
     );
-    const isapreOptions = useMemo<TSelectOption[]>(
-        () => isapreList.map((i) => ({ value: i.nombre, label: i.nombre })),
-        [isapreList],
-    );
 
     const handleCrearBanco = async (inputValue: string) => {
         try {
             const nuevo = await crearBanco({ nombre: inputValue }).unwrap();
             setFieldValue('banco', nuevo.nombre);
-        } catch (err) {
-            toast.error(getErrorMessage(err));
-        }
-    };
-
-    const handleCrearIsapre = async (inputValue: string) => {
-        try {
-            const nueva = await crearIsapre({ nombre: inputValue }).unwrap();
-            setFieldValue('nombre_isapre', nueva.nombre);
         } catch (err) {
             toast.error(getErrorMessage(err));
         }
@@ -189,88 +167,33 @@ const StepPrevisionBanco = ({ formik }: Props) => {
                             </div>
                         )}
                     </div>
-                    {/* Sistema de salud + ISAPRE en la misma fila */}
+                    {/* Sistema de salud + institución Isapre en la misma fila */}
                     <div className='grid grid-cols-1 gap-3 md:grid-cols-2'>
-                        <div>
-                            <Label htmlFor='sistema_salud'>Sistema de salud</Label>
-                            <SelectReact
-                                name='sistema_salud'
-                                options={SISTEMA_SALUD_OPTIONS}
-                                value={
-                                    SISTEMA_SALUD_OPTIONS.find(
-                                        (o) => o.value === values.sistema_salud,
-                                    ) || null
-                                }
-                                onChange={(opt) => {
-                                    setFieldValue('sistema_salud', (opt as TSelectOption)?.value || '');
-                                    if (!(opt as TSelectOption)?.value) setFieldValue('descuento_salud_activo', false);
-                                }}
-                            />
-                            {values.sistema_salud && (
-                                <div className='mt-2 pl-1'>
-                                    <Checkbox
-                                        id='descuento_salud_activo'
-                                        name='descuento_salud_activo'
-                                        checked={values.descuento_salud_activo}
-                                        onChange={(e) => setFieldValue('descuento_salud_activo', e.target.checked)}
-                                        label='Incluir cotización de salud en el cálculo de sueldo líquido'
-                                        dimension='sm'
-                                    />
-                                </div>
-                            )}
-                        </div>
-                        {values.sistema_salud === 'isapre' && (
-                            <div>
-                                <Label htmlFor='nombre_isapre'>
-                                    Nombre Isapre <span className='text-red-500'>*</span>
-                                </Label>
-                                <Validation
-                                    isValid={!errors.nombre_isapre}
-                                    isTouched={!!touched.nombre_isapre}
-                                    invalidFeedback={errors.nombre_isapre || ''}>
-                                    <SelectReact
-                                        name='nombre_isapre'
-                                        options={isapreOptions}
-                                        value={
-                                            isapreOptions.find((o) => o.value === values.nombre_isapre) ||
-                                            null
-                                        }
-                                        onChange={(opt) =>
-                                            setFieldValue(
-                                                'nombre_isapre',
-                                                (opt as TSelectOption)?.value || '',
-                                            )
-                                        }
-                                        isClearable
-                                        isCreatable
-                                        onCreateOption={handleCrearIsapre}
-                                        formatCreateLabel={(v) => `Agregar Isapre: "${v}"`}
-                                        placeholder='Seleccionar o crear...'
-                                    />
-                                </Validation>
-                            </div>
-                        )}
-                        {values.sistema_salud === 'otro' && (
-                            <div>
-                                <Label htmlFor='sistema_salud_otro'>
-                                    Especifica el sistema de salud <span className='text-red-500'>*</span>
-                                </Label>
-                                <Validation
-                                    isValid={!errors.sistema_salud_otro}
-                                    isTouched={!!touched.sistema_salud_otro}
-                                    invalidFeedback={errors.sistema_salud_otro || ''}>
-                                    <Input
-                                        id='sistema_salud_otro'
-                                        name='sistema_salud_otro'
-                                        value={values.sistema_salud_otro}
-                                        onChange={handleChange}
-                                        onBlur={handleBlur}
-                                        placeholder='Ej: Mutual de Seguridad'
-                                    />
-                                </Validation>
-                            </div>
-                        )}
+                        <SelectorSistemaSalud
+                            idPrefix='step5'
+                            sistemaSalud={values.sistema_salud}
+                            nombreIsapre={values.nombre_isapre}
+                            onChangeSistemaSalud={(val) => {
+                                setFieldValue('sistema_salud', val);
+                                if (!val) setFieldValue('descuento_salud_activo', false);
+                            }}
+                            onChangeNombreIsapre={(val) => setFieldValue('nombre_isapre', val)}
+                            errorNombreIsapre={errors.nombre_isapre}
+                            touchedNombreIsapre={!!touched.nombre_isapre}
+                        />
                     </div>
+                    {values.sistema_salud && (
+                        <div className='pl-1'>
+                            <Checkbox
+                                id='descuento_salud_activo'
+                                name='descuento_salud_activo'
+                                checked={values.descuento_salud_activo}
+                                onChange={(e) => setFieldValue('descuento_salud_activo', e.target.checked)}
+                                label='Incluir cotización de salud en el cálculo de sueldo líquido'
+                                dimension='sm'
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -32,8 +32,8 @@ import {
     useGetServiciosQuery
 } from '@/store/slices/contratos/contratoApi';
 import {
-    useGetPlantillasContratoQuery,
-} from '@/store/slices/contratos/plantillaContratoApi';
+    useGetPlantillasV2Query,
+} from '@/store/slices/contratos/plantillaContratoV2Api';
 import { useGetTipoCambioQuery } from '@/store/slices/cotizaciones/cotizacionApi';
 import { useGetUsuariosTodoElClienteQuery } from '@/store/slices/empresa/empresaApi';
 import { convertCurrency } from '@/utils/currency';
@@ -310,7 +310,7 @@ function CrearContratoDelCliente({
     const { data: condicionesCatalogo = [] } = useGetCondicionesEspecialesQuery();
     const fechaTipoCambio = new Date().toISOString().slice(0, 10);
     const { data: tipoCambio } = useGetTipoCambioQuery(fechaTipoCambio);
-    const { data: plantillasContrato = [] } = useGetPlantillasContratoQuery();
+    const { data: plantillasContrato = [] } = useGetPlantillasV2Query();
     const { data: usuariosCliente = [] } = useGetUsuariosTodoElClienteQuery(
         detalleCliente?.info_cliente.id ?? '',
         {

@@ -590,6 +590,113 @@ class RRHHContratosService:
 
         return anexo
 
+    @staticmethod
+    def enviar_aviso_vencimiento(contrato: ContratoTrabajador, email_override: str | None = None) -> None:
+        """
+        Envia (o reenvia) el aviso de vencimiento de un contrato a plazo fijo:
+        correo + notificacion in-app.
+
+        Comparte esta logica con la tarea periodica
+        avisar_contratos_proximos_a_vencer (rrhh/tasks.py), que la invoca
+        automaticamente solo si aviso_vencimiento_enviado es False. Este metodo
+        no aplica esa restriccion — permite reenvio manual explicito desde el
+        detalle del contrato (el frontend advierte al usuario si ya fue enviado
+        antes de llamarlo de nuevo, incluido el envio automatico por Celery).
+
+        Args:
+            contrato: contrato a avisar.
+            email_override: si se entrega, el correo se envia SOLO a esta
+                direccion (elegida manualmente en el modal del frontend) en vez
+                de a los usuarios RRHH de la empresa.
+
+        Raises:
+            RRHHContratosServiceException: si el contrato no tiene fecha_termino,
+                o no hay destinatario resoluble (sin override y sin usuarios RRHH
+                con correo registrado en la empresa).
+        """
+        from django.conf import settings
+        from django.contrib.auth import get_user_model
+
+        from notificaciones.services import notificar_contrato_proximo_a_vencer
+
+        if not contrato.fecha_termino:
+            raise RRHHContratosServiceException(
+                "El contrato no tiene fecha de termino; no aplica aviso de vencimiento."
+            )
+
+        try:
+            empresa = contrato.usuario_empresa.sucursal.empresa
+        except Exception:
+            empresa = None
+        if empresa is None:
+            raise RRHHContratosServiceException(
+                "No se pudo determinar la empresa del contrato."
+            )
+
+        if email_override:
+            emails_rrhh = [email_override.strip()]
+        else:
+            User = get_user_model()
+            emails_rrhh = list(
+                User.objects.filter(
+                    usuarioempresa__sucursal__empresa=empresa,
+                    usuarioempresa__grupos__name="rrhh",
+                    is_active=True,
+                )
+                .exclude(email="")
+                .values_list("email", flat=True)
+                .distinct()
+            )
+            if not emails_rrhh:
+                raise RRHHContratosServiceException(
+                    "No hay usuarios RRHH con correo registrado en esta empresa."
+                )
+
+        usuario = contrato.usuario_empresa.usuario if contrato.usuario_empresa else None
+        nombre_trabajador = usuario.get_nombre_completo() if usuario else "el trabajador"
+        rut_trabajador = (usuario.rut if usuario else "") or "—"
+
+        html_body = (
+            f"<p>El siguiente contrato a plazo fijo vence el "
+            f"<strong>{contrato.fecha_termino}</strong>. Confirma si se renueva o "
+            f"se debe realizar el finiquito.</p>"
+            "<table style=\"border-collapse:collapse;\">"
+            f"<tr><td style=\"padding:4px 8px;\">Trabajador</td>"
+            f"<td style=\"padding:4px 8px;\">{nombre_trabajador}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">RUT</td>"
+            f"<td style=\"padding:4px 8px;\">{rut_trabajador}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">Empresa</td>"
+            f"<td style=\"padding:4px 8px;\">{empresa.nombre}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">Fecha inicio</td>"
+            f"<td style=\"padding:4px 8px;\">{contrato.fecha_inicio}</td></tr>"
+            f"<tr><td style=\"padding:4px 8px;\">Fecha término</td>"
+            f"<td style=\"padding:4px 8px;\">{contrato.fecha_termino}</td></tr>"
+            "</table>"
+        )
+
+        frontend_url = settings.FRONTEND_URL.rstrip("/")
+        link_contrato = f"{frontend_url}/rrhh/contratos/{contrato.id}"
+
+        send_email_task.delay(
+            subject=f"Contrato próximo a vencer — {nombre_trabajador}",
+            recipient_list=emails_rrhh,
+            html_body=html_body,
+            titulo="Aviso de Vencimiento de Contrato",
+            url_boton=link_contrato,
+            text_boton="Ver contrato",
+        )
+
+        try:
+            notificar_contrato_proximo_a_vencer(contrato)
+        except Exception:
+            logger.exception(
+                "Notificacion in-app de vencimiento fallo (silencioso) para contrato %s.",
+                contrato.id,
+            )
+
+        contrato.aviso_vencimiento_enviado = True
+        contrato.save(update_fields=["aviso_vencimiento_enviado", "fecha_modificacion"])
+
 
 def _enviar_email_aprobacion_async(envio_id: int) -> None:
     """

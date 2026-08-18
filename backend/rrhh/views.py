@@ -1218,6 +1218,30 @@ class ContratoTrabajadorViewSet(JsonBlockMixin, viewsets.ModelViewSet):
 
         return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
 
+    @action(detail=True, methods=["post"], url_path="enviar-aviso-vencimiento")
+    def enviar_aviso_vencimiento(self, request, pk=None):
+        """Envia (o reenvia) manualmente el aviso de vencimiento del contrato
+        (correo a RRHH + notificacion in-app). Ver RRHHContratosService.enviar_aviso_vencimiento.
+
+        Body opcional: {"email_destino": "..."} para enviar solo a ese correo
+        en vez de a los usuarios RRHH de la empresa.
+        """
+        from .services import RRHHContratosService, RRHHContratosServiceException
+
+        contrato = self.get_object()
+        email_destino = (request.data.get("email_destino") or "").strip() or None
+        try:
+            RRHHContratosService.enviar_aviso_vencimiento(contrato, email_override=email_destino)
+        except RRHHContratosServiceException as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Error enviando aviso de vencimiento del contrato %s", contrato.pk)
+            return Response(
+                {"detail": "Error al enviar el aviso de vencimiento. Contacta al administrador."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return Response(ContratoTrabajadorSerializer(contrato, context={"request": request}).data)
+
     @action(
         detail=True,
         methods=["post"],

@@ -1,18 +1,17 @@
 """
-Tests para el Motor Plantillas V2 — PlantillaContratoV2ViewSet y SeccionPlantillaV2ViewSet.
+Tests para el Motor Plantillas V2 — PlantillaContratoV2ViewSet.
 
 Cubre:
   - Multi-tenancy: empresa A no ve plantillas de empresa B
   - CRUD: crear inyecta empresa_prestadora, listar, actualizar, eliminar, duplicar
   - Scope wizard: ordenamiento cliente-especifica primero
-  - SeccionV2: POST sin plantilla en body -> 201; plantilla de otra empresa -> 404
 """
 
 from django.contrib.auth.models import Group
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from contratos.models import PlantillaContrato, SeccionPlantilla
+from contratos.models import PlantillaContrato
 from cuentas.models import User
 from core.models import PersonalizacionUsuario
 from empresas.models import Empresa, SucursalEmpresa, UsuarioEmpresa
@@ -58,7 +57,7 @@ class PlantillaV2TestBase(APITestCase):
             tipo_contrato="servicios",
         )
 
-    BASE_URL = "/api/plantillas-contrato-v2/"
+    BASE_URL = "/api/plantillas-contrato/"
 
 
 class PlantillaV2MultiTenancyTest(PlantillaV2TestBase):
@@ -184,36 +183,3 @@ class PlantillaV2ScopeWizardTest(PlantillaV2TestBase):
         idx_scoped = ids.index(self.plantilla_scoped.id)
         idx_global = ids.index(self.plantilla_global.id)
         self.assertLess(idx_scoped, idx_global)
-
-
-class SeccionV2InjeccionTest(PlantillaV2TestBase):
-    """POST sin `plantilla` en body inyecta desde URL; plantilla de otra empresa -> 404."""
-
-    def setUp(self):
-        super().setUp()
-        self.base_url = (
-            f"/api/plantillas-contrato-v2/{self.plantilla_a.id}/secciones-v2/"
-        )
-
-    def test_crear_seccion_inyecta_plantilla_desde_url(self):
-        self.client.force_authenticate(user=self.user_a)
-        payload = {
-            "titulo": "Clausula de prueba",
-            "contenido_template": "Texto de prueba.",
-            "tipo": "clausula",
-            "orden": 1,
-        }
-        response = self.client.post(self.base_url, payload, format="json")
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        seccion = SeccionPlantilla.objects.get(id=response.data["id"])
-        self.assertEqual(seccion.plantilla, self.plantilla_a)
-
-    def test_acceso_secciones_plantilla_otra_empresa_retorna_404(self):
-        self.client.force_authenticate(user=self.user_a)
-        url = f"/api/plantillas-contrato-v2/{self.plantilla_b.id}/secciones-v2/"
-        response = self.client.get(url)
-        # El ViewSet filtra por empresa, por lo que la plantilla no existe en el queryset
-        self.assertIn(
-            response.status_code,
-            [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
-        )
